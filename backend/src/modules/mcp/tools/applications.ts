@@ -294,12 +294,21 @@ export const getApplicationTool = defineTool({
   description: describe(
     'One monitored service (Redis, PostgreSQL, MySQL, MongoDB, Nginx, Traefik, RabbitMQ, Kafka…): its health, every reason WatchLog sees (most severe first, each with a code, a sentence, facts and the workloads or containers it points to), and the workloads or containers that connect to it over the last hour, with connection and failed-connect counts (from network flows; `connected.flows` is false when the agents report none).',
     'Pass `name` as list_applications shows it ("shop/redis" on Kubernetes, "billing/postgres" for a Compose service, or a container name), or its id.',
+    'For RabbitMQ it adds `rabbitmq`: the queues that need a look (type, ready, unacked, in and out a second, consumers, how busy, drains in) and the clients that connected in the last 24 hours (bytes each way, a "mostly" guess from the traffic direction, how they ended); pass `queue` for one queue\'s facts, timeline and probable cause. RabbitMQ\'s metrics do not say which client consumes which queue.',
     'Example question: "Why is payments/postgres critical, and which services use it?"',
   ),
   input: Type.Object(
     {
       cluster: ClusterArg,
       name: NameArg('The service name from list_applications, or its id.'),
+      queue: Type.Optional(
+        Type.String({
+          minLength: 1,
+          maxLength: 255,
+          description:
+            'RabbitMQ only: one queue\'s detail ("orders", or "billing/orders" outside the default vhost).',
+        }),
+      ),
     },
     { additionalProperties: false },
   ),
@@ -332,9 +341,12 @@ export const getApplicationTool = defineTool({
         name: name(wanted),
       }),
     );
+    const rabbit =
+      d.page.id === 'rabbitmq' ? await rabbitmqOf(api, match[0]!.id, args.queue) : null;
     return {
       body: {
         cluster: clusterField(cluster),
+        ...(rabbit ? { rabbitmq: rabbit } : {}),
         application: {
           ...appField(d.application),
           monitoredSince: d.application.monitoredSince,
@@ -377,3 +389,74 @@ export const getApplicationTool = defineTool({
     };
   },
 });
+
+interface ApiQueue {
+  vhost: string;
+  queue: string;
+  name: string;
+  type: string | null;
+  ready: number;
+  unacked: number;
+  in: number | null;
+  out: number | null;
+  consumers: number | null;
+  busy: number | null;
+  drain: { state: string; seconds?: number };
+  severity?: string;
+}
+
+/** RabbitMQ's queues that need a look, its clients, and one queue when asked (1.1.0). */
+async function rabbitmqOf(
+  api: { get<T>(path: string, query?: Record<string, string>): Promise<T> },
+  id: string,
+  queue?: string,
+) {
+  const soft = <T>(p: Promise<T>) => p.catch(() => null);
+  const [q, c] = await Promise.all([
+    soft(api.get<{ queues: ApiQueue[]; total: number }>(`/applications/${id}/rabbitmq/queues`)),
+    soft(api.get<{ clients: Record<string, unknown>[] }>(`/applications/${id}/rabbitmq/clients`)),
+  ]);
+  const row = (x: ApiQueue) => ({
+    name: name(x.name),
+    type: x.type,
+    ready: x.ready,
+    unacked: x.unacked,
+    inPerSecond: x.in,
+    outPerSecond: x.out,
+    consumers: x.consumers,
+    busy: x.busy,
+    drainsIn: x.drain.state === 'eta' ? `${x.drain.seconds}s` : x.drain.state,
+    ...(x.severity ? { severity: x.severity } : {}),
+  });
+  let one: unknown = null;
+  if (queue) {
+    const slash = queue.indexOf('/');
+    const vhost = slash > 0 ? queue.slice(0, slash) : '/';
+    const qn = slash > 0 ? queue.slice(slash + 1) : queue;
+    one = await soft(
+      api.get(`/applications/${id}/rabbitmq/queues/${encodeURIComponent(qn)}`, { vhost }),
+    );
+    if (!one && slash > 0)
+      one = await soft(api.get(`/applications/${id}/rabbitmq/queues/${encodeURIComponent(queue)}`));
+  }
+  return {
+    queues: q
+      ? {
+          total: q.total,
+          needALook: q.queues
+            .filter((x) => x.severity)
+            .slice(0, 20)
+            .map(row),
+          deepest: [...q.queues]
+            .sort((a, b) => b.ready - a.ready)
+            .slice(0, 10)
+            .map(row),
+          note: 'The 200 deepest queues of each node and every queue with messages and no consumer.',
+        }
+      : null,
+    clients: c ? c.clients.slice(0, 30) : null,
+    ...(queue
+      ? { queue: one ?? { error: 'Queue not found among the queues WatchLog reads.' } }
+      : {}),
+  };
+}

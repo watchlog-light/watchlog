@@ -43,6 +43,7 @@ const cloud: RouteClass = { kind: 'cloud' };
  * Routes of ee/'s modules (ADR-232), classified here but present only with ee/: the suite
  * checks them when they exist and doesn't miss them when ee/ is deleted.
  */
+const RABBIT = "the seed's service isn't RabbitMQ: 404 for A too (rabbitmq-page.test.ts reads it)";
 const NETWORK = 'the network module is licensed in ee/backend/test/network.test.ts, not here: 404';
 const net: RouteClass = { kind: 'org', control: NETWORK };
 export const EE_ROUTES: Record<string, RouteClass> = {
@@ -326,6 +327,11 @@ export const ROUTES: Record<string, RouteClass> = {
   'GET /api/v1/applications/metrics': org,
   'GET /api/v1/applications/:id': org,
   'GET /api/v1/applications/:id/panels': org,
+  // RabbitMQ's own reads (1.1.0): the seed's service isn't RabbitMQ, so A gets 404 too; the
+  // data itself is checked in rabbitmq-page.test.ts.
+  'GET /api/v1/applications/:id/rabbitmq/queues': { kind: 'org', control: RABBIT },
+  'GET /api/v1/applications/:id/rabbitmq/queues/:queue': { kind: 'org', control: RABBIT },
+  'GET /api/v1/applications/:id/rabbitmq/clients': { kind: 'org', control: RABBIT },
   'POST /api/v1/applications': org,
   'DELETE /api/v1/applications/:id': org,
   'POST /api/v1/applications/probes': org,

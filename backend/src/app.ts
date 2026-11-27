@@ -479,6 +479,7 @@ export async function buildApp(config: Config, deps: AppDeps): Promise<FastifyIn
         victoria,
         install: installTarget(config, settings),
         causes,
+        config,
       });
       await api.register(connectRoutes, {
         db: deps.db,

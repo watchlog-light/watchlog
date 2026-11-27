@@ -346,6 +346,14 @@ const BY_TYPE: Partial<Record<IntegrationType, ServiceAlertDefault[]>> = {
       condition: { op: '>', value: 0 },
       forSeconds: 300,
     },
+    // 1.1.0: a growing queue that takes a node to its memory watermark within the hour.
+    {
+      key: 'rabbitmq_watermark_soon',
+      name: 'RabbitMQ queue reaches the memory watermark within an hour',
+      metric: 'rabbitmq.queue.watermark_eta',
+      condition: { op: '<', value: 3600 },
+      forSeconds: 300,
+    },
   ],
   // PHP-FPM (ADR-212): out of workers first; a queue and a pool that is always busy next.
   'php-fpm': [

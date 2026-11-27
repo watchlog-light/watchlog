@@ -280,18 +280,105 @@ describe('the RabbitMQ page', () => {
         { namespace: 'shop', workload_kind: 'Deployment', workload: 'api', ...amqp },
         () => 1,
       ),
+      // Bytes each way (1.1.0): the api sends far more than it receives (it publishes); the
+      // worker received far more until it was killed (it consumed).
+      write(
+        k8s.id,
+        'watchlog_flow_bytes_total',
+        { namespace: 'shop', workload_kind: 'Deployment', workload: 'api', dir: 'sent', ...amqp },
+        (i) => i * 200_000,
+      ),
+      write(
+        k8s.id,
+        'watchlog_flow_bytes_total',
+        {
+          namespace: 'shop',
+          workload_kind: 'Deployment',
+          workload: 'api',
+          dir: 'received',
+          ...amqp,
+        },
+        (i) => i * 2_000,
+      ),
+      write(
+        k8s.id,
+        'watchlog_flow_bytes_total',
+        {
+          namespace: 'shop',
+          workload_kind: 'Deployment',
+          workload: 'worker',
+          dir: 'received',
+          ...amqp,
+        },
+        (i) => Math.min(i, LOST) * 150_000,
+      ),
+      write(
+        k8s.id,
+        'watchlog_flow_bytes_total',
+        {
+          namespace: 'shop',
+          workload_kind: 'Deployment',
+          workload: 'worker',
+          dir: 'sent',
+          ...amqp,
+        },
+        (i) => Math.min(i, LOST) * 1_000,
+      ),
+      // The queue's type and its consumers' utilisation (1.1.0).
+      write(
+        k8s.id,
+        'rabbitmq_detailed_queue_info',
+        {
+          service: id,
+          service_type: 'rabbitmq',
+          member: 'rabbitmq-0',
+          vhost: '/',
+          queue: 'orders',
+          type: 'quorum',
+          membership: 'leader',
+        },
+        () => 1,
+      ),
+      write(
+        k8s.id,
+        'rabbitmq_detailed_queue_consumer_utilisation',
+        {
+          service: id,
+          service_type: 'rabbitmq',
+          member: 'rabbitmq-0',
+          vhost: '/',
+          queue: 'orders',
+        },
+        (i) => (i < LOST ? 0.6 + (0.39 * i) / LOST : 0),
+      ),
+      write(
+        k8s.id,
+        'watchlog_rabbitmq_node_info',
+        {
+          service: id,
+          service_type: 'rabbitmq',
+          member: 'rabbitmq-0',
+          version: '4.1.8',
+          rabbitmq_node: 'rabbit@rabbitmq-0',
+        },
+        () => 1,
+      ),
     ]);
     await fetch(`${TEST_VM_URL}/internal/force_flush`);
 
     const d = (await api('GET', `/applications/${id}`)).json();
     expect(d.page.id).toBe('rabbitmq');
+    // 1.1.0: Overview, Queues, Clients, Nodes, Alerts (the queue's page has its own address).
     expect(d.page.tabs.map((t: { id: string }) => t.id)).toEqual([
       'overview',
       'queues',
-      'rates',
-      'resources',
+      'clients',
+      'nodes',
+      'alerts',
       'connection',
     ]);
+    expect(d.page.tabs.find((t: { id: string }) => t.id === 'queues').count).toBe(2);
+    expect(d.page.tabs.find((t: { id: string }) => t.id === 'alerts').view).toBe('alerts');
     const r = d.reasons.find((x: { code: string }) => x.code === 'queue_no_consumers');
     expect(r).toMatchObject({
       severity: 'critical',
@@ -360,22 +447,214 @@ describe('the RabbitMQ page', () => {
       sub: { key: 'integrations.rabbitmq.panels.growing' },
     });
     expect(tiles.find((t) => t.id === 'memory')!.value as number).toBeCloseTo(0.88, 2);
-    const rows = panel(ov, 'queues').rows as { cells: unknown[]; severity?: string }[];
-    expect(rows[0]).toMatchObject({
-      cells: ['orders', expect.any(Number), 0, 0, '10/s', '0/s'],
-      severity: 'critical',
+    // The message flow: the queue that nobody consumes, and the consumer that is gone.
+    const flowCols = panel(ov, 'flow').columns as {
+      id: string;
+      rows: { name: string; link?: { kind: string }; text?: { key: string } }[];
+      severity?: string;
+    }[];
+    expect(flowCols.map((c) => c.id)).toEqual(['publishers', 'exchanges', 'queues', 'consumers']);
+    expect(flowCols[2]).toMatchObject({ severity: 'critical' });
+    expect(flowCols[2]!.rows[0]).toMatchObject({ name: 'orders', link: { kind: 'queue' } });
+    expect(flowCols[0]!.rows.map((r) => r.name)).toEqual(['shop/api']);
+    expect(flowCols[3]!.rows[0]).toMatchObject({
+      name: 'shop/worker',
+      text: { key: 'integrations.rabbitmq.panels.flow.gone' },
     });
-    expect(rows.map((x) => x.cells[0])).toEqual(['orders', 'emails']);
+    // The publish chart marks when the worker ended.
+    expect(
+      (panel(ov, 'rates').markers as { text: { values: object } }[])[0]!.text.values,
+    ).toMatchObject({
+      name: 'shop/worker',
+    });
+    // The health checks: a queue without consumers fails, and links to the filtered list.
+    const checks = panel(ov, 'checks').items as { id: string; state: string; link?: object }[];
+    expect(checks.find((c) => c.id === 'consumers')).toMatchObject({
+      state: 'fail',
+      link: { kind: 'tab', tab: 'queues', filter: 'no_consumers' },
+    });
+    expect(checks.find((c) => c.id === 'memory')).toMatchObject({ state: 'pass' });
+    expect(checks.find((c) => c.id === 'version')).toMatchObject({ state: 'pass' });
+    expect(checks.find((c) => c.id === 'leaders')).toMatchObject({ state: 'pass' });
+    expect(checks.map((c) => c.id)).not.toContain('partitions');
+    // The queues that need a look: orders first, never drains (nothing takes from it).
+    const need = panel(ov, 'needLook') as unknown as {
+      full: boolean;
+      total: number;
+      rows: {
+        name: string;
+        type: string | null;
+        consumers: number;
+        severity?: string;
+        drain: { state: string };
+        in: number;
+      }[];
+    };
+    expect(need.full).toBe(false);
+    expect(need.total).toBe(2);
+    expect(need.rows[0]).toMatchObject({
+      name: 'orders',
+      type: 'quorum',
+      consumers: 0,
+      severity: 'critical',
+      drain: { state: 'never' },
+    });
+    expect(need.rows[0]!.in).toBeCloseTo(10, 0);
+    expect(need.rows.map((x) => x.name)).toEqual(['orders', 'emails']);
     const qs = await tab('queues');
-    expect((panel(qs, 'depth').items as { label: string; severity?: string }[])[0]).toMatchObject({
-      label: 'orders',
+    expect(panel(qs, 'queues')).toMatchObject({ kind: 'queues', full: true, total: 2 });
+    // Clients: the worker ended (OOM-killed, crash-looping) and mostly consumed; the api
+    // mostly publishes and runs.
+    const clients = panel(await tab('clients'), 'clients').rows as {
+      name: string;
+      mostly: string | null;
+      state: { key: string; values?: { how?: string } };
+      severity?: string;
+      link?: { kind: string; id: string };
+    }[];
+    expect(clients[0]).toMatchObject({
+      name: 'shop/worker',
+      mostly: 'consumes',
+      state: { key: 'ended', values: { how: 'OOMKilled, CrashLoopBackOff' } },
       severity: 'critical',
+      link: { kind: 'workload', id: 'shop/Deployment/worker' },
     });
-    expect(panel(await tab('rates'), 'flow').state).toBe('ok');
-    const res = await tab('resources');
-    expect((panel(res, 'limits').items as { label: string }[]).map((x) => x.label)).toEqual([
-      'rabbitmq-0 · memory',
+    expect(clients.find((c) => c.name === 'shop/api')).toMatchObject({
+      mostly: 'publishes',
+      state: { key: 'running' },
+    });
+    // Nodes: each against its limits, with its version and (4.x) its queue leaders.
+    const nodes = panel(await tab('nodes'), 'nodes').items as {
+      name: string;
+      version: string;
+      leaders: number | null;
+      limits: { labelKey: string }[];
+    }[];
+    expect(nodes[0]).toMatchObject({ name: 'rabbitmq-0', version: '4.1.8', leaders: 1 });
+    expect(nodes[0]!.limits.map((l) => l.labelKey)).toEqual([
+      'integrations.rabbitmq.panels.limit.memory',
+      'integrations.rabbitmq.panels.limit.disk',
     ]);
+    expect((await tab('alerts')).length).toBe(0);
+
+    // The queue's page: tiles, what happened, the probable cause, its facts and alerts.
+    const qp = (await api('GET', `/applications/${id}/panels?tab=queue&queue=orders`)).json()
+      .panels as { id: string; [k: string]: unknown }[];
+    const qtiles = qp.find((p) => p.id === 'summary')!.tiles as Tile[];
+    expect(qtiles.find((t) => t.id === 'consumers')).toMatchObject({
+      value: 0,
+      severity: 'critical',
+      sub: { key: 'integrations.rabbitmq.panels.wasUntil', values: { n: 1 } },
+    });
+    const events = qp.find((p) => p.id === 'timeline')!.events as {
+      text: { key: string; values?: Record<string, unknown> };
+    }[];
+    expect(events.map((e) => e.text.key)).toEqual(
+      expect.arrayContaining([
+        'integrations.rabbitmq.panels.event.consumers',
+        'integrations.rabbitmq.panels.event.ended',
+        'integrations.rabbitmq.panels.event.busy',
+      ]),
+    );
+    expect(events.find((e) => e.text.key.endsWith('consumers'))!.text.values).toEqual({
+      from: 1,
+      to: 0,
+    });
+    expect(qp.find((p) => p.id === 'cause')).toMatchObject({
+      text: { key: 'integrations.rabbitmq.panels.causeEnded', values: { name: 'shop/worker' } },
+      links: [{ kind: 'workload', id: 'shop/Deployment/worker' }],
+    });
+    expect(qp.find((p) => p.id === 'consumers')).toMatchObject({
+      note: { key: 'integrations.rabbitmq.panels.busyBeforeDrop' },
+    });
+    const facts = qp.find((p) => p.id === 'facts')!.rows as { labelKey: string; value: unknown }[];
+    expect(facts.find((f) => f.labelKey.endsWith('fact.type'))?.value).toBe('quorum');
+    expect(facts.find((f) => f.labelKey.endsWith('fact.leader'))?.value).toBe('rabbitmq-0');
+    const qa = qp.find((p) => p.id === 'alerts') as unknown as {
+      rules: unknown[];
+      presets: { key: string; metric: string }[];
+    };
+    expect(qa.rules).toEqual([]);
+    expect(qa.presets.map((x) => x.key)).toEqual(['unconsumed', 'depth', 'dead_letters']);
+    // A queue that isn't read says so.
+    const none = (await api('GET', `/applications/${id}/panels?tab=queue&queue=nope`)).json();
+    expect(none.panels[0]).toMatchObject({ id: 'missing', state: 'empty' });
+
+    // A queue's own alert, made from its page: scoped to the service and the queue.
+    const qRule = await api('POST', '/alert-rules', {
+      name: 'orders: ready above 100',
+      metric: 'rabbitmq.queue.ready',
+      clusterId: k8s.id,
+      scope: { service: id, queue: { vhost: '/', name: 'orders' } },
+      condition: { op: '>', value: 100 },
+      forSeconds: 0,
+      severity: 'warning',
+      channelIds: [],
+    });
+    expect(qRule.statusCode, qRule.body).toBe(201);
+    const badQueue = await api('POST', '/alert-rules', {
+      name: 'x',
+      metric: 'rabbitmq.messages.ready',
+      clusterId: k8s.id,
+      scope: { service: id, queue: { name: 'orders' } },
+      condition: { op: '>', value: 1 },
+      forSeconds: 0,
+      severity: 'warning',
+      channelIds: [],
+    });
+    expect(badQueue.json().detail).toMatch(/has no queues/);
+    const qa2 = (await api('GET', `/applications/${id}/panels?tab=queue&queue=orders`))
+      .json()
+      .panels.find((p: { id: string }) => p.id === 'alerts');
+    expect(qa2.rules).toEqual([
+      { id: qRule.json().id, name: 'orders: ready above 100', state: 'quiet' },
+    ]);
+
+    // It fires for that queue only.
+    const qClock = { now: NOW - 2 * MIN };
+    const qWorker = testWorker(ctx.db, qClock, lookupEvaluator, { victoria: vm });
+    for (let i = 0; i < 3; i++) {
+      await qWorker.runCycle();
+      qClock.now += 30_000;
+    }
+    await qWorker.stop();
+    const qStates = await ctx.db
+      .selectFrom('alert_states')
+      .select(['labels', 'state'])
+      .where('rule_id', '=', qRule.json().id)
+      .execute();
+    expect(qStates).toEqual([
+      expect.objectContaining({
+        state: 'firing',
+        labels: expect.objectContaining({ queue: 'orders' }),
+      }),
+    ]);
+
+    // The API: the queues, one queue, the clients.
+    const apiQueues = (await api('GET', `/applications/${id}/rabbitmq/queues`)).json();
+    expect(apiQueues.total).toBe(2);
+    expect(apiQueues.queues[0]).toMatchObject({ name: 'orders', drain: { state: 'never' } });
+    const apiQueue = (await api('GET', `/applications/${id}/rabbitmq/queues/orders`)).json();
+    expect(apiQueue.probableCause).toMatchObject({ values: { name: 'shop/worker' } });
+    expect((await api('GET', `/applications/${id}/rabbitmq/queues/nope`)).statusCode).toBe(404);
+    const apiClients = (await api('GET', `/applications/${id}/rabbitmq/clients`)).json();
+    expect(apiClients.clients[0]).toMatchObject({
+      name: 'shop/worker',
+      state: 'ended',
+      mostly: 'consumes',
+    });
+    const mcp2 = await mcpClient(ctx, cookie);
+    try {
+      const one = await mcp2.call('get_application', { name: 'shop/rabbitmq', queue: 'orders' });
+      expect(one.data.rabbitmq.queues.needALook[0]).toMatchObject({
+        name: 'orders',
+        drainsIn: 'never',
+      });
+      expect(one.data.rabbitmq.queue.queue).toMatchObject({ name: 'orders' });
+      expect(one.data.rabbitmq.clients[0]).toMatchObject({ name: 'shop/worker' });
+    } finally {
+      await mcp2.close();
+    }
 
     const list = (await api('GET', '/applications/metrics')).json().metrics[id];
     expect(list.keyMetrics.map((m: { id: string }) => m.id)).toEqual([
@@ -531,5 +810,171 @@ describe('the RabbitMQ page', () => {
     });
     const listed = (await api('GET', '/applications')).json().applications[0];
     expect(listed.likelyCause).toMatchObject({ rule: 'application_finding' });
+
+    // 1.1.0 on a server: the checks fail for the plugin and the disk alarm, the clients
+    // tab has the exited container, the queue's page names it, both nodes are listed.
+    const ov = await tabOf(id)('overview');
+    const checks = ov.find((p) => p.id === 'checks')!.items as { id: string; state: string }[];
+    expect(checks.find((c) => c.id === 'plugin')).toMatchObject({ state: 'fail' });
+    expect(checks.find((c) => c.id === 'disk')).toMatchObject({ state: 'fail' });
+    expect(checks.find((c) => c.id === 'consumers')).toMatchObject({ state: 'fail' });
+    // 3.13-like here (no membership label): no leader check.
+    expect(checks.map((c) => c.id)).not.toContain('leaders');
+    const clients = (await tabOf(id)('clients')).find((p) => p.id === 'clients')!.rows as {
+      name: string;
+      state: { key: string; values?: { how?: string } };
+      link?: { kind: string };
+    }[];
+    expect(clients[0]).toMatchObject({
+      name: 'shop-consumer-1',
+      state: { key: 'ended', values: { how: 'OOMKilled' } },
+      link: { kind: 'container' },
+    });
+    const nodes = (await tabOf(id)('nodes')).find((p) => p.id === 'nodes')!.items as {
+      name: string;
+      leaders: number | null;
+      severity?: string;
+    }[];
+    expect(nodes.map((n) => n.name)).toEqual(['shop-rabbitmq-1', 'shop-rabbitmq-2']);
+    expect(nodes[1]).toMatchObject({ leaders: null, severity: 'critical' });
+    const qp = (await api('GET', `/applications/${id}/panels?tab=queue&queue=orders`)).json()
+      .panels as { id: string; [k: string]: unknown }[];
+    expect(qp.find((p) => p.id === 'cause')).toMatchObject({
+      text: { values: { name: 'shop-consumer-1', how: 'OOMKilled' } },
+      links: [{ kind: 'container', id: 'shop-consumer-1' }],
+    });
+  });
+
+  it('warns before a growing queue takes a node to its memory watermark', async () => {
+    const k8s = await cluster('mem', 'kubernetes');
+    const id = (
+      await api('POST', '/applications', {
+        clusterId: k8s.id,
+        type: 'rabbitmq',
+        target: {
+          kind: 'workload',
+          namespace: 'mq',
+          workload_kind: 'StatefulSet',
+          workload: 'rabbitmq',
+          port: 5672,
+        },
+        defaultAlerts: ['rabbitmq_watermark_soon'],
+      })
+    ).json().application.id as string;
+    const svc = { service: id, service_type: 'rabbitmq', member: 'rabbitmq-0' };
+    const MB = 2 ** 20;
+    // 600 MiB growing 2 MiB every 15 s, against a 1 GiB watermark: about 23 minutes left.
+    await Promise.all([
+      write(k8s.id, 'rabbitmq_process_resident_memory_bytes', svc, (i) => 600 * MB + i * 2 * MB),
+      write(k8s.id, 'rabbitmq_resident_memory_limit_bytes', svc, () => 1024 * MB),
+      write(
+        k8s.id,
+        'rabbitmq_detailed_queue_messages_ready',
+        { ...svc, vhost: '/', queue: 'invoices' },
+        (i) => i * 100,
+      ),
+      write(
+        k8s.id,
+        'rabbitmq_detailed_queue_consumers',
+        { ...svc, vhost: '/', queue: 'invoices' },
+        () => 1,
+      ),
+      write(
+        k8s.id,
+        'rabbitmq_detailed_queue_messages_ready',
+        { ...svc, vhost: '/', queue: 'steady' },
+        () => 5,
+      ),
+    ]);
+    await fetch(`${TEST_VM_URL}/internal/force_flush`);
+    const rule = (await api('GET', '/alert-rules'))
+      .json()
+      .rules.find((x: { defaultKey: string }) => x.defaultKey === 'rabbitmq_watermark_soon');
+    expect(rule).toMatchObject({ metric: 'rabbitmq.queue.watermark_eta', severity: 'warning' });
+    const clock = { now: NOW - 6 * MIN };
+    const worker = testWorker(ctx.db, clock, lookupEvaluator, { victoria: vm });
+    for (let i = 0; i < 14; i++) {
+      await worker.runCycle();
+      clock.now += 30_000;
+    }
+    await worker.stop();
+    const states = await ctx.db
+      .selectFrom('alert_states')
+      .select(['labels', 'state'])
+      .where('rule_id', '=', rule.id)
+      .execute();
+    expect(states).toEqual([
+      expect.objectContaining({
+        state: 'firing',
+        labels: expect.objectContaining({ queue: 'invoices' }),
+      }),
+    ]);
+    // The queue's page says when memory runs out at this rate.
+    const qp = (await api('GET', `/applications/${id}/panels?tab=queue&queue=invoices`)).json()
+      .panels as { id: string; tiles?: Tile[] }[];
+    const fill = qp.find((p) => p.id === 'summary')!.tiles!.find((t) => t.id === 'drain')!;
+    expect(fill).toMatchObject({
+      severity: 'warning',
+      sub: { key: 'integrations.rabbitmq.panels.atThisRate' },
+    });
+    expect(fill.value as number).toBeGreaterThan(600);
+    expect(fill.value as number).toBeLessThan(3600);
+  });
+
+  it('says what is missing: no queues yet, no client seen, a node down', async () => {
+    const k8s = await cluster('empty', 'kubernetes');
+    const id = (
+      await api('POST', '/applications', {
+        clusterId: k8s.id,
+        type: 'rabbitmq',
+        target: {
+          kind: 'workload',
+          namespace: 'mq',
+          workload_kind: 'StatefulSet',
+          workload: 'rabbitmq',
+          port: 5672,
+        },
+      })
+    ).json().application.id as string;
+    await status(k8s.token, '', [
+      {
+        id,
+        state: 'ok',
+        members: [
+          { name: 'rabbitmq-0', up: true },
+          { name: 'rabbitmq-1', up: false, error: 'connection refused' },
+        ],
+        extra: {
+          rabbitmq: [{ member: 'rabbitmq-0', node: 'rabbit@0', cluster: 'c', plugin: true }],
+        },
+      },
+    ]);
+    // Node totals only: no queue yet.
+    await write(
+      k8s.id,
+      'rabbitmq_queue_messages_ready',
+      { service: id, service_type: 'rabbitmq', member: 'rabbitmq-0' },
+      () => 0,
+    );
+    await fetch(`${TEST_VM_URL}/internal/force_flush`);
+    const tab = tabOf(id);
+    expect((await tab('queues'))[0]).toMatchObject({ kind: 'queues', state: 'empty', total: 0 });
+    expect((await tab('clients'))[0]).toMatchObject({
+      kind: 'clients',
+      state: 'empty',
+      note: { key: 'integrations.rabbitmq.panels.clientsNote' },
+    });
+    const checks = (await tab('overview')).find((p) => p.id === 'checks')!.items as {
+      id: string;
+      state: string;
+      value: { values?: object };
+    }[];
+    expect(checks.find((c) => c.id === 'nodes')).toMatchObject({
+      state: 'fail',
+      value: { values: { n: 1, m: 2 } },
+    });
+    expect(checks.find((c) => c.id === 'consumers')).toMatchObject({ state: 'pass' });
+    const nodes = (await tab('nodes')).find((p) => p.id === 'nodes')!.items as { name: string }[];
+    expect(nodes.map((n) => n.name)).toEqual(['rabbitmq-0', 'rabbitmq-1']);
   });
 });

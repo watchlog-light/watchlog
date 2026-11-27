@@ -31,11 +31,13 @@ export interface ThresholdScope {
   service?: string;
   /** Every monitored service of a type. */
   serviceType?: string;
+  /** One queue of a RabbitMQ service (1.1.0), with `service`. */
+  queue?: { vhost?: string; name: string };
 }
 
 const KUBE_FIELDS = ['namespaces', 'workload', 'node', 'labels'] as const;
 const DOCKER_FIELDS = ['host', 'container', 'unit', 'group'] as const;
-const SERVICE_FIELDS = ['service', 'serviceType'] as const;
+const SERVICE_FIELDS = ['service', 'serviceType', 'queue'] as const;
 
 export class SelectorTooBroad extends Error {
   constructor(readonly pods: number) {
@@ -91,6 +93,10 @@ export async function resolveScope(
   if (scope.group) q.group = scope.group;
   if (scope.service) q.service = scope.service;
   if (scope.serviceType) q.serviceType = scope.serviceType;
+  if (scope.queue) {
+    q.vhost = scope.queue.vhost ?? '/';
+    q.queue = scope.queue.name;
+  }
   // Nginx's eBPF series name the workload, not the service: resolve which (nginx.ts).
   if (metric?.startsWith('nginx.')) {
     q.nginx =
@@ -228,6 +234,11 @@ export async function validateThreshold(
   }
   if (rule.scope.service && rule.scope.serviceType) {
     return 'A rule is about one service or every service of a type, not both';
+  }
+  // A queue (1.1.0): of one RabbitMQ service, on a metric that has queues.
+  if (rule.scope.queue) {
+    if (!rule.scope.service) return 'A queue is scoped with its service';
+    if (!rule.metric.startsWith('rabbitmq.queue.')) return `${rule.metric} has no queues`;
   }
   if (rule.scope.serviceType) {
     const t = rule.scope.serviceType;

@@ -342,12 +342,9 @@ describe('the service page', () => {
 
     // Before any series: the panels say they're empty, not an error.
     const p = (await api('GET', `/applications/${id}/panels`)).json();
-    expect(p.panels.map((x: { state: string }) => x.state)).toEqual([
-      'empty',
-      'empty',
-      'empty',
-      'empty',
-    ]);
+    // RabbitMQ's Overview (1.1.0): the flow, the tiles, two charts, the checks, the queues
+    // that need a look, the lost messages.
+    expect(p.panels.map((x: { state: string }) => x.state)).toEqual(Array(7).fill('empty'));
   });
 
   it('marks a tab whose privilege is missing, and says what to grant', async () => {
@@ -424,7 +421,7 @@ describe('the service page', () => {
     expect(one.isError, one.text).toBe(false);
     expect(one.data.application).toMatchObject({
       name: 'shop/redis',
-      pages: ['overview', 'queues', 'rates', 'resources', 'connection'],
+      pages: ['overview', 'queues', 'clients', 'nodes', 'alerts', 'connection'],
     });
     expect(one.data.reasons[0]).toMatchObject({ severity: 'critical', code: 'unreachable' });
     expect(one.data.connected).toMatchObject({ window: '1h', items: [] });

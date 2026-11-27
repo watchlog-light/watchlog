@@ -107,6 +107,15 @@
                                 "maxLength": 32,
                                 "description": "A service type"
                               },
+                              "queue": {
+                                "type": "object",
+                                "required": ["name"],
+                                "properties": {
+                                  "vhost": { "type": "string", "minLength": 1, "maxLength": 255 },
+                                  "name": { "type": "string", "minLength": 1, "maxLength": 255 }
+                                },
+                                "additionalProperties": false
+                              },
                               "labels": {
                                 "type": "object",
                                 "maxProperties": 10,
@@ -2249,7 +2258,9 @@
                             "required": ["id", "title"],
                             "properties": {
                               "id": { "type": "string" },
-                              "title": { "type": "string" }
+                              "title": { "type": "string" },
+                              "view": { "type": "string", "enum": ["alerts"] },
+                              "count": { "anyOf": [{ "type": "integer" }, { "type": "null" }] }
                             }
                           }
                         }
@@ -2308,6 +2319,580 @@
             }
           },
           "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status"],
+                  "properties": {
+                    "type": { "type": "string" },
+                    "title": { "type": "string" },
+                    "status": { "type": "integer" },
+                    "detail": { "type": "string" },
+                    "instance": { "type": "string" },
+                    "code": { "type": "string" },
+                    "limit": { "type": "string" },
+                    "max": { "type": "integer" }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [{ "bearerAuth": [] }]
+      }
+    },
+    "/api/v1/applications/{id}/rabbitmq/clients": {
+      "get": {
+        "summary": "The workloads that connected to a RabbitMQ service in the last 24 hours",
+        "tags": ["applications"],
+        "description": "From the agents' network flows: connections opened, bytes a second each way now, and how a client ended when it did. `mostly` is a guess from the traffic's direction over the day, null unless one way clearly dominates; RabbitMQ's metrics don't say which client publishes to or consumes which queue.",
+        "parameters": [
+          {
+            "schema": { "type": "string", "format": "uuid" },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["clients"],
+                  "properties": {
+                    "clients": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "name",
+                          "kind",
+                          "id",
+                          "connections",
+                          "sends",
+                          "receives",
+                          "mostly",
+                          "state"
+                        ],
+                        "properties": {
+                          "name": { "type": "string" },
+                          "kind": {
+                            "anyOf": [
+                              { "type": "string", "enum": ["workload"] },
+                              { "type": "string", "enum": ["container"] }
+                            ]
+                          },
+                          "id": { "type": "string" },
+                          "connections": { "type": "number" },
+                          "sends": { "anyOf": [{ "type": "number" }, { "type": "null" }] },
+                          "receives": { "anyOf": [{ "type": "number" }, { "type": "null" }] },
+                          "mostly": {
+                            "anyOf": [
+                              { "type": "string", "enum": ["publishes"] },
+                              { "type": "string", "enum": ["consumes"] },
+                              { "type": "null" }
+                            ]
+                          },
+                          "state": { "type": "string" },
+                          "how": { "type": "string" },
+                          "endedAt": { "anyOf": [{ "type": "number" }, { "type": "null" }] }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status"],
+                  "properties": {
+                    "type": { "type": "string" },
+                    "title": { "type": "string" },
+                    "status": { "type": "integer" },
+                    "detail": { "type": "string" },
+                    "instance": { "type": "string" },
+                    "code": { "type": "string" },
+                    "limit": { "type": "string" },
+                    "max": { "type": "integer" }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status"],
+                  "properties": {
+                    "type": { "type": "string" },
+                    "title": { "type": "string" },
+                    "status": { "type": "integer" },
+                    "detail": { "type": "string" },
+                    "instance": { "type": "string" },
+                    "code": { "type": "string" },
+                    "limit": { "type": "string" },
+                    "max": { "type": "integer" }
+                  }
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status"],
+                  "properties": {
+                    "type": { "type": "string" },
+                    "title": { "type": "string" },
+                    "status": { "type": "integer" },
+                    "detail": { "type": "string" },
+                    "instance": { "type": "string" },
+                    "code": { "type": "string" },
+                    "limit": { "type": "string" },
+                    "max": { "type": "integer" }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [{ "bearerAuth": [] }]
+      }
+    },
+    "/api/v1/applications/{id}/rabbitmq/queues": {
+      "get": {
+        "summary": "A RabbitMQ service's queues: type, depth, rates, consumers, drains in",
+        "tags": ["applications"],
+        "description": "The 200 deepest queues of each node and every queue with messages and no consumer, the worst first. `in` and `out` are messages a second over 5 minutes; `busy` is the consumer utilisation (0–1); `drain` is ready ÷ (out − in) when the queue shrinks, else why it does not.",
+        "parameters": [
+          {
+            "schema": { "type": "string", "format": "uuid" },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["queues", "total"],
+                  "properties": {
+                    "queues": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "vhost",
+                          "queue",
+                          "name",
+                          "type",
+                          "ready",
+                          "unacked",
+                          "in",
+                          "out",
+                          "consumers",
+                          "busy",
+                          "drain"
+                        ],
+                        "properties": {
+                          "vhost": { "type": "string" },
+                          "queue": { "type": "string" },
+                          "name": { "type": "string" },
+                          "type": {
+                            "anyOf": [
+                              {
+                                "anyOf": [
+                                  { "type": "string", "enum": ["classic"] },
+                                  { "type": "string", "enum": ["quorum"] },
+                                  { "type": "string", "enum": ["stream"] }
+                                ]
+                              },
+                              { "type": "null" }
+                            ]
+                          },
+                          "ready": { "type": "number" },
+                          "unacked": { "type": "number" },
+                          "in": { "anyOf": [{ "type": "number" }, { "type": "null" }] },
+                          "out": { "anyOf": [{ "type": "number" }, { "type": "null" }] },
+                          "consumers": { "anyOf": [{ "type": "number" }, { "type": "null" }] },
+                          "busy": { "anyOf": [{ "type": "number" }, { "type": "null" }] },
+                          "drain": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "required": ["state", "seconds"],
+                                "properties": {
+                                  "state": { "type": "string", "enum": ["eta"] },
+                                  "seconds": { "type": "number" }
+                                }
+                              },
+                              {
+                                "type": "object",
+                                "required": ["state"],
+                                "properties": {
+                                  "state": {
+                                    "anyOf": [
+                                      { "type": "string", "enum": ["growing"] },
+                                      { "type": "string", "enum": ["never"] },
+                                      { "type": "string", "enum": ["empty"] },
+                                      { "type": "string", "enum": ["stream"] }
+                                    ]
+                                  }
+                                }
+                              }
+                            ]
+                          },
+                          "severity": {
+                            "anyOf": [
+                              { "type": "string", "enum": ["ok"] },
+                              { "type": "string", "enum": ["info"] },
+                              { "type": "string", "enum": ["warning"] },
+                              { "type": "string", "enum": ["critical"] }
+                            ]
+                          }
+                        }
+                      }
+                    },
+                    "total": { "type": "integer" }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status"],
+                  "properties": {
+                    "type": { "type": "string" },
+                    "title": { "type": "string" },
+                    "status": { "type": "integer" },
+                    "detail": { "type": "string" },
+                    "instance": { "type": "string" },
+                    "code": { "type": "string" },
+                    "limit": { "type": "string" },
+                    "max": { "type": "integer" }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status"],
+                  "properties": {
+                    "type": { "type": "string" },
+                    "title": { "type": "string" },
+                    "status": { "type": "integer" },
+                    "detail": { "type": "string" },
+                    "instance": { "type": "string" },
+                    "code": { "type": "string" },
+                    "limit": { "type": "string" },
+                    "max": { "type": "integer" }
+                  }
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status"],
+                  "properties": {
+                    "type": { "type": "string" },
+                    "title": { "type": "string" },
+                    "status": { "type": "integer" },
+                    "detail": { "type": "string" },
+                    "instance": { "type": "string" },
+                    "code": { "type": "string" },
+                    "limit": { "type": "string" },
+                    "max": { "type": "integer" }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [{ "bearerAuth": [] }]
+      }
+    },
+    "/api/v1/applications/{id}/rabbitmq/queues/{queue}": {
+      "get": {
+        "summary": "One RabbitMQ queue: its numbers, facts, what happened and the probable cause",
+        "tags": ["applications"],
+        "description": "RabbitMQ doesn't say which client consumes which queue: the probable cause is the client that ended when the queue lost its consumers.",
+        "parameters": [
+          {
+            "schema": { "type": "string", "minLength": 1, "maxLength": 255 },
+            "in": "query",
+            "name": "vhost",
+            "required": false
+          },
+          {
+            "schema": { "type": "string", "format": "uuid" },
+            "in": "path",
+            "name": "id",
+            "required": true
+          },
+          {
+            "schema": { "type": "string", "minLength": 1, "maxLength": 255 },
+            "in": "path",
+            "name": "queue",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["queue", "facts", "timeline", "probableCause"],
+                  "properties": {
+                    "queue": {
+                      "type": "object",
+                      "required": [
+                        "vhost",
+                        "queue",
+                        "name",
+                        "type",
+                        "ready",
+                        "unacked",
+                        "in",
+                        "out",
+                        "consumers",
+                        "busy",
+                        "drain"
+                      ],
+                      "properties": {
+                        "vhost": { "type": "string" },
+                        "queue": { "type": "string" },
+                        "name": { "type": "string" },
+                        "type": {
+                          "anyOf": [
+                            {
+                              "anyOf": [
+                                { "type": "string", "enum": ["classic"] },
+                                { "type": "string", "enum": ["quorum"] },
+                                { "type": "string", "enum": ["stream"] }
+                              ]
+                            },
+                            { "type": "null" }
+                          ]
+                        },
+                        "ready": { "type": "number" },
+                        "unacked": { "type": "number" },
+                        "in": { "anyOf": [{ "type": "number" }, { "type": "null" }] },
+                        "out": { "anyOf": [{ "type": "number" }, { "type": "null" }] },
+                        "consumers": { "anyOf": [{ "type": "number" }, { "type": "null" }] },
+                        "busy": { "anyOf": [{ "type": "number" }, { "type": "null" }] },
+                        "drain": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "required": ["state", "seconds"],
+                              "properties": {
+                                "state": { "type": "string", "enum": ["eta"] },
+                                "seconds": { "type": "number" }
+                              }
+                            },
+                            {
+                              "type": "object",
+                              "required": ["state"],
+                              "properties": {
+                                "state": {
+                                  "anyOf": [
+                                    { "type": "string", "enum": ["growing"] },
+                                    { "type": "string", "enum": ["never"] },
+                                    { "type": "string", "enum": ["empty"] },
+                                    { "type": "string", "enum": ["stream"] }
+                                  ]
+                                }
+                              }
+                            }
+                          ]
+                        },
+                        "severity": {
+                          "anyOf": [
+                            { "type": "string", "enum": ["ok"] },
+                            { "type": "string", "enum": ["info"] },
+                            { "type": "string", "enum": ["warning"] },
+                            { "type": "string", "enum": ["critical"] }
+                          ]
+                        }
+                      }
+                    },
+                    "facts": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": ["labelKey", "value"],
+                        "properties": {
+                          "labelKey": { "type": "string" },
+                          "value": {
+                            "anyOf": [
+                              { "type": "string" },
+                              { "type": "number" },
+                              { "type": "null" }
+                            ]
+                          },
+                          "unit": { "type": "string" },
+                          "text": {
+                            "type": "object",
+                            "required": ["key"],
+                            "properties": {
+                              "key": { "type": "string" },
+                              "values": {
+                                "type": "object",
+                                "additionalProperties": {
+                                  "anyOf": [
+                                    { "type": "string" },
+                                    { "type": "number" },
+                                    { "type": "null" }
+                                  ]
+                                }
+                              }
+                            }
+                          }
+                        }
+                      }
+                    },
+                    "timeline": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": ["at", "key"],
+                        "properties": {
+                          "at": { "type": "number" },
+                          "key": { "type": "string" },
+                          "values": {
+                            "type": "object",
+                            "additionalProperties": {
+                              "anyOf": [
+                                { "type": "string" },
+                                { "type": "number" },
+                                { "type": "null" }
+                              ]
+                            }
+                          },
+                          "severity": { "type": "string" }
+                        }
+                      }
+                    },
+                    "probableCause": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "required": ["key", "links"],
+                          "properties": {
+                            "key": { "type": "string" },
+                            "values": {
+                              "type": "object",
+                              "additionalProperties": {
+                                "anyOf": [
+                                  { "type": "string" },
+                                  { "type": "number" },
+                                  { "type": "null" }
+                                ]
+                              }
+                            },
+                            "links": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "required": ["kind", "name"],
+                                "properties": {
+                                  "kind": { "type": "string" },
+                                  "id": { "type": "string" },
+                                  "name": { "type": "string" }
+                                }
+                              }
+                            }
+                          }
+                        },
+                        { "type": "null" }
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status"],
+                  "properties": {
+                    "type": { "type": "string" },
+                    "title": { "type": "string" },
+                    "status": { "type": "integer" },
+                    "detail": { "type": "string" },
+                    "instance": { "type": "string" },
+                    "code": { "type": "string" },
+                    "limit": { "type": "string" },
+                    "max": { "type": "integer" }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["type", "title", "status"],
+                  "properties": {
+                    "type": { "type": "string" },
+                    "title": { "type": "string" },
+                    "status": { "type": "integer" },
+                    "detail": { "type": "string" },
+                    "instance": { "type": "string" },
+                    "code": { "type": "string" },
+                    "limit": { "type": "string" },
+                    "max": { "type": "integer" }
+                  }
+                }
+              }
+            }
+          },
+          "502": {
             "description": "Default Response",
             "content": {
               "application/json": {
@@ -14861,6 +15446,10 @@
                       { "type": "string", "enum": ["rabbitmq.memory.ratio"] },
                       { "type": "string", "enum": ["rabbitmq.alarms"] },
                       { "type": "string", "enum": ["rabbitmq.queue.unconsumed"] },
+                      { "type": "string", "enum": ["rabbitmq.queue.ready"] },
+                      { "type": "string", "enum": ["rabbitmq.queue.consumers"] },
+                      { "type": "string", "enum": ["rabbitmq.queue.in.rate"] },
+                      { "type": "string", "enum": ["rabbitmq.queue.watermark_eta"] },
                       { "type": "string", "enum": ["rabbitmq.dead_lettered.rate"] },
                       { "type": "string", "enum": ["nginx.requests.rate"] },
                       { "type": "string", "enum": ["nginx.5xx.ratio"] },

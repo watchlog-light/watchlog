@@ -2252,6 +2252,10 @@ export interface paths {
               | 'rabbitmq.memory.ratio'
               | 'rabbitmq.alarms'
               | 'rabbitmq.queue.unconsumed'
+              | 'rabbitmq.queue.ready'
+              | 'rabbitmq.queue.consumers'
+              | 'rabbitmq.queue.in.rate'
+              | 'rabbitmq.queue.watermark_eta'
               | 'rabbitmq.dead_lettered.rate'
               | 'nginx.requests.rate'
               | 'nginx.5xx.ratio'
@@ -8954,6 +8958,10 @@ export interface paths {
                   service?: string;
                   /** @description A service type */
                   serviceType?: string;
+                  queue?: {
+                    vhost?: string;
+                    name: string;
+                  };
                   labels?: {
                     [key: string]: string;
                   };
@@ -9090,6 +9098,10 @@ export interface paths {
               service?: string;
               /** @description A service type */
               serviceType?: string;
+              queue?: {
+                vhost?: string;
+                name: string;
+              };
               labels?: {
                 [key: string]: string;
               };
@@ -9141,6 +9153,10 @@ export interface paths {
                 service?: string;
                 /** @description A service type */
                 serviceType?: string;
+                queue?: {
+                  vhost?: string;
+                  name: string;
+                };
                 labels?: {
                   [key: string]: string;
                 };
@@ -9415,6 +9431,10 @@ export interface paths {
               service?: string;
               /** @description A service type */
               serviceType?: string;
+              queue?: {
+                vhost?: string;
+                name: string;
+              };
               labels?: {
                 [key: string]: string;
               };
@@ -9456,6 +9476,10 @@ export interface paths {
                 service?: string;
                 /** @description A service type */
                 serviceType?: string;
+                queue?: {
+                  vhost?: string;
+                  name: string;
+                };
                 labels?: {
                   [key: string]: string;
                 };
@@ -9620,6 +9644,10 @@ export interface paths {
                   service?: string;
                   /** @description A service type */
                   serviceType?: string;
+                  queue?: {
+                    vhost?: string;
+                    name: string;
+                  };
                   labels?: {
                     [key: string]: string;
                   };
@@ -9786,6 +9814,10 @@ export interface paths {
                 service?: string;
                 /** @description A service type */
                 serviceType?: string;
+                queue?: {
+                  vhost?: string;
+                  name: string;
+                };
                 labels?: {
                   [key: string]: string;
                 };
@@ -9954,6 +9986,10 @@ export interface paths {
               service?: string;
               /** @description A service type */
               serviceType?: string;
+              queue?: {
+                vhost?: string;
+                name: string;
+              };
               labels?: {
                 [key: string]: string;
               };
@@ -13148,6 +13184,9 @@ export interface paths {
                 tabs: {
                   id: string;
                   title: string;
+                  /** @enum {string} */
+                  view?: 'alerts';
+                  count?: number | null;
                 }[];
               };
               /** @description Seconds back from now: 1h, 6h, 24h or 7d */
@@ -13388,6 +13427,8 @@ export interface paths {
         query?: {
           tab?: string;
           range?: number;
+          queue?: string;
+          vhost?: string;
         };
         header?: never;
         path: {
@@ -13437,6 +13478,21 @@ export interface paths {
                       | 'count'
                       | 'seconds'
                       | 'per_second';
+                    markers?: {
+                      at: number;
+                      text: {
+                        key: string;
+                        values?: {
+                          [key: string]: string | number | null;
+                        };
+                      };
+                      severity?: 'ok' | 'info' | 'warning' | 'critical';
+                    }[];
+                    /** @description The usual range of the first series, for this hour of the week */
+                    band?: {
+                      low: (number | null)[][];
+                      high: (number | null)[][];
+                    };
                     series: {
                       name?: string;
                       nameKey?: string;
@@ -13651,6 +13707,509 @@ export interface paths {
                       severity?: 'ok' | 'info' | 'warning' | 'critical';
                     }[];
                   }
+                | {
+                    id: string;
+                    /** @description An i18n key */
+                    title: string;
+                    span: 1 | 2;
+                    state: 'ok' | 'empty' | 'needs_permission' | 'error';
+                    missing?: {
+                      key: string;
+                      values?: {
+                        [key: string]: string | number | null;
+                      };
+                    };
+                    note?: {
+                      key: string;
+                      values?: {
+                        [key: string]: string | number | null;
+                      };
+                    };
+                    /** @enum {string} */
+                    kind: 'flow';
+                    columns: {
+                      id: string;
+                      title: {
+                        key: string;
+                        values?: {
+                          [key: string]: string | number | null;
+                        };
+                      };
+                      value: number | null;
+                      /** @description The dashboard's unit names */
+                      unit:
+                        | 'ratio'
+                        | 'bytes'
+                        | 'bytes_per_second'
+                        | 'cores'
+                        | 'load'
+                        | 'count'
+                        | 'seconds'
+                        | 'per_second';
+                      valueKey?: string;
+                      severity?: 'ok' | 'info' | 'warning' | 'critical';
+                      rows: {
+                        name: string;
+                        nameKey?: string;
+                        value: number | null;
+                        /** @description The dashboard's unit names */
+                        unit:
+                          | 'ratio'
+                          | 'bytes'
+                          | 'bytes_per_second'
+                          | 'cores'
+                          | 'load'
+                          | 'count'
+                          | 'seconds'
+                          | 'per_second';
+                        text?: {
+                          key: string;
+                          values?: {
+                            [key: string]: string | number | null;
+                          };
+                        };
+                        severity?: 'ok' | 'info' | 'warning' | 'critical';
+                        link?:
+                          | {
+                              kind: 'workload' | 'container';
+                              id: string;
+                              name: string;
+                            }
+                          | {
+                              /** @enum {string} */
+                              kind: 'queue';
+                              vhost: string;
+                              queue: string;
+                              name: string;
+                            }
+                          | {
+                              /** @enum {string} */
+                              kind: 'tab';
+                              tab: string;
+                              filter?: string;
+                              name: string;
+                            }
+                          | {
+                              /** @enum {string} */
+                              kind: 'docs';
+                              href: string;
+                              name: string;
+                            };
+                      }[];
+                      next?: number | null;
+                    }[];
+                  }
+                | {
+                    id: string;
+                    /** @description An i18n key */
+                    title: string;
+                    span: 1 | 2;
+                    state: 'ok' | 'empty' | 'needs_permission' | 'error';
+                    missing?: {
+                      key: string;
+                      values?: {
+                        [key: string]: string | number | null;
+                      };
+                    };
+                    note?: {
+                      key: string;
+                      values?: {
+                        [key: string]: string | number | null;
+                      };
+                    };
+                    /** @enum {string} */
+                    kind: 'checks';
+                    items: {
+                      id: string;
+                      labelKey: string;
+                      state: 'pass' | 'warn' | 'fail';
+                      value: {
+                        key: string;
+                        values?: {
+                          [key: string]: string | number | null;
+                        };
+                      };
+                      link?:
+                        | {
+                            kind: 'workload' | 'container';
+                            id: string;
+                            name: string;
+                          }
+                        | {
+                            /** @enum {string} */
+                            kind: 'queue';
+                            vhost: string;
+                            queue: string;
+                            name: string;
+                          }
+                        | {
+                            /** @enum {string} */
+                            kind: 'tab';
+                            tab: string;
+                            filter?: string;
+                            name: string;
+                          }
+                        | {
+                            /** @enum {string} */
+                            kind: 'docs';
+                            href: string;
+                            name: string;
+                          };
+                    }[];
+                  }
+                | {
+                    id: string;
+                    /** @description An i18n key */
+                    title: string;
+                    span: 1 | 2;
+                    state: 'ok' | 'empty' | 'needs_permission' | 'error';
+                    missing?: {
+                      key: string;
+                      values?: {
+                        [key: string]: string | number | null;
+                      };
+                    };
+                    note?: {
+                      key: string;
+                      values?: {
+                        [key: string]: string | number | null;
+                      };
+                    };
+                    /** @enum {string} */
+                    kind: 'queues';
+                    full: boolean;
+                    total: number;
+                    rows: {
+                      vhost: string;
+                      queue: string;
+                      name: string;
+                      type: ('classic' | 'quorum' | 'stream') | null;
+                      ready: number;
+                      unacked: number;
+                      in: number | null;
+                      out: number | null;
+                      consumers: number | null;
+                      busy: number | null;
+                      drain:
+                        | {
+                            /** @enum {string} */
+                            state: 'eta';
+                            seconds: number;
+                          }
+                        | {
+                            state: 'growing' | 'never' | 'empty' | 'stream';
+                          };
+                      severity?: 'ok' | 'info' | 'warning' | 'critical';
+                    }[];
+                  }
+                | {
+                    id: string;
+                    /** @description An i18n key */
+                    title: string;
+                    span: 1 | 2;
+                    state: 'ok' | 'empty' | 'needs_permission' | 'error';
+                    missing?: {
+                      key: string;
+                      values?: {
+                        [key: string]: string | number | null;
+                      };
+                    };
+                    note?: {
+                      key: string;
+                      values?: {
+                        [key: string]: string | number | null;
+                      };
+                    };
+                    /** @enum {string} */
+                    kind: 'clients';
+                    rows: {
+                      name: string;
+                      link?:
+                        | {
+                            kind: 'workload' | 'container';
+                            id: string;
+                            name: string;
+                          }
+                        | {
+                            /** @enum {string} */
+                            kind: 'queue';
+                            vhost: string;
+                            queue: string;
+                            name: string;
+                          }
+                        | {
+                            /** @enum {string} */
+                            kind: 'tab';
+                            tab: string;
+                            filter?: string;
+                            name: string;
+                          }
+                        | {
+                            /** @enum {string} */
+                            kind: 'docs';
+                            href: string;
+                            name: string;
+                          };
+                      where: {
+                        key: string;
+                        values?: {
+                          [key: string]: string | number | null;
+                        };
+                      };
+                      connections: number;
+                      sends: number | null;
+                      receives: number | null;
+                      mostly: ('publishes' | 'consumes') | null;
+                      state: {
+                        key: string;
+                        values?: {
+                          [key: string]: string | number | null;
+                        };
+                      };
+                      severity?: 'ok' | 'info' | 'warning' | 'critical';
+                    }[];
+                  }
+                | {
+                    id: string;
+                    /** @description An i18n key */
+                    title: string;
+                    span: 1 | 2;
+                    state: 'ok' | 'empty' | 'needs_permission' | 'error';
+                    missing?: {
+                      key: string;
+                      values?: {
+                        [key: string]: string | number | null;
+                      };
+                    };
+                    note?: {
+                      key: string;
+                      values?: {
+                        [key: string]: string | number | null;
+                      };
+                    };
+                    /** @enum {string} */
+                    kind: 'nodes';
+                    items: {
+                      name: string;
+                      version: string | null;
+                      uptime: number | null;
+                      connections: number | null;
+                      leaders: number | null;
+                      severity?: 'ok' | 'info' | 'warning' | 'critical';
+                      limits: {
+                        labelKey: string;
+                        value: number;
+                        max: number;
+                        /** @description The dashboard's unit names */
+                        unit:
+                          | 'ratio'
+                          | 'bytes'
+                          | 'bytes_per_second'
+                          | 'cores'
+                          | 'load'
+                          | 'count'
+                          | 'seconds'
+                          | 'per_second';
+                        inverse?: boolean;
+                      }[];
+                    }[];
+                  }
+                | {
+                    id: string;
+                    /** @description An i18n key */
+                    title: string;
+                    span: 1 | 2;
+                    state: 'ok' | 'empty' | 'needs_permission' | 'error';
+                    missing?: {
+                      key: string;
+                      values?: {
+                        [key: string]: string | number | null;
+                      };
+                    };
+                    note?: {
+                      key: string;
+                      values?: {
+                        [key: string]: string | number | null;
+                      };
+                    };
+                    /** @enum {string} */
+                    kind: 'timeline';
+                    events: {
+                      at: number;
+                      text: {
+                        key: string;
+                        values?: {
+                          [key: string]: string | number | null;
+                        };
+                      };
+                      sourceKey: string;
+                      severity?: 'ok' | 'info' | 'warning' | 'critical';
+                      link?:
+                        | {
+                            kind: 'workload' | 'container';
+                            id: string;
+                            name: string;
+                          }
+                        | {
+                            /** @enum {string} */
+                            kind: 'queue';
+                            vhost: string;
+                            queue: string;
+                            name: string;
+                          }
+                        | {
+                            /** @enum {string} */
+                            kind: 'tab';
+                            tab: string;
+                            filter?: string;
+                            name: string;
+                          }
+                        | {
+                            /** @enum {string} */
+                            kind: 'docs';
+                            href: string;
+                            name: string;
+                          };
+                    }[];
+                  }
+                | {
+                    id: string;
+                    /** @description An i18n key */
+                    title: string;
+                    span: 1 | 2;
+                    state: 'ok' | 'empty' | 'needs_permission' | 'error';
+                    missing?: {
+                      key: string;
+                      values?: {
+                        [key: string]: string | number | null;
+                      };
+                    };
+                    note?: {
+                      key: string;
+                      values?: {
+                        [key: string]: string | number | null;
+                      };
+                    };
+                    /** @enum {string} */
+                    kind: 'facts';
+                    rows: {
+                      labelKey: string;
+                      value: string | number | null;
+                      /** @description The dashboard's unit names */
+                      unit?:
+                        | 'ratio'
+                        | 'bytes'
+                        | 'bytes_per_second'
+                        | 'cores'
+                        | 'load'
+                        | 'count'
+                        | 'seconds'
+                        | 'per_second';
+                      text?: {
+                        key: string;
+                        values?: {
+                          [key: string]: string | number | null;
+                        };
+                      };
+                    }[];
+                  }
+                | {
+                    id: string;
+                    /** @description An i18n key */
+                    title: string;
+                    span: 1 | 2;
+                    state: 'ok' | 'empty' | 'needs_permission' | 'error';
+                    missing?: {
+                      key: string;
+                      values?: {
+                        [key: string]: string | number | null;
+                      };
+                    };
+                    note?: {
+                      key: string;
+                      values?: {
+                        [key: string]: string | number | null;
+                      };
+                    };
+                    /** @enum {string} */
+                    kind: 'cause';
+                    text: {
+                      key: string;
+                      values?: {
+                        [key: string]: string | number | null;
+                      };
+                    } | null;
+                    caveat: {
+                      key: string;
+                      values?: {
+                        [key: string]: string | number | null;
+                      };
+                    };
+                    links: (
+                      | {
+                          kind: 'workload' | 'container';
+                          id: string;
+                          name: string;
+                        }
+                      | {
+                          /** @enum {string} */
+                          kind: 'queue';
+                          vhost: string;
+                          queue: string;
+                          name: string;
+                        }
+                      | {
+                          /** @enum {string} */
+                          kind: 'tab';
+                          tab: string;
+                          filter?: string;
+                          name: string;
+                        }
+                      | {
+                          /** @enum {string} */
+                          kind: 'docs';
+                          href: string;
+                          name: string;
+                        }
+                    )[];
+                  }
+                | {
+                    id: string;
+                    /** @description An i18n key */
+                    title: string;
+                    span: 1 | 2;
+                    state: 'ok' | 'empty' | 'needs_permission' | 'error';
+                    missing?: {
+                      key: string;
+                      values?: {
+                        [key: string]: string | number | null;
+                      };
+                    };
+                    note?: {
+                      key: string;
+                      values?: {
+                        [key: string]: string | number | null;
+                      };
+                    };
+                    /** @enum {string} */
+                    kind: 'queue_alerts';
+                    vhost: string;
+                    queue: string;
+                    rules: {
+                      id: string;
+                      name: string;
+                      state: 'firing' | 'quiet' | 'off';
+                    }[];
+                    presets: {
+                      key: string;
+                      nameKey: string;
+                      metric: string;
+                      op: '>' | '<';
+                      value: number;
+                      forSeconds: number;
+                      severity: 'warning' | 'critical';
+                    }[];
+                  }
               )[];
             };
           };
@@ -13670,6 +14229,384 @@ export interface paths {
               code?: string;
               limit?: string;
               max?: number;
+            };
+          };
+        };
+        /** @description Default Response */
+        401: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              type: string;
+              title: string;
+              status: number;
+              detail?: string;
+              instance?: string;
+              code?: string;
+              limit?: string;
+              max?: number;
+            };
+          };
+        };
+        /** @description Default Response */
+        404: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              type: string;
+              title: string;
+              status: number;
+              detail?: string;
+              instance?: string;
+              code?: string;
+              limit?: string;
+              max?: number;
+            };
+          };
+        };
+        /** @description Default Response */
+        502: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              type: string;
+              title: string;
+              status: number;
+              detail?: string;
+              instance?: string;
+              code?: string;
+              limit?: string;
+              max?: number;
+            };
+          };
+        };
+      };
+    };
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/applications/{id}/rabbitmq/queues': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * A RabbitMQ service's queues: type, depth, rates, consumers, drains in
+     * @description The 200 deepest queues of each node and every queue with messages and no consumer, the worst first. `in` and `out` are messages a second over 5 minutes; `busy` is the consumer utilisation (0–1); `drain` is ready ÷ (out − in) when the queue shrinks, else why it does not.
+     */
+    get: {
+      parameters: {
+        query?: never;
+        header?: never;
+        path: {
+          id: string;
+        };
+        cookie?: never;
+      };
+      requestBody?: never;
+      responses: {
+        /** @description Default Response */
+        200: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              queues: {
+                vhost: string;
+                queue: string;
+                name: string;
+                type: ('classic' | 'quorum' | 'stream') | null;
+                ready: number;
+                unacked: number;
+                in: number | null;
+                out: number | null;
+                consumers: number | null;
+                busy: number | null;
+                drain:
+                  | {
+                      /** @enum {string} */
+                      state: 'eta';
+                      seconds: number;
+                    }
+                  | {
+                      state: 'growing' | 'never' | 'empty' | 'stream';
+                    };
+                severity?: 'ok' | 'info' | 'warning' | 'critical';
+              }[];
+              total: number;
+            };
+          };
+        };
+        /** @description Default Response */
+        401: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              type: string;
+              title: string;
+              status: number;
+              detail?: string;
+              instance?: string;
+              code?: string;
+              limit?: string;
+              max?: number;
+            };
+          };
+        };
+        /** @description Default Response */
+        404: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              type: string;
+              title: string;
+              status: number;
+              detail?: string;
+              instance?: string;
+              code?: string;
+              limit?: string;
+              max?: number;
+            };
+          };
+        };
+        /** @description Default Response */
+        502: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              type: string;
+              title: string;
+              status: number;
+              detail?: string;
+              instance?: string;
+              code?: string;
+              limit?: string;
+              max?: number;
+            };
+          };
+        };
+      };
+    };
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/applications/{id}/rabbitmq/queues/{queue}': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * One RabbitMQ queue: its numbers, facts, what happened and the probable cause
+     * @description RabbitMQ doesn't say which client consumes which queue: the probable cause is the client that ended when the queue lost its consumers.
+     */
+    get: {
+      parameters: {
+        query?: {
+          vhost?: string;
+        };
+        header?: never;
+        path: {
+          id: string;
+          queue: string;
+        };
+        cookie?: never;
+      };
+      requestBody?: never;
+      responses: {
+        /** @description Default Response */
+        200: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              queue: {
+                vhost: string;
+                queue: string;
+                name: string;
+                type: ('classic' | 'quorum' | 'stream') | null;
+                ready: number;
+                unacked: number;
+                in: number | null;
+                out: number | null;
+                consumers: number | null;
+                busy: number | null;
+                drain:
+                  | {
+                      /** @enum {string} */
+                      state: 'eta';
+                      seconds: number;
+                    }
+                  | {
+                      state: 'growing' | 'never' | 'empty' | 'stream';
+                    };
+                severity?: 'ok' | 'info' | 'warning' | 'critical';
+              };
+              facts: {
+                labelKey: string;
+                value: string | number | null;
+                unit?: string;
+                text?: {
+                  key: string;
+                  values?: {
+                    [key: string]: string | number | null;
+                  };
+                };
+              }[];
+              timeline: {
+                at: number;
+                key: string;
+                values?: {
+                  [key: string]: string | number | null;
+                };
+                severity?: string;
+              }[];
+              probableCause: {
+                key: string;
+                values?: {
+                  [key: string]: string | number | null;
+                };
+                links: {
+                  kind: string;
+                  id?: string;
+                  name: string;
+                }[];
+              } | null;
+            };
+          };
+        };
+        /** @description Default Response */
+        401: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              type: string;
+              title: string;
+              status: number;
+              detail?: string;
+              instance?: string;
+              code?: string;
+              limit?: string;
+              max?: number;
+            };
+          };
+        };
+        /** @description Default Response */
+        404: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              type: string;
+              title: string;
+              status: number;
+              detail?: string;
+              instance?: string;
+              code?: string;
+              limit?: string;
+              max?: number;
+            };
+          };
+        };
+        /** @description Default Response */
+        502: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              type: string;
+              title: string;
+              status: number;
+              detail?: string;
+              instance?: string;
+              code?: string;
+              limit?: string;
+              max?: number;
+            };
+          };
+        };
+      };
+    };
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/applications/{id}/rabbitmq/clients': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * The workloads that connected to a RabbitMQ service in the last 24 hours
+     * @description From the agents' network flows: connections opened, bytes a second each way now, and how a client ended when it did. `mostly` is a guess from the traffic's direction over the day, null unless one way clearly dominates; RabbitMQ's metrics don't say which client publishes to or consumes which queue.
+     */
+    get: {
+      parameters: {
+        query?: never;
+        header?: never;
+        path: {
+          id: string;
+        };
+        cookie?: never;
+      };
+      requestBody?: never;
+      responses: {
+        /** @description Default Response */
+        200: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': {
+              clients: {
+                name: string;
+                kind: 'workload' | 'container';
+                id: string;
+                connections: number;
+                sends: number | null;
+                receives: number | null;
+                mostly: 'publishes' | 'consumes' | null;
+                state: string;
+                how?: string;
+                endedAt?: number | null;
+              }[];
             };
           };
         };

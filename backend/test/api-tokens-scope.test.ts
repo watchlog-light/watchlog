@@ -27,6 +27,10 @@ const ALLOWED = [
   'GET /api/v1/applications/:id',
   'GET /api/v1/applications/collectors',
   'GET /api/v1/applications/discovered',
+  // RabbitMQ's queues, one queue and its clients (1.1.0, ADR-243): read by MCP's get_application.
+  'GET /api/v1/applications/:id/rabbitmq/queues',
+  'GET /api/v1/applications/:id/rabbitmq/queues/:queue',
+  'GET /api/v1/applications/:id/rabbitmq/clients',
   'GET /api/v1/causes',
   'GET /api/v1/own-dashboards',
   'GET /api/v1/own-dashboards/:id',

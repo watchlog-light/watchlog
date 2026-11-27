@@ -266,6 +266,16 @@ export const ThresholdScopeSchema = Type.Object(
     serviceType: Type.Optional(
       Type.String({ pattern: '^[a-z]+$', maxLength: 32, description: 'A service type' }),
     ),
+    /** One queue of a RabbitMQ service (1.1.0, with `service`): rabbitmq.queue.* metrics. */
+    queue: Type.Optional(
+      Type.Object(
+        {
+          vhost: Type.Optional(Type.String({ minLength: 1, maxLength: 255 })),
+          name: Type.String({ minLength: 1, maxLength: 255 }),
+        },
+        { additionalProperties: false },
+      ),
+    ),
     /** Pod label selector (equality); resolved to at most 500 pods (ADR-085). */
     labels: Type.Optional(
       Type.Record(Type.String({ maxLength: 317 }), Type.String({ maxLength: 63 }), {

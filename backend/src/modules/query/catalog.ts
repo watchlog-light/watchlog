@@ -33,6 +33,9 @@ export interface QueryScope {
   service?: string;
   /** Every monitored service of a type: the collector labels them service_type=<type>. */
   serviceType?: string;
+  /** One RabbitMQ queue (1.1.0): its series carry vhost and queue. */
+  vhost?: string;
+  queue?: string;
   /**
    * Nginx services whose numbers come from eBPF (resolved from the database by
    * resolveScope): their series carry the workload, not the service id.
@@ -1021,6 +1024,44 @@ const ENTRIES = {
       return `(sum by (${by}) (rabbitmq_detailed_queue_messages_ready${s()}) > 0) and (sum by (${by}) (rabbitmq_detailed_queue_consumers${s()}) == 0) and (sum by (${by}) (deriv(rabbitmq_detailed_queue_messages_ready${s()}[5m])) > 0)`;
     },
   },
+  /** Each queue's ready messages (1.1.0): a queue's own depth alert. */
+  'rabbitmq.queue.ready': {
+    unit: 'count',
+    agg: 'max',
+    expr: (s) =>
+      `sum by (service, service_type, vhost, queue) (rabbitmq_detailed_queue_messages_ready${s()})`,
+  },
+  /** Each queue's consumers (1.1.0). */
+  'rabbitmq.queue.consumers': {
+    unit: 'count',
+    agg: 'min',
+    expr: (s) =>
+      `sum by (service, service_type, vhost, queue) (rabbitmq_detailed_queue_consumers${s()})`,
+  },
+  /**
+   * Messages arriving in a queue per second (1.1.0): on a dead-letter queue, its dead letters
+   * (RabbitMQ doesn't count dead letters per source queue).
+   */
+  'rabbitmq.queue.in.rate': {
+    unit: 'per_second',
+    agg: 'max',
+    expr: (s, r) =>
+      `sum by (service, service_type, vhost, queue) (rate(rabbitmq_detailed_queue_exchange_messages_published_total${s()}[${r}]))`,
+  },
+  /**
+   * Seconds until a node reaches its memory high watermark at the last 15 minutes' growth,
+   * for each queue that grows meanwhile (1.1.0): "a queue will reach the memory watermark
+   * within an hour". Nothing while memory doesn't grow.
+   */
+  'rabbitmq.queue.watermark_eta': {
+    unit: 'seconds',
+    agg: 'min',
+    expr: (s) => {
+      const by = 'service, service_type, member';
+      const eta = `min by (service, service_type) ((max by (${by}) (rabbitmq_resident_memory_limit_bytes${s()}) - max by (${by}) (rabbitmq_process_resident_memory_bytes${s()})) / (max by (${by}) (deriv(rabbitmq_process_resident_memory_bytes${s()}[15m])) > 0))`;
+      return `(sum by (service, service_type, vhost, queue) (deriv(rabbitmq_detailed_queue_messages_ready${s()}[15m])) > 0.1) * 0 + on (service, service_type) group_left () (${eta})`;
+    },
+  },
   /** Messages dead-lettered per second (3.12+). */
   'rabbitmq.dead_lettered.rate': {
     unit: 'per_second',
@@ -1216,6 +1257,10 @@ function matchers(scope: QueryScope): string[] {
   if (scope.service !== undefined) out.push(`service="${escapeLabelValue(scope.service)}"`);
   if (scope.serviceType !== undefined) {
     out.push(`service_type="${escapeLabelValue(scope.serviceType)}"`);
+  }
+  if (scope.queue !== undefined) {
+    out.push(`vhost="${escapeLabelValue(scope.vhost ?? '/')}"`);
+    out.push(`queue="${escapeLabelValue(scope.queue)}"`);
   }
   return out;
 }

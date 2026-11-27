@@ -21,6 +21,11 @@ import { ProblemSchema } from '../auth/schemas.js';
 import { causeReader, wantsCause, type CausesService } from '../causes/likely.js';
 import { LikelyCauseSchema } from '../causes/schemas.js';
 import { INTEGRATION_TYPES, type IntegrationTarget } from './collector-config.js';
+import { proFeatures, type ProConfig } from '../license/pro.js';
+import { clientRows } from './pages/rabbitmq-clients.js';
+import { queuePage } from './pages/rabbitmq-queue.js';
+import { queueRows } from './pages/rabbitmq-queues.js';
+import { QueueRowSchema } from './pages/schema.js';
 import { alertDefaultsFor, createServiceRules, deleteServiceRules } from './alert-defaults.js';
 import { adoptProbe, placementOf } from './connect.js';
 import { recordEvent } from './credentials.js';
@@ -216,7 +221,9 @@ export const applicationRoutes: FastifyPluginAsyncTypebox<{
   install?: ReturnType<typeof installTarget>;
   /** Each application's likely cause, when it has a finding (ADR-148, ADR-155). */
   causes?: CausesService;
-}> = async (app, { db, notifier, secretKey, victoria, install, causes }) => {
+  /** Whether an org has What changed: pages say what is usual for the hour (1.1.0). */
+  config?: ProConfig;
+}> = async (app, { db, notifier, secretKey, victoria, install, causes, config }) => {
   const signedIn = requireUser();
   const canManage = [signedIn, requireRole('owner', 'admin')];
 
@@ -387,7 +394,12 @@ export const applicationRoutes: FastifyPluginAsyncTypebox<{
   }
 
   /** One service the caller's organization monitors, with what its page needs. */
-  async function contextOf(orgId: string, id: string, range: number) {
+  async function contextOf(
+    orgId: string,
+    id: string,
+    range: number,
+    params?: Record<string, string>,
+  ) {
     const [row] = await listApplicationRows(db, orgId, { id });
     if (!row) return null;
     const collectors = await listCollectors(db, [row.cluster_id]);
@@ -399,6 +411,10 @@ export const applicationRoutes: FastifyPluginAsyncTypebox<{
       collector: collectorOf(row, collectors),
       range,
       now: Date.now(),
+      ...(params ? { params } : {}),
+      usual: config
+        ? await proFeatures(config, app.license, orgId, app.entitlements).catch(() => false)
+        : false,
     };
     return { ctx, view: toView(row, collectors, ctx.now) };
   }
@@ -775,7 +791,20 @@ export const applicationRoutes: FastifyPluginAsyncTypebox<{
         application: application!,
         reasons,
         connected,
-        page: { id: page.id, tabs: page.tabs.map((t) => ({ id: t.id, title: t.title })) },
+        page: {
+          id: page.id,
+          // A sub-page (a queue) has its own address, not a tab.
+          tabs: await Promise.all(
+            page.tabs
+              .filter((t) => !t.hidden)
+              .map(async (t) => ({
+                id: t.id,
+                title: t.title,
+                ...(t.view ? { view: t.view } : {}),
+                ...(t.count ? { count: await soft(t.count(ctx), null) } : {}),
+              })),
+          ),
+        },
         range,
         ...(install &&
         view.cluster.kind === 'server' &&
@@ -804,6 +833,9 @@ export const applicationRoutes: FastifyPluginAsyncTypebox<{
         querystring: Type.Object({
           tab: Type.Optional(Type.String({ maxLength: 64 })),
           range: RangeParam,
+          /** RabbitMQ's queue page (tab=queue): which queue. */
+          queue: Type.Optional(Type.String({ minLength: 1, maxLength: 255 })),
+          vhost: Type.Optional(Type.String({ minLength: 1, maxLength: 255 })),
         }),
         response: {
           200: Type.Object({
@@ -822,7 +854,13 @@ export const applicationRoutes: FastifyPluginAsyncTypebox<{
       const range = rangeOf(request.query.range);
       if (range === null)
         return sendProblem(reply, 400, 'range is one of 3600, 21600, 86400, 604800');
-      const found = await contextOf(request.user!.org.id, request.params.id, range);
+      const { queue, vhost } = request.query;
+      const found = await contextOf(
+        request.user!.org.id,
+        request.params.id,
+        range,
+        queue ? { queue, vhost: vhost ?? '/' } : undefined,
+      );
       if (!found) return sendProblem(reply, 404, 'Service not found');
       const page = pageOf(found.ctx.row.type);
       const tab = request.query.tab
@@ -851,6 +889,228 @@ export const applicationRoutes: FastifyPluginAsyncTypebox<{
             : p;
         });
         return { tab: tab.id, range, panels };
+      } catch (err) {
+        if (err instanceof VictoriaError) return sendProblem(reply, 502, 'Metrics are unavailable');
+        throw err;
+      }
+    },
+  );
+
+  // RabbitMQ's queues, one queue and its clients (1.1.0, ADR-243): the same numbers as the
+  // page, for the API and MCP.
+  const rabbitOf = async (orgId: string, id: string, params?: Record<string, string>) => {
+    const found = await contextOf(orgId, id, 3600, params);
+    return found && found.ctx.row.type === 'rabbitmq' ? found : null;
+  };
+  app.get(
+    '/applications/:id/rabbitmq/queues',
+    {
+      preHandler: signedIn,
+      schema: {
+        summary: "A RabbitMQ service's queues: type, depth, rates, consumers, drains in",
+        description:
+          'The 200 deepest queues of each node and every queue with messages and no consumer, the worst first. `in` and `out` are messages a second over 5 minutes; `busy` is the consumer utilisation (0–1); `drain` is ready ÷ (out − in) when the queue shrinks, else why it does not.',
+        tags: ['applications', PUBLIC_TAG],
+        params: Type.Object({ id: Type.String({ format: 'uuid' }) }),
+        response: {
+          200: Type.Object({ queues: Type.Array(QueueRowSchema()), total: Type.Integer() }),
+          401: ProblemSchema,
+          404: ProblemSchema,
+          502: ProblemSchema,
+        },
+      },
+    },
+    async (request, reply) => {
+      const found = await rabbitOf(request.user!.org.id, request.params.id);
+      if (!found) return sendProblem(reply, 404, 'RabbitMQ service not found');
+      try {
+        const queues = await queueRows(found.ctx);
+        return { queues, total: queues.length };
+      } catch (err) {
+        if (err instanceof VictoriaError) return sendProblem(reply, 502, 'Metrics are unavailable');
+        throw err;
+      }
+    },
+  );
+  app.get(
+    '/applications/:id/rabbitmq/queues/:queue',
+    {
+      preHandler: signedIn,
+      schema: {
+        summary: 'One RabbitMQ queue: its numbers, facts, what happened and the probable cause',
+        description:
+          "RabbitMQ doesn't say which client consumes which queue: the probable cause is the client that ended when the queue lost its consumers.",
+        tags: ['applications', PUBLIC_TAG],
+        params: Type.Object({
+          id: Type.String({ format: 'uuid' }),
+          queue: Type.String({ minLength: 1, maxLength: 255 }),
+        }),
+        querystring: Type.Object({
+          vhost: Type.Optional(Type.String({ minLength: 1, maxLength: 255 })),
+        }),
+        response: {
+          200: Type.Object({
+            queue: QueueRowSchema(),
+            facts: Type.Array(
+              Type.Object({
+                labelKey: Type.String(),
+                value: Type.Union([Type.String(), Type.Number(), Type.Null()]),
+                unit: Type.Optional(Type.String()),
+                text: Type.Optional(
+                  Type.Object({
+                    key: Type.String(),
+                    values: Type.Optional(
+                      Type.Record(
+                        Type.String(),
+                        Type.Union([Type.String(), Type.Number(), Type.Null()]),
+                      ),
+                    ),
+                  }),
+                ),
+              }),
+            ),
+            timeline: Type.Array(
+              Type.Object({
+                at: Type.Number(),
+                key: Type.String(),
+                values: Type.Optional(
+                  Type.Record(
+                    Type.String(),
+                    Type.Union([Type.String(), Type.Number(), Type.Null()]),
+                  ),
+                ),
+                severity: Type.Optional(Type.String()),
+              }),
+            ),
+            probableCause: Type.Union([
+              Type.Object({
+                key: Type.String(),
+                values: Type.Optional(
+                  Type.Record(
+                    Type.String(),
+                    Type.Union([Type.String(), Type.Number(), Type.Null()]),
+                  ),
+                ),
+                links: Type.Array(
+                  Type.Object({
+                    kind: Type.String(),
+                    id: Type.Optional(Type.String()),
+                    name: Type.String(),
+                  }),
+                ),
+              }),
+              Type.Null(),
+            ]),
+          }),
+          401: ProblemSchema,
+          404: ProblemSchema,
+          502: ProblemSchema,
+        },
+      },
+    },
+    async (request, reply) => {
+      const params = { queue: request.params.queue, vhost: request.query.vhost ?? '/' };
+      const found = await rabbitOf(request.user!.org.id, request.params.id, params);
+      if (!found) return sendProblem(reply, 404, 'RabbitMQ service not found');
+      try {
+        const [row] = await queueRows(found.ctx, params);
+        if (!row) return sendProblem(reply, 404, 'Queue not found (or not among the queues read)');
+        const panels = await queuePage(found.ctx);
+        const facts = panels.find((p) => p.kind === 'facts');
+        const tl = panels.find((p) => p.kind === 'timeline');
+        const cause = panels.find((p) => p.kind === 'cause');
+        return {
+          queue: row,
+          facts: facts?.kind === 'facts' ? facts.rows : [],
+          timeline:
+            tl?.kind === 'timeline'
+              ? tl.events.map((e) => ({
+                  at: e.at,
+                  key: e.text.key,
+                  ...(e.text.values ? { values: e.text.values } : {}),
+                  ...(e.severity ? { severity: e.severity } : {}),
+                }))
+              : [],
+          probableCause:
+            cause?.kind === 'cause' && cause.text
+              ? {
+                  key: cause.text.key,
+                  ...(cause.text.values ? { values: cause.text.values } : {}),
+                  links: cause.links.map((l) => ({
+                    kind: l.kind,
+                    ...('id' in l ? { id: l.id } : {}),
+                    name: l.name,
+                  })),
+                }
+              : null,
+        };
+      } catch (err) {
+        if (err instanceof VictoriaError) return sendProblem(reply, 502, 'Metrics are unavailable');
+        throw err;
+      }
+    },
+  );
+  app.get(
+    '/applications/:id/rabbitmq/clients',
+    {
+      preHandler: signedIn,
+      schema: {
+        summary: 'The workloads that connected to a RabbitMQ service in the last 24 hours',
+        description:
+          "From the agents' network flows: connections opened, bytes a second each way now, and how a client ended when it did. `mostly` is a guess from the traffic's direction over the day, null unless one way clearly dominates; RabbitMQ's metrics don't say which client publishes to or consumes which queue.",
+        tags: ['applications', PUBLIC_TAG],
+        params: Type.Object({ id: Type.String({ format: 'uuid' }) }),
+        response: {
+          200: Type.Object({
+            clients: Type.Array(
+              Type.Object({
+                name: Type.String(),
+                kind: Type.Union([Type.Literal('workload'), Type.Literal('container')]),
+                id: Type.String(),
+                connections: Type.Number(),
+                sends: Type.Union([Type.Number(), Type.Null()]),
+                receives: Type.Union([Type.Number(), Type.Null()]),
+                mostly: Type.Union([
+                  Type.Literal('publishes'),
+                  Type.Literal('consumes'),
+                  Type.Null(),
+                ]),
+                state: Type.String(),
+                how: Type.Optional(Type.String()),
+                endedAt: Type.Optional(Type.Union([Type.Number(), Type.Null()])),
+              }),
+            ),
+          }),
+          401: ProblemSchema,
+          404: ProblemSchema,
+          502: ProblemSchema,
+        },
+      },
+    },
+    async (request, reply) => {
+      const found = await rabbitOf(request.user!.org.id, request.params.id);
+      if (!found) return sendProblem(reply, 404, 'RabbitMQ service not found');
+      try {
+        const rows = await clientRows(found.ctx);
+        return {
+          clients: rows.map((r) => ({
+            name: r.name,
+            kind: (r.link?.kind === 'container' ? 'container' : 'workload') as
+              'workload' | 'container',
+            id: r.link && 'id' in r.link ? r.link.id : r.name,
+            connections: r.connections,
+            sends: r.sends,
+            receives: r.receives,
+            mostly: r.mostly,
+            state: r.state.key,
+            ...(r.state.key === 'ended'
+              ? {
+                  how: String(r.state.values?.how ?? ''),
+                  endedAt: (r.state.values?.at as number | null | undefined) ?? null,
+                }
+              : {}),
+          })),
+        };
       } catch (err) {
         if (err instanceof VictoriaError) return sendProblem(reply, 502, 'Metrics are unavailable');
         throw err;
