@@ -13,8 +13,13 @@ const subValues = (v: Record<string, unknown> | undefined) => {
   if (typeof out.at === 'number') out.at = whenAndAgo(out.at);
   return out;
 };
+// Counts with their thousands separator ("2,100"), as the flow strip shows them.
 const shown = (t: PanelOf<'stat'>['tiles'][number]) =>
-  typeof t.value === 'number' && t.unit ? formatValue(t.value, t.unit) : (t.value ?? '–');
+  typeof t.value === 'number' && t.unit === 'count'
+    ? Math.round(t.value).toLocaleString('en')
+    : typeof t.value === 'number' && t.unit
+      ? formatValue(t.value, t.unit)
+      : (t.value ?? '–');
 </script>
 
 <template>

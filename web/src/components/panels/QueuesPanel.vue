@@ -109,7 +109,7 @@ const drainText = (r: Row) => (r.drain.state === 'eta' ? formatDuration(r.drain.
       {{ $t('integrations.rabbitmq.panels.noneNeedLook') }}
     </p>
     <div v-else class="-mx-4 overflow-x-auto">
-      <table class="w-full min-w-[52rem] text-13">
+      <table class="w-full text-13" :class="panel.full ? 'min-w-[52rem]' : 'min-w-[34rem]'">
         <thead>
           <tr
             class="border-b border-border text-left text-11 font-medium tracking-wider text-text-muted uppercase"

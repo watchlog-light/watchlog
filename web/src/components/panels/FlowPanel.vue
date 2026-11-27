@@ -65,11 +65,12 @@ const title = (c: Column) =>
           <li
             v-for="(r, j) in c.rows"
             :key="j"
-            class="flex min-w-0 items-baseline justify-between gap-2"
+            class="flex flex-wrap items-baseline justify-between gap-x-2"
             data-testid="flow-row"
           >
+            <!-- The name keeps its words whole; a long value moves under it instead. -->
             <span
-              class="min-w-0 break-words"
+              class="break-words"
               :class="[
                 r.nameKey ? 'text-text-muted' : 'font-mono',
                 r.severity ? SEVERITY_TEXT[r.severity] : r.nameKey ? '' : 'text-text',
@@ -82,7 +83,7 @@ const title = (c: Column) =>
               <template v-else>{{ r.nameKey ? $t(r.nameKey) : r.name }}</template>
             </span>
             <span
-              class="shrink-0 text-12 tabular-nums"
+              class="ml-auto text-12 tabular-nums"
               :class="r.severity ? SEVERITY_TEXT[r.severity] : 'text-text-muted'"
               >{{
                 r.text && !r.nameKey

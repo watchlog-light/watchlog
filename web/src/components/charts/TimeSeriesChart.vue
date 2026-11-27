@@ -167,7 +167,8 @@ function decorations() {
         ? {
             show: true,
             formatter: '{b}',
-            position: 'insideEndTop',
+            // Horizontal above the line's top end, so its time stays readable.
+            position: 'end',
             color: token(m.colorToken ?? '--text-muted'),
             fontSize: 12,
           }
