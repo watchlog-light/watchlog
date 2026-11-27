@@ -5,7 +5,8 @@
 // the layout checks.
 //
 // Against a running dashboard with two monitored RabbitMQ services that report (a 3.13 and a
-// 4.x, Step 0 of the 1.1.0 brief), one with a queue that lost its consumer:
+// 4.x, Step 0 of the 1.1.0 brief), the Kubernetes one with WATCHLOG_E2E_RMQ_QUEUE that lost its
+// consumer:
 //   WATCHLOG_E2E_URL=http://localhost:4188 WATCHLOG_E2E_SESSION=… \
 //   WATCHLOG_E2E_RMQ_K8S=<service id> WATCHLOG_E2E_RMQ_SERVER=<service id> \
 //   WATCHLOG_E2E_RMQ_QUEUE=emails.send \
@@ -58,8 +59,13 @@ for (const width of [1440, 390]) {
       await expect(page.locator('[data-panel="flow"] [data-testid="flow"]')).toBeVisible();
       await expect(page.locator('[data-tile="ready"]')).toBeVisible();
       await expect(page.getByTestId('checks-summary')).toContainText(/\d+ of \d+ pass/);
+      // A queue with a finding, or the one line that none needs a look (1.1.1, A5).
       await expect(
-        page.locator('[data-panel="needLook"] [data-testid="queue-row"]').first(),
+        page
+          .locator(
+            '[data-panel="needLook"] [data-testid="queue-row"], [data-panel="needLook"] [data-testid="queues-fine"]',
+          )
+          .first(),
       ).toBeVisible();
       await expect(page.getByRole('tab', { name: /Queues · \d+/ })).toBeVisible();
       await layoutOk(page, `${where} overview`);
@@ -69,7 +75,8 @@ for (const width of [1440, 390]) {
       const rows = page.locator('[data-panel="queues"] [data-testid="queue-row"]');
       await expect(rows.first()).toBeVisible();
       await page.getByTestId('queues-no-consumers').check();
-      await expect(rows.first()).toBeVisible();
+      // The Kubernetes broker is the one with the queue that lost its consumer.
+      if (where === 'k8s') await expect(rows.first()).toBeVisible();
       await page.getByTestId('queues-no-consumers').uncheck();
       await page.getByTestId('sort-ready').click();
       await layoutOk(page, `${where} queues`);
