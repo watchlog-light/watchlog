@@ -464,19 +464,25 @@ Access: nothing; the plugin ships with RabbitMQ. If it is off, the generated com
 
 | Tab | Panels and sources |
 |---|---|
-| Overview | **S** ready (with its rate), unacked, publish/s, deliver/s with its value before a drop, consumers (was), memory % of the high watermark · **L** queue depth: ready, unacked · **L** publish vs deliver · **T** queues: ready, consumers, rate (`/metrics/detailed` families `queue_coarse_metrics` and `queue_consumer_count`, top 200) |
-| Queues | **HB** depth by queue · **HB** consumers by queue · **L** ready messages of the top queues |
-| Message rates | **SA** publish, deliver, redeliver, ack/s (`rabbitmq_global_messages_*_total`) · **L** publisher confirms/s (`rabbitmq_global_messages_confirmed_total`) |
-| Resources | **G** node limits: memory vs the high watermark (`rabbitmq_process_resident_memory_bytes`, `rabbitmq_resident_memory_limit_bytes`), free disk vs the alarm limit, file descriptors, Erlang processes (`rabbitmq_erlang_processes_used`/`_limit`) · **L** memory with the watermark |
+| Overview | (1.1.0, ADR-243) **Flow** publishers → exchanges → queues → consumers with the rate between each (publishers and consumers from eBPF flows by traffic direction; RabbitMQ's counts without flows) · **S** ready, unacked, publish/s, deliver/s (was), consumers (was), memory % of the watermark, with what is usual for the hour (What changed) · **L** publish vs deliver with what happened marked · **SA** ready by queue · **Checks** (consumers, alarms, nodes, plugin, version, unroutable; 4.x quorum leaders; Raft elections) · **Queues** that need a look · **L** redelivered, unroutable, dead-lettered |
+| Queues | Every queue: type (4.x `queue_info`; 3.13 inferred from Raft and stream series), ready, unacked, in/out per second, consumers and utilisation, drains in (ready ÷ (out − in), else growing or never); sort, search, "no consumers"; the 200 deepest per node and every idle queue with messages |
+| Clients | Every workload or container with a flow to the broker in 24 h: where, connections opened, bytes each way now, "Mostly" publishes/consumes (only when one way dominates 4:1 over the day), how it ended |
+| Nodes | Each node: memory vs watermark, disk limit vs free, file descriptors, sockets (3.13), Erlang processes, version, connections, queue leaders (4.x), uptime · **L** connection churn · **L** memory with the watermark |
+| Alerts | The service's rules, in place |
+| A queue | `/applications/:id/queues/:queue`: tiles (consumers was, since the last ack, drains in or fills memory in), depth against its usual band, in vs acked and redelivered, utilisation, consumers, what happened (consumer changes, busy, clients ended, alerts), probable cause, facts (type, leader on 4.x, replicas, Raft latency, on disk), alerts on it with presets |
+
+The agent reads `queue_coarse_metrics`, `queue_consumer_count`, `queue_delivery_metrics`, `queue_exchange_metrics`, `exchange_names`, `exchange_metrics`, `ra_metrics` and (its own request) `queue_metrics`; on 3.13, where `queue_delivery_metrics` is empty, the per-channel families summed per queue and per exchange, kept monotonic (ADR-243).
 
 - **Default rules:**
-  - a queue grows with no consumers for 5 min (critical);
+  - a queue grows with no consumers for 5 min (critical; not streams nor dead-letter queues);
   - memory or disk alarm (critical);
   - unacked messages > 10,000 (warning);
   - a node is down (critical);
-  - a dead-letter queue is growing (warning).
+  - messages dead-lettered (warning);
+  - a growing queue takes a node to its memory watermark within an hour (warning, 1.1.0).
+- Rules can be scoped to one queue (`rabbitmq.queue.*`, 1.1.0).
 - ⚑ **Dead-letter counters** exist only on 3.12+ (`rabbitmq_global_messages_dead_lettered_*`). Closest on older versions: queues named `*dead*letter*`, `*.dlq` or `*.dlx` that grow.
-- ⚑ **Network partitions** aren't exported by the plugin. Closest: a member whose endpoint stops answering.
+- ⚑ **Network partitions**, **replicas in sync**, a queue's **bindings** and **dead-letter target**, and the **quorum leader on 3.13** aren't exported by the plugin (Step 0, ADR-243). Closest: a member whose endpoint stops answering; the nodes holding a replica.
 - **Reasons:** `queue_no_consumers` (linked to the workloads or containers that were connected to RabbitMQ in the last 24 h, from eBPF flows, and ended since, closest to when the queue lost its consumers: the plugin doesn't say which client consumed which queue; ADR-145), `queue_growing`, `memory_alarm` and `disk_alarm` (publishers blocked), `unacked_high`, `dead_letters_growing`, `prometheus_plugin_off` (with the command per node). A node down is a member down, as for every service.
 
 ### MySQL and MariaDB (status variables, performance_schema, InnoDB tables; MySQL 8.0+, MariaDB 10.6+) — v0.5 (shipped in 0.5.0; ADR-163)
