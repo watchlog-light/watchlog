@@ -13494,6 +13494,8 @@ export interface paths {
                       low: (number | null)[][];
                       high: (number | null)[][];
                     };
+                    /** @description A line said instead of the chart when every point is zero */
+                    zeroKey?: string;
                     series: {
                       name?: string;
                       nameKey?: string;

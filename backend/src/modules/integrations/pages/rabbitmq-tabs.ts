@@ -708,9 +708,6 @@ export async function queuesTab(input: PageContext): Promise<Panel[]> {
       `sum(rate({__name__=~"rabbitmq_global_messages_dead_lettered_.*_total",${s}}[${w}]))`,
     ),
   ]);
-  const series = [red, dropped, returned, dead];
-  // All zero for the whole range: one line says so instead of a flat chart (1.1.1).
-  const anyLost = series.some((x) => x[0]?.points.some(([, v]) => v !== null && v > 0));
   return [
     {
       id: 'queues',
@@ -729,8 +726,10 @@ export async function queuesTab(input: PageContext): Promise<Panel[]> {
       kind: 'line',
       span: 2,
       unit: 'per_second',
-      state: red.length && anyLost ? 'ok' : 'empty',
+      state: red.length ? 'ok' : 'empty',
       note: { key: `${P}.deadLetterNote` },
+      // All zero for the whole range: one line says so instead of a flat chart (1.1.1).
+      zeroKey: `${P}.unroutableEmpty`,
       series: [
         { nameKey: `${P}.series.redeliver`, points: pointsOf(red[0]), severity: 'warning' },
         { nameKey: `${P}.series.dropped`, points: pointsOf(dropped[0]), severity: 'critical' },

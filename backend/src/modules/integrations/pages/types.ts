@@ -48,6 +48,8 @@ export interface SeriesPanel extends Base {
   markers?: { at: number; text: Text; severity?: Severity }[];
   /** The usual range of the first series (What changed's statistics), drawn as a band. */
   band?: { low: Point[]; high: Point[] };
+  /** Said in one line instead of the chart when every point in the range is zero (1.1.1). */
+  zeroKey?: string;
   series: {
     /** A name from the service (a member, a queue), or a key for WatchLog's own words. */
     name?: string;

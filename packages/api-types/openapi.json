@@ -37590,6 +37590,10 @@
                                 },
                                 "description": "The usual range of the first series, for this hour of the week"
                               },
+                              "zeroKey": {
+                                "type": "string",
+                                "description": "A line said instead of the chart when every point is zero"
+                              },
                               "series": {
                                 "type": "array",
                                 "items": {

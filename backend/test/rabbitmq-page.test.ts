@@ -507,6 +507,10 @@ describe('the RabbitMQ page', () => {
     expect(need.rows.map((x) => x.name)).toEqual(['orders', 'emails']);
     const qs = await tab('queues');
     expect(panel(qs, 'queues')).toMatchObject({ kind: 'queues', full: true, total: 2 });
+    // B5: the lost chart says it in one line when everything is zero.
+    expect(panel(qs, 'lost')).toMatchObject({
+      zeroKey: 'integrations.rabbitmq.panels.unroutableEmpty',
+    });
     // Clients: the worker ended (OOM-killed, crash-looping) and mostly consumed; the api
     // mostly publishes and runs.
     const clients = panel(await tab('clients'), 'clients').rows as {

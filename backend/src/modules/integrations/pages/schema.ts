@@ -85,6 +85,9 @@ export const PanelSchema = Type.Union([
         },
       ),
     ),
+    zeroKey: Type.Optional(
+      Type.String({ description: 'A line said instead of the chart when every point is zero' }),
+    ),
     series: Type.Array(
       Type.Object({
         name: Type.Optional(Type.String()),
