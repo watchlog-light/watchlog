@@ -4287,3 +4287,18 @@ Status values: `proposed`, `accepted`, `superseded by ADR-NNN`.
   - **The old Message rates and Resources tabs** fold into the Overview (publish against deliver; redelivered, unroutable and dead-lettered) and Nodes (limits, memory over time).
 - Alternatives: the management API (rejected again: a user and credentials, ADR-141); faking the missing columns from names or showing them empty (rejected by the brief); inferring a queue's consumer from per-connection plugin series (rejected: they name Erlang processes and client addresses, not workloads, and still not which queue).
 - Consequences: a few more series per queue (type, utilisation, Raft, bytes on disk) and per exchange, within the 200-queue cap; the heavy scrape is about 1 ms a node (measured). The Clients tab needs the agents' flows; without them the flow uses RabbitMQ's own counts and the tab says how to get them.
+
+## ADR-244: One page, one instant: how RabbitMQ's numbers agree (1.1.1)
+
+- Date: 2026-11-27 · Status: accepted (owner's brief for 1.1.1; amends ADR-243)
+- Context: on the demo, 1.1.0's RabbitMQ page contradicted itself. A consumer was "gone" in the flow while its restarted pod consumed, the Consumers tile said 1 while the queue row said 2 and the checks passed, Deliver was amber while publish equalled deliver, memory read 0.31% in a tile and 0% in a check, the broker was listed as its own client, and a healthy queue sat under "Queues that need a look". The causes were different sources read at different instants, a rule comparing with the hour's peak, two roundings, and RabbitMQ's consumer utilisation shown as "busy".
+- Decision:
+  - **One instant per page**, `now` floored to 30 seconds, for every instant query of the Overview, the queue page and the findings; consumers come from the per-queue series (the same as the rows and checks), never the node total, which refreshes on another cadence.
+  - **Busy is 1 − consumer utilisation.** RabbitMQ's utilisation is the share of time a queue could deliver at once; 1.0 means the consumers keep up.
+  - **A client ended only if it is gone now.** A termination counts as "ended" only when no client of the same workload has moved bytes to the broker in the last 2 minutes; otherwise it is "restarted", neutral, and its chart marker isn't red.
+  - **Deliver warns** only when deliver < publish and ready messages grow.
+  - **Rates use max(2 min, 2 steps)**, so a range's step never skips samples.
+  - **A queue with ready messages and no consumer is a finding** even when it isn't growing yet: a warning, critical when it grows (streams and dead-letter queues excepted, as before).
+  - **Percentages have one formatter** (the backend's `pctText`), and the web shows counts with thousands separators.
+  - **A line panel may carry `zeroKey`**: the sentence said instead of a flat chart when every point is zero.
+- Consequences: around a change the page can lag the node total by up to 30 seconds, but never disagrees with itself. The Overview no longer has its own connected list; the Clients tab is the one place for it.
