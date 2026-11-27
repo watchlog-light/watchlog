@@ -39,12 +39,17 @@ export async function clientRows(ctx: PageContext): Promise<Row[]> {
   const sel = `${dst}${port ? `,dst_port="${port}"` : ''}`;
   const at = Math.floor(ctx.now / 1000);
   const q = (e: string) => ctx.vm!.query(ctx.scope, e, at);
-  const [conns, day, now, own] = await Promise.all([
+  const [conns, day, now, own, hosts] = await Promise.all([
     q(`sum by (${SOURCE}) (increase(watchlog_flow_connections_total{${sel}}[24h]))`),
     q(`sum by (${SOURCE}, dir) (increase(watchlog_flow_bytes_total{${sel}}[24h]))`),
     q(`sum by (${SOURCE}, dir) (rate(watchlog_flow_bytes_total{${sel}}[5m]))`),
     ownComponents(ctx),
+    // A container's page is under its host.
+    q(
+      `max by (container, host) (present_over_time(watchlog_flow_connections_total{${sel},container!=""}[24h]))`,
+    ),
   ]);
+  const hostOf = new Map(hosts.map((h) => [h.labels.container ?? '', h.labels.host ?? '']));
   const bytes = (rows: typeof day) => {
     const m = new Map<string, { sent: number; received: number }>();
     for (const r of rows) {
@@ -98,7 +103,14 @@ export async function clientRows(ctx: PageContext): Promise<Row[]> {
             id: `${l.namespace ?? ''}/${l.workload_kind ?? ''}/${l.workload}`,
             name: l.workload,
           }
-        : { kind: 'container', id: l.container!, name: l.container! },
+        : {
+            kind: 'container',
+            // host/name: the container's page; the name alone when the host isn't known.
+            id: hostOf.get(l.container!)
+              ? `${hostOf.get(l.container!)}/${l.container!}`
+              : l.container!,
+            name: l.container!,
+          },
       where,
       connections: Math.round(opened.get(k) ?? 0),
       sends: n ? Math.round(n.sent) : null,

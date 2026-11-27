@@ -9,6 +9,7 @@ import { usualBands, usualWindow } from '../../anomaly/usual.js';
 import { clientRows } from './rabbitmq-clients.js';
 import { byNeed, queueRows, watermarkIn } from './rabbitmq-queues.js';
 import { endedClients, nodesOf, queueGrowth } from './rabbitmq.js';
+import { bytes } from './owners.js';
 import { instant, one, pointsOf, range, valueOf } from './query.js';
 import type { QuerySeries } from '../../../lib/victoria.js';
 import type {
@@ -548,7 +549,12 @@ export async function checks(ctx: PageContext, rows: QueueRow[]): Promise<Checks
       id: 'disk',
       labelKey: `${P}.checks.disk`,
       state: da > 0 ? 'fail' : 'pass',
-      value: { key: `${P}.checks.aboveLimit`, values: { bytes: valueOf(diskHead) } },
+      value: {
+        key: `${P}.checks.aboveLimit`,
+        values: {
+          bytes: valueOf(diskHead) === null ? null : bytes(Math.max(0, valueOf(diskHead)!)),
+        },
+      },
       ...(da > 0 ? { link: { kind: 'tab' as const, tab: 'nodes', name: 'nodes' } } : {}),
     });
   const members =
@@ -750,7 +756,15 @@ export async function nodesTab(ctx: PageContext): Promise<Panel[]> {
   ]);
   const of = (rows: QuerySeries[], m: string) =>
     rows.find((r) => r.labels.member === m)?.points[0]?.[1] ?? null;
-  const known = (ctx.row.status_details as { members?: { name: string }[] } | null)?.members ?? [];
+  const known =
+    (
+      ctx.row.status_details as {
+        members?: { name: string; up?: boolean; error?: string }[];
+      } | null
+    )?.members ?? [];
+  const downOf = new Map(
+    known.filter((m) => m.up === false).map((m) => [m.name, m.error || 'not answering']),
+  );
   const names = [
     ...new Set([...known.map((m) => m.name), ...mem.map((m) => m.labels.member ?? '')]),
   ]
@@ -772,13 +786,16 @@ export async function nodesTab(ctx: PageContext): Promise<Panel[]> {
     const ratio = (of(mem, m) ?? 0) / (of(memLimit, m) || Infinity);
     const alarm = (of(alarms, m) ?? 0) > 0;
     const version = info.find((r) => r.labels.member === m)?.labels.version ?? null;
-    const sev: Severity | undefined = alarm ? 'critical' : ratio > 0.8 ? 'warning' : undefined;
+    const down = downOf.get(m);
+    const sev: Severity | undefined =
+      alarm || down ? 'critical' : ratio > 0.8 ? 'warning' : undefined;
     return {
       name: m,
       version,
       uptime: of(uptime, m),
       connections: of(connections, m),
       leaders: has4x ? (of(leaders, m) ?? 0) : null,
+      ...(down ? { down } : {}),
       ...(sev ? { severity: sev } : {}),
       limits,
     };

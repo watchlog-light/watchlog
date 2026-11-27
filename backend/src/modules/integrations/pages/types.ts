@@ -197,6 +197,8 @@ export interface NodesPanel extends Base {
     connections: number | null;
     /** Queue leaders on it; null where the version doesn't say (3.13). */
     leaders: number | null;
+    /** It doesn't answer: why (the collector's words). */
+    down?: string;
     severity?: Severity;
     limits: {
       labelKey: string;

@@ -230,6 +230,7 @@ export const PanelSchema = Type.Union([
         uptime: Num,
         connections: Num,
         leaders: Num,
+        down: Type.Optional(Type.String()),
         severity: Type.Optional(Severity),
         limits: Type.Array(
           Type.Object({

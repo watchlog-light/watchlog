@@ -13995,6 +13995,7 @@ export interface paths {
                       uptime: number | null;
                       connections: number | null;
                       leaders: number | null;
+                      down?: string;
                       severity?: 'ok' | 'info' | 'warning' | 'critical';
                       limits: {
                         labelKey: string;

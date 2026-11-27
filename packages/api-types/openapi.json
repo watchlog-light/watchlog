@@ -40003,6 +40003,9 @@
                                         }
                                       ]
                                     },
+                                    "down": {
+                                      "type": "string"
+                                    },
                                     "severity": {
                                       "anyOf": [
                                         {
