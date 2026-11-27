@@ -347,7 +347,7 @@ async function resume() {
                   v-for="(l, j) in r.links"
                   :key="j"
                   :to="l.to!"
-                  class="text-primary hover:underline"
+                  class="text-primary hover:underline max-lg:inline-flex max-lg:min-h-11 max-lg:items-center"
                   data-testid="reason-link"
                   >{{ $t(l.key, { name: l.name }) }}</RouterLink
                 >

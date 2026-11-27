@@ -1,11 +1,18 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-only -->
 <script setup lang="ts">
+import { whenAndAgo } from '@/lib/format';
 import { formatValue } from '@/lib/units';
 import { SEVERITY_TEXT, type PanelOf } from '@/lib/panels';
 
 // Stat tiles: a label, the number, a short line under it. A warning or critical value
 // is coloured and its border too; the label says what it is (never colour alone).
 defineProps<{ panel: PanelOf<'stat'> }>();
+// A moment in a sub line (`at`, unix seconds) reads in the reader's clock: "14:02 (3 min ago)".
+const subValues = (v: Record<string, unknown> | undefined) => {
+  const out = { ...(v ?? {}) };
+  if (typeof out.at === 'number') out.at = whenAndAgo(out.at);
+  return out;
+};
 const shown = (t: PanelOf<'stat'>['tiles'][number]) =>
   typeof t.value === 'number' && t.unit ? formatValue(t.value, t.unit) : (t.value ?? '–');
 </script>
@@ -32,7 +39,7 @@ const shown = (t: PanelOf<'stat'>['tiles'][number]) =>
         shown(t)
       }}</span>
       <span v-if="t.sub" class="text-12 text-text-muted">{{
-        $t(t.sub.key, t.sub.values ?? {})
+        $t(t.sub.key, subValues(t.sub.values))
       }}</span>
     </div>
   </div>

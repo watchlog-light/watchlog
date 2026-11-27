@@ -117,7 +117,7 @@ const drainText = (r: Row) => (r.drain.state === 'eta' ? formatDuration(r.drain.
               <button
                 v-if="panel.full"
                 type="button"
-                class="inline-flex items-center gap-1 uppercase hover:text-text max-lg:min-h-11"
+                class="inline-flex items-center gap-1 uppercase hover:text-text max-lg:min-h-11 max-lg:min-w-11"
                 :data-testid="`sort-${c.key}`"
                 @click="sortBy(c.key)"
               >
@@ -153,7 +153,7 @@ const drainText = (r: Row) => (r.drain.state === 'eta' ? formatDuration(r.drain.
                 </span>
                 <RouterLink
                   :to="queueRoute(page.appId, r.vhost, r.queue)"
-                  class="truncate font-mono text-text hover:text-primary hover:underline"
+                  class="truncate font-mono text-text hover:text-primary hover:underline max-lg:min-h-11 max-lg:leading-[2.75rem]"
                   :title="r.name"
                   >{{ r.name }}</RouterLink
                 >
@@ -194,7 +194,9 @@ const drainText = (r: Row) => (r.drain.state === 'eta' ? formatDuration(r.drain.
               class="px-4 py-2 text-right tabular-nums"
               :class="
                 r.consumers === 0 && r.type !== 'stream' && r.ready > 0
-                  ? 'font-semibold text-critical-text'
+                  ? r.severity === 'critical'
+                    ? 'font-semibold text-critical-text'
+                    : 'text-warning-text'
                   : 'text-text-muted'
               "
             >
@@ -228,7 +230,7 @@ const drainText = (r: Row) => (r.drain.state === 'eta' ? formatDuration(r.drain.
     <RouterLink
       v-if="!panel.full"
       :to="{ name: 'application', params: { id: page.appId }, query: { tab: 'queues' } }"
-      class="self-end text-13 text-primary hover:underline"
+      class="self-end text-13 text-primary hover:underline max-lg:inline-flex max-lg:min-h-11 max-lg:items-center"
       data-testid="queues-all"
       >{{ $t('integrations.rabbitmq.panels.allQueuesLink', { n: panel.total }) }}</RouterLink
     >

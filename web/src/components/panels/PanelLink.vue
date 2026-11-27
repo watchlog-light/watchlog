@@ -11,13 +11,18 @@ const to = computed(() => linkRoute(props.link, page.appId, page.clusterId));
 </script>
 
 <template>
-  <RouterLink v-if="to" :to="to" class="text-primary hover:underline"><slot /></RouterLink>
+  <RouterLink
+    v-if="to"
+    :to="to"
+    class="text-primary hover:underline max-lg:inline-flex max-lg:min-h-11 max-lg:items-center"
+    ><slot
+  /></RouterLink>
   <a
     v-else-if="link.kind === 'docs'"
     :href="link.href"
     target="_blank"
     rel="noopener"
-    class="text-primary hover:underline"
+    class="text-primary hover:underline max-lg:inline-flex max-lg:min-h-11 max-lg:items-center"
     ><slot
   /></a>
   <span v-else><slot /></span>

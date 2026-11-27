@@ -28,7 +28,11 @@ const textOf = (k: { key: string; values?: Record<string, unknown> }) => {
         :class="c.severity === 'critical' ? 'border-critical/50' : 'border-border'"
         :data-testid="`flow-${c.id}`"
       >
-        <span class="text-12 text-text-muted">{{ $t(c.title.key, c.title.values ?? {}) }}</span>
+        <span class="text-12 text-text-muted">{{
+          typeof c.title.values?.n === 'number'
+            ? $t(c.title.key, c.title.values, c.title.values.n)
+            : $t(c.title.key, c.title.values ?? {})
+        }}</span>
         <span class="flex items-baseline gap-1.5">
           <span
             class="text-22 font-semibold tabular-nums"
