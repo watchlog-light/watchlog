@@ -445,7 +445,8 @@ describe('the RabbitMQ page', () => {
     });
     expect(consumersTile.severity).toBeUndefined();
     expect(tiles.find((t) => t.id === 'deliver')).toMatchObject({
-      sub: { key: 'integrations.rabbitmq.panels.wasRate' },
+      sub: { key: 'integrations.rabbitmq.panels.behindPublish' },
+      severity: 'warning',
     });
     expect(tiles.find((t) => t.id === 'ready')).toMatchObject({
       sub: { key: 'integrations.rabbitmq.panels.growing' },

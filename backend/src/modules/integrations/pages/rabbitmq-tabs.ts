@@ -119,7 +119,6 @@ export async function overview(input: PageContext): Promise<Panel[]> {
     unacked,
     publish,
     deliver,
-    deliverPeak,
     consumersAgo,
     memory,
     publishLine,
@@ -139,7 +138,6 @@ export async function overview(input: PageContext): Promise<Panel[]> {
     instant(ctx, `sum(rabbitmq_queue_messages_unacked{${s}})`),
     instant(ctx, g('received')),
     instant(ctx, g('delivered')),
-    instant(ctx, `max_over_time(${g('delivered')}[1h:1m])`),
     instant(ctx, `sum(rabbitmq_detailed_queue_consumers{${s}} offset 1h)`),
     instant(
       ctx,
@@ -158,7 +156,6 @@ export async function overview(input: PageContext): Promise<Panel[]> {
     usualNow(ctx, g('delivered'), 'per_second'),
   ]);
   const d = valueOf(deliver);
-  const dPeak = valueOf(deliverPeak);
   const c = consumersOf(rows);
   const cAgo = valueOf(consumersAgo);
   const mem = valueOf(memory);
@@ -210,13 +207,11 @@ export async function overview(input: PageContext): Promise<Panel[]> {
         labelKey: `${P}.deliver`,
         value: d,
         unit: 'per_second',
-        // Behind the publishers while ready grows: a backlog draining is not a drop.
-        sub:
-          lags && dPeak !== null && dPeak > (d ?? 0)
-            ? { key: `${P}.wasRate`, values: { n: round(dPeak) } }
-            : lags
-              ? { key: `${P}.behindPublish` }
-              : (usualSub(d, usualDeliver) ?? { key: `${P}.messagesASecond` }),
+        // Behind the publishers while ready grows, said against what they publish; the hour's
+        // peak is no reference (often a backlog draining, 1.1.2).
+        sub: lags
+          ? { key: `${P}.behindPublish`, values: { n: round(p ?? 0) } }
+          : (usualSub(d, usualDeliver) ?? { key: `${P}.messagesASecond` }),
         severity: lags ? 'warning' : undefined,
       },
       {
