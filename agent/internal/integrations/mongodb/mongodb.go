@@ -1331,8 +1331,8 @@ func orderedKey(raw bson.Raw) bson.D {
 	for _, e := range els {
 		val := e.Value()
 		var x any
-		switch {
-		case val.Type == bson.TypeString:
+		switch val.Type {
+		case bson.TypeString:
 			x = val.StringValue()
 		default:
 			if f, ok := val.AsFloat64OK(); ok {

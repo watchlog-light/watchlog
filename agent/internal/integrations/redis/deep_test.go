@@ -61,8 +61,11 @@ func TestSlowerNeedsThreeInARow(t *testing.T) {
 	if p.baseline != 700*time.Microsecond {
 		t.Fatalf("%v", p.baseline)
 	}
-	if p.slower(5*time.Millisecond) || p.slower(5*time.Millisecond) || p.slower(time.Millisecond) || p.slower(5*time.Millisecond) || p.slower(5*time.Millisecond) {
-		t.Fatal("a spike stopped it")
+	// Two slow calls, a normal one, two slow again: never three in a row.
+	for i, d := range []time.Duration{5, 5, 1, 5, 5} {
+		if p.slower(d * time.Millisecond) {
+			t.Fatalf("call %d: a spike stopped it", i)
+		}
 	}
 	if !p.slower(5 * time.Millisecond) {
 		t.Fatal("three in a row didn't")
@@ -207,7 +210,8 @@ func TestLabScrape(t *testing.T) {
 		all, _ := json.Marshal(res)
 		// A value written by the lab's workloads, and full key names (session:<n>, cart:<n>).
 		for _, lit := range []string{"vvvvvvvv", `"session:1`, `"session:2`, `"cart:1`, `"user:1`, "kind", "order"} {
-			if strings.Contains(string(all), lit) && !(lit == "order" && strings.Contains(string(all), `"orders"`)) {
+			// "order" may appear as the stream "orders" (a stream's name is sent, ADR-248).
+			if strings.Contains(string(all), lit) && (lit != "order" || !strings.Contains(string(all), `"orders"`)) {
 				t.Errorf("%s: %s left the agent", members[0].Name, lit)
 			}
 		}
