@@ -254,7 +254,6 @@ export async function overview(input: PageContext): Promise<Panel[]> {
     usedSeries,
     maxSeries,
     evictSeries,
-    expireSeries,
     owners,
     prefixes,
     hitSeries,
@@ -295,7 +294,6 @@ export async function overview(input: PageContext): Promise<Panel[]> {
     range(ctx, `max(watchlog_redis_memory_used_bytes{${s}})`),
     range(ctx, `max(watchlog_redis_memory_max_bytes{${s}} > 0)`),
     range(ctx, `sum(rate(watchlog_redis_evicted_keys_total{${s}}[${RATE}]))`),
-    range(ctx, `sum(rate(watchlog_redis_expired_keys_total{${s}}[${RATE}]))`),
     ownersOf(ctx),
     prefixStats(ctx),
     range(
