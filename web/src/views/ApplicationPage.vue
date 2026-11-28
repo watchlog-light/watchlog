@@ -41,7 +41,7 @@ import { useToastStore } from '@/stores/toast';
 // own time range, "What WatchLog sees" (ADR-137), the integration's tabs (?tab=) with
 // their panels in a two-column grid, then the workloads that connect to it and the MCP
 // hint. A service whose integration hasn't landed has the generic Overview.
-const { t } = useI18n();
+const { t, te } = useI18n();
 const route = useRoute();
 const router = useRouter();
 const auth = useAuthStore();
@@ -145,6 +145,21 @@ const HEALTH_STYLE = {
   critical: 'bg-critical/15 text-critical-text',
   unknown: 'bg-surface-3 text-text-muted',
 } as const;
+// A missing grant or setting (ADR-134): one panel's says what it shows and how to fix it, as
+// the panel itself does; a whole tab's is named by the tab's title, never its id.
+function permissionLine(r: { code: string; facts: Record<string, unknown> }) {
+  if (r.code !== 'needs_permission' || typeof r.facts.tab !== 'string') return null;
+  const tab = r.facts.tab;
+  const own = `integrations.${app.value!.type}.missing.${tab.replace('/', '.')}`;
+  if (tab.includes('/') && te(own)) return { key: own, values: { missing: r.facts.missing } };
+  const title = tabs.value.find((x) => x.id === tab.split('/')[0])?.title;
+  return title
+    ? {
+        key: 'applications.reason.needsPermission',
+        values: { tab: t(title), missing: r.facts.missing },
+      }
+    : null;
+}
 const reasons = computed(() =>
   (page.data.value?.reasons ?? []).map((r) => {
     const f = r.facts;
@@ -165,7 +180,7 @@ const reasons = computed(() =>
     return {
       code: r.code,
       severity: r.severity,
-      text: reasonLine(r, app.value!.cluster, (iso) => formatDateTime(iso)),
+      text: permissionLine(r) ?? reasonLine(r, app.value!.cluster, (iso) => formatDateTime(iso)),
       // When a growing queue takes memory to the high watermark at this rate.
       watermark:
         typeof f.watermarkIn === 'number' && f.watermarkIn > 0
@@ -385,7 +400,7 @@ async function resume() {
               aria-hidden="true"
             />
             <span class="flex min-w-0 flex-col gap-2 text-14 leading-relaxed text-text">
-              <span>
+              <span class="[overflow-wrap:anywhere]">
                 <span class="sr-only">{{ $t(`integrations.severity.${r.severity}`) }}: </span>
                 {{ $t(r.text.key, r.text.values) }}
                 <template v-if="r.watermark">
@@ -557,7 +572,7 @@ async function resume() {
           <!-- A 380 px column beside the rest, one row (the design's checks and queues). -->
           <div
             v-else
-            class="grid min-w-0 gap-3.5 md:col-span-2 lg:grid-cols-[380px_minmax(0,1fr)]"
+            class="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-3.5 md:col-span-2 lg:grid-cols-[380px_minmax(0,1fr)]"
             data-testid="panel-pair"
           >
             <ServicePanel

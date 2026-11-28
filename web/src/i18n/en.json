@@ -2681,7 +2681,7 @@
       "clients_blocked": "{n} clients are blocked waiting (BLPOP, XREAD, WAIT…).",
       "connections_near_max": "Connections are at {pct}% of max_connections ({n} of {max}). Most are held by {top}.",
       "long_query": "A query has been running for {duration}.",
-      "idle_in_transaction": "{n} sessions are idle in a transaction, the longest for {duration}: they hold locks and stop vacuum from cleaning up.",
+      "idle_in_transaction": "A session is idle in a transaction for {duration}: it holds locks and stops vacuum from cleaning up. | {n} sessions are idle in a transaction, the longest for {duration}: they hold locks and stop vacuum from cleaning up.",
       "lock_waits": "{n} sessions are waiting for a lock held by {who}.",
       "deadlocks": "{n} deadlocks in the last 15 minutes: the database cancelled one transaction each time.",
       "replica_lag": "A replica is {duration} behind.",
@@ -2756,7 +2756,8 @@
       "phpfpm_busy": "{busy}% of the workers are busy: close to pm.max_children.",
       "phpfpm_slow": "{slow} requests took longer than request_slowlog_timeout in the last 10 minutes.",
       "statement_slower": "A statement became {x}× slower than usual (now {mean} on average), with no rise in calls: {query}",
-      "long_transaction": "A transaction of {who} has been open for {age} and blocks {blocks} sessions.",
+      "long_transaction": "A transaction of {who} has been open for {age} and blocks another session. | A transaction of {who} has been open for {age} and blocks {n} sessions.",
+      "long_transaction_open": "A transaction of {who} has been open for {age}.",
       "slot_fills_disk": "The replication slot {slot} keeps WAL that fills the data volume in {eta} at its last hour's growth.",
       "waits_mostly": "Over the last 15 minutes {pct}% of the active sessions waited on {wait}.",
       "sequence_near_max": "Sequence {sequence} is at {pct}% of its maximum: inserts fail when it runs out.",
@@ -2947,9 +2948,9 @@
         "overview": "Overview",
         "connections": "Connections",
         "queries": "Queries",
-        "locks": "Locks and waits",
+        "locks": "Locks",
         "replication": "Replication",
-        "tables": "Tables and storage",
+        "tables": "Tables",
         "vacuum": "Vacuum"
       },
       "panels": {
@@ -3078,7 +3079,7 @@
         "connections": "Connections",
         "queries": "Queries",
         "locks": "Locks",
-        "storage": "InnoDB and storage",
+        "storage": "InnoDB",
         "replication": "Replication"
       },
       "panels": {
@@ -3925,7 +3926,7 @@
         "checks": {
           "title": "Health checks",
           "lockWaits": "No session waits on a lock over 30 s",
-          "sessions": "{n} sessions",
+          "sessions": "{n} session | {n} sessions",
           "idleTx": "No transaction idle over 5 min",
           "idleTxWho": "{n} · {who}",
           "none": "none",
@@ -3943,6 +3944,8 @@
           "settingOff": "{names} off",
           "pendingRestart": "{n} wait for a restart",
           "settingsOk": "all good",
+          "autovacuum": "Autovacuum keeps up",
+          "tablesWaiting": "{n} tables waiting | {n} table waiting | {n} tables waiting",
           "statementsOn": "pg_stat_statements is on",
           "yes": "yes",
           "no": "no",

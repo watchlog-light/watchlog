@@ -27,6 +27,8 @@ export function formatBytes(v) {
 /** "233 ms", "0.9 ms", "2.43 s": milliseconds below a second. */
 export function formatSeconds(v) {
   if (v === 0) return '0 ms';
+  // Below a tenth of a millisecond: microseconds (a block read from the page cache, 1.2).
+  if (Math.abs(v) < 0.0001) return `${+(v * 1e6).toPrecision(2)} µs`;
   return v < 1 ? `${+(v * 1000).toFixed(v < 0.01 ? 1 : 0)} ms` : `${+v.toFixed(2)} s`;
 }
 

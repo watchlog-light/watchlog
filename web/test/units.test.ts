@@ -49,6 +49,12 @@ describe('formatting', () => {
     expect(formatValue(Number.NaN, 'load')).toBe('–');
   });
 
+  it('writes a block read in microseconds, not "0 ms" (1.2)', () => {
+    expect(formatValue(0.0000012, 'seconds')).toBe('1.2 µs');
+    expect(formatValue(0.00005, 'seconds')).toBe('50 µs');
+    expect(formatValue(0.0021, 'seconds')).toBe('2.1 ms');
+  });
+
   it('computes relative windows and uptime', () => {
     expect(rangeWindow('1h', 3_600_000_000)).toEqual([3_596_400, 3_600_000]);
     const now = Date.parse('2026-10-31T12:00:00Z');

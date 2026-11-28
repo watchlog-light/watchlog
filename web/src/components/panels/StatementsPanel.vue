@@ -17,6 +17,13 @@ const page = useServicePage();
 const pct = (v: number | null) =>
   v === null ? '–' : `${v < 0.01 && v > 0 ? '<1' : Math.round(v * 100)}%`;
 const rows = computed(() => props.panel.rows);
+// Calls a second, as the column's title says it: "310", "0.5", "0.07".
+const calls = (v: number) =>
+  v >= 100
+    ? Math.round(v).toLocaleString('en')
+    : v >= 1
+      ? String(+v.toFixed(1))
+      : String(+v.toPrecision(1));
 </script>
 
 <template>
@@ -60,7 +67,8 @@ const rows = computed(() => props.panel.rows);
             class="border-t border-border align-top first:border-t-0"
             data-testid="statement-row"
           >
-            <td class="max-w-[30rem] px-4 py-2">
+            <!-- The text takes what the numbers leave, and truncates (max-w-0 with w-full). -->
+            <td class="w-full max-w-0 px-4 py-2">
               <div class="flex min-w-0 items-center gap-2">
                 <span
                   class="size-2 shrink-0 rounded-full"
@@ -72,7 +80,7 @@ const rows = computed(() => props.panel.rows);
                 </span>
                 <RouterLink
                   :to="statementRoute(page.appId, r.id)"
-                  class="min-w-0 truncate font-mono text-text hover:text-primary hover:underline max-lg:min-h-11 max-lg:py-3"
+                  class="min-w-0 truncate font-mono text-text hover:text-primary hover:underline max-lg:min-h-11 max-lg:min-w-11 max-lg:py-3"
                   :title="r.text"
                   data-testid="statement-link"
                   >{{ r.text }}</RouterLink
@@ -87,11 +95,11 @@ const rows = computed(() => props.panel.rows);
                 {{ $t(r.hint.key, r.hint.values ?? {}) }}
               </p>
             </td>
-            <td class="px-2 py-2 text-right text-text tabular-nums">
-              {{ r.calls === null ? '–' : formatValue(r.calls, 'per_second') }}
+            <td class="px-2 py-2 text-right whitespace-nowrap text-text tabular-nums">
+              {{ r.calls === null ? '–' : calls(r.calls) }}
             </td>
             <td
-              class="px-2 py-2 text-right tabular-nums"
+              class="px-2 py-2 text-right whitespace-nowrap tabular-nums"
               :class="
                 r.hint?.key.endsWith('.slower') ? 'font-semibold text-warning-text' : 'text-text'
               "
@@ -106,11 +114,13 @@ const rows = computed(() => props.panel.rows);
               {{ r.mean === null ? '–' : formatValue(r.mean, 'seconds')
               }}{{ r.hint?.key.endsWith('.slower') ? ' ↑' : '' }}
             </td>
-            <td class="px-2 py-2 text-right text-text tabular-nums">{{ pct(r.share) }}</td>
-            <td class="px-2 py-2 text-right text-text tabular-nums">
+            <td class="px-2 py-2 text-right whitespace-nowrap text-text tabular-nums">
+              {{ pct(r.share) }}
+            </td>
+            <td class="px-2 py-2 text-right whitespace-nowrap text-text tabular-nums">
               {{ r.rows === null ? '–' : formatValue(r.rows, 'count') }}
             </td>
-            <td class="px-4 py-2">
+            <td class="max-w-[12rem] truncate px-4 py-2 whitespace-nowrap">
               <template v-if="r.sentBy">
                 <PanelLink v-if="r.sentBy.link" :link="r.sentBy.link">{{
                   r.sentBy.name

@@ -269,6 +269,11 @@ export function reasonLine(
         values: { ...f },
       };
     }
+    case 'long_transaction':
+      // Plural by the sessions it blocks; one that blocks nobody is only old.
+      return Number(f.blocks) > 0
+        ? { key: 'integrations.reasons.long_transaction', values: { ...f, n: f.blocks } }
+        : { key: 'integrations.reasons.long_transaction_open', values: { ...f } };
     case 'lock_waits':
       // MySQL names the table and how long the holder's transaction has been open.
       return {
