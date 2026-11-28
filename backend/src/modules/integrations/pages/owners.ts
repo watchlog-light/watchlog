@@ -8,12 +8,14 @@ export interface Owner {
   kind: 'workload' | 'container';
   /** "namespace/workload" on Kubernetes; the container name on Docker. */
   name: string;
+  /** Its page's id (1.2): "namespace/Kind/workload", or "host/container". */
+  id?: string;
 }
 
 export async function ipOwners(db: Database, clusterId: string): Promise<Map<string, Owner>> {
   const rows = await db
     .selectFrom('objects')
-    .select(['kind', 'namespace', 'name', 'spec_summary', 'status_summary'])
+    .select(['kind', 'namespace', 'name', 'node', 'spec_summary', 'status_summary'])
     .where('cluster_id', '=', clusterId)
     .where('kind', 'in', ['Pod', 'DockerContainer'])
     .where('deleted_at', 'is', null)
@@ -22,11 +24,20 @@ export async function ipOwners(db: Database, clusterId: string): Promise<Map<str
   for (const r of rows) {
     if (r.kind === 'Pod') {
       const ip = (r.status_summary as { pod_ip?: string }).pod_ip;
-      const w = (r.spec_summary as { workload?: { name?: string } }).workload;
-      if (ip) out.set(ip, { kind: 'workload', name: `${r.namespace}/${w?.name ?? r.name}` });
+      const w = (r.spec_summary as { workload?: { name?: string; kind?: string } }).workload;
+      if (ip)
+        out.set(ip, {
+          kind: 'workload',
+          name: `${r.namespace}/${w?.name ?? r.name}`,
+          ...(w?.name && w.kind ? { id: `${r.namespace}/${w.kind}/${w.name}` } : {}),
+        });
     } else {
       for (const ip of (r.spec_summary as { ips?: string[] }).ips ?? []) {
-        out.set(ip, { kind: 'container', name: r.name });
+        out.set(ip, {
+          kind: 'container',
+          name: r.name,
+          ...(r.node ? { id: `${r.node}/${r.name}` } : {}),
+        });
       }
     }
   }

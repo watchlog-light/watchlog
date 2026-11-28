@@ -39,7 +39,11 @@ export type Link =
   | { kind: 'workload' | 'container'; id: string; name: string }
   | { kind: 'queue'; vhost: string; queue: string; name: string }
   | { kind: 'tab'; tab: string; filter?: string; name: string }
-  | { kind: 'docs'; href: string; name: string };
+  | { kind: 'docs'; href: string; name: string }
+  /** A database's statement page (1.2): its queryid or digest. */
+  | { kind: 'statement'; id: string; name: string }
+  /** A database's table page (1.2): "db/schema.table" or "db/table". */
+  | { kind: 'table'; id: string; name: string };
 
 export interface SeriesPanel extends Base {
   kind: 'line' | 'stack';
@@ -50,6 +54,8 @@ export interface SeriesPanel extends Base {
   band?: { low: Point[]; high: Point[] };
   /** Said in one line instead of the chart when every point in the range is zero (1.1.1). */
   zeroKey?: string;
+  /** A period can be chosen on it (1.2, the Waits tab): the lists below follow it. */
+  select?: boolean;
   series: {
     /** A name from the service (a member, a queue), or a key for WatchLog's own words. */
     name?: string;
@@ -255,6 +261,66 @@ export interface QueueAlertsPanel extends Base {
   }[];
 }
 
+/** One statement's row (1.2): what it costs, who sends it, a hint. */
+export interface StatementRow {
+  id: string;
+  /** The normalised text, or "queryid 123" / "digest abc" when query text is off. */
+  text: string;
+  /** Calls a second, the mean time (s) now and as usual, rows per call. */
+  calls: number | null;
+  mean: number | null;
+  usual: number | null;
+  rows: number | null;
+  /** Its share of the database's time, or of its active sessions on the Waits tab. */
+  share: number | null;
+  /** The client that sent most of it, only when one clearly dominates. */
+  sentBy: { name: string; share: number; link?: Link } | null;
+  /** "probably missing an index on shop.events", "5× slower since 14:00". */
+  hint?: Text;
+  severity?: Severity;
+}
+export interface StatementsPanel extends Base {
+  kind: 'statements';
+  rows: StatementRow[];
+  /** What share means: of the time spent ('time') or of the active sessions ('waits'). */
+  shareOf: 'time' | 'waits';
+  full: boolean;
+  total: number;
+}
+/** Who blocks whom (1.2): pre-order, the root blocker first, each with its depth. */
+export interface TreePanel extends Base {
+  kind: 'tree';
+  nodes: {
+    id: string;
+    depth: number;
+    /** The client: a workload, a container, an address or an application name. */
+    name: string;
+    link?: Link;
+    /** "idle in transaction", "waiting on a lock". */
+    state: Text;
+    /** Seconds in this state, and the transaction's age (null when unknown). */
+    seconds: number;
+    xact: number | null;
+    query: string | null;
+    severity?: Severity;
+  }[];
+}
+/** A statement's or a table's own alerts (1.2), and the ones a user can add in one click. */
+export interface ScopedAlertsPanel extends Base {
+  kind: 'scoped_alerts';
+  scope: { statement?: string; table?: string };
+  rules: { id: string; name: string; state: 'firing' | 'quiet' | 'off' }[];
+  presets: {
+    key: string;
+    nameKey: string;
+    metric: string;
+    op: '>' | '<';
+    value: number;
+    forSeconds: number;
+    severity: 'warning' | 'critical';
+  }[];
+}
+
 export type Panel =
   | SeriesPanel
   | BarsPanel
@@ -271,7 +337,10 @@ export type Panel =
   | TimelinePanel
   | FactsPanel
   | CausePanel
-  | QueueAlertsPanel;
+  | QueueAlertsPanel
+  | StatementsPanel
+  | TreePanel
+  | ScopedAlertsPanel;
 
 /** A fact about the service, rendered from its code (integrations.reasons.<code>). */
 export interface Reason {

@@ -56,6 +56,11 @@ const Link = Type.Union([
     name: Type.String(),
   }),
   Type.Object({ kind: Type.Literal('docs'), href: Type.String(), name: Type.String() }),
+  Type.Object({
+    kind: Type.Union([Type.Literal('statement'), Type.Literal('table')]),
+    id: Type.String(),
+    name: Type.String(),
+  }),
 ]);
 const Num = Nullable(Type.Number());
 
@@ -87,6 +92,9 @@ export const PanelSchema = Type.Union([
     ),
     zeroKey: Type.Optional(
       Type.String({ description: 'A line said instead of the chart when every point is zero' }),
+    ),
+    select: Type.Optional(
+      Type.Boolean({ description: 'A period can be chosen on it; the lists below follow it' }),
     ),
     series: Type.Array(
       Type.Object({
@@ -285,6 +293,72 @@ export const PanelSchema = Type.Union([
     kind: Type.Literal('queue_alerts'),
     vhost: Type.String(),
     queue: Type.String(),
+    rules: Type.Array(
+      Type.Object({
+        id: Type.String(),
+        name: Type.String(),
+        state: Type.Union([Type.Literal('firing'), Type.Literal('quiet'), Type.Literal('off')]),
+      }),
+    ),
+    presets: Type.Array(
+      Type.Object({
+        key: Type.String(),
+        nameKey: Type.String(),
+        metric: Type.String(),
+        op: Type.Union([Type.Literal('>'), Type.Literal('<')]),
+        value: Type.Number(),
+        forSeconds: Type.Integer(),
+        severity: Type.Union([Type.Literal('warning'), Type.Literal('critical')]),
+      }),
+    ),
+  }),
+  Type.Object({
+    ...base,
+    kind: Type.Literal('statements'),
+    rows: Type.Array(
+      Type.Object({
+        id: Type.String(),
+        text: Type.String(),
+        calls: Num,
+        mean: Num,
+        usual: Num,
+        rows: Num,
+        share: Num,
+        sentBy: Nullable(
+          Type.Object({ name: Type.String(), share: Type.Number(), link: Type.Optional(Link) }),
+        ),
+        hint: Type.Optional(Text),
+        severity: Type.Optional(Severity),
+      }),
+    ),
+    shareOf: Type.Union([Type.Literal('time'), Type.Literal('waits')]),
+    full: Type.Boolean(),
+    total: Type.Integer(),
+  }),
+  Type.Object({
+    ...base,
+    kind: Type.Literal('tree'),
+    nodes: Type.Array(
+      Type.Object({
+        id: Type.String(),
+        depth: Type.Integer(),
+        name: Type.String(),
+        link: Type.Optional(Link),
+        state: Text,
+        seconds: Type.Number(),
+        xact: Num,
+        query: Nullable(Type.String()),
+        severity: Type.Optional(Severity),
+      }),
+    ),
+  }),
+  Type.Object({
+    ...base,
+    kind: Type.Literal('scoped_alerts'),
+    scope: Type.Object({
+      statement: Type.Optional(Type.String()),
+      table: Type.Optional(Type.String()),
+    }),
     rules: Type.Array(
       Type.Object({
         id: Type.String(),
