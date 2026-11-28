@@ -55,7 +55,9 @@ function show(cell: string | number | null, j: number) {
             v-for="(cell, j) in r.cells"
             :key="j"
             :class="[
-              'max-w-[24rem] truncate py-2',
+              // Beside the checks (layout main, 1.4) the first column gives way first.
+              j === 0 && panel.layout === 'main' ? 'max-w-[16rem]' : 'max-w-[24rem]',
+              'truncate py-2',
               pad,
               j === 0 ? 'font-mono' : 'text-text-muted tabular-nums',
               j === 0 && r.severity ? SEVERITY_TEXT[r.severity] : '',

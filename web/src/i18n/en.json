@@ -2897,13 +2897,14 @@
       "no_persistence_store": "Nothing is saved to disk (no RDB, no AOF) and most keys have no TTL: a restart loses all {keys} keys ({size}).",
       "noeviction_cache": "The policy is noeviction although {pct}% of the keys have a TTL, as in a cache: when memory is full, writes fail instead of old keys being evicted.",
       "overcommit_off": "vm.overcommit_memory is 0 on this host: a save’s fork can fail when memory is short.",
-      "prefix_fills_memory": "Keys under {prefix} grew to {pct}% of memory (from {from}% two hours ago), and {noTtl}% of them have no TTL. Keys are being evicted ({evictPerMin} a minute, policy {policy}).",
+      "prefix_fills_memory": "Memory is at {memPct}% of maxmemory and keys are being evicted ({evictPerMin} a minute, policy {policy}): keys under {prefix} grew from {from}% to {pct}% of memory in two hours, and {noTtl}% of them have no TTL.",
       "save_wont_fit": "The next save may be killed for memory: its fork needs about {need} of copy-on-write and {left} is left under the memory limit.",
       "sentinel_master_down": "Sentinel considers a master down.",
       "single_member_set": "The replica set {set} has a single member: there is no failover if it stops.",
       "stream_group_orphaned": "Group {group} on {stream} is falling behind ({lag} entries): its consumer {consumer} has read nothing for {idle}.",
       "thp_always": "Transparent huge pages are set to always on this host: Redis forks and frees memory more slowly.",
-      "voting_members_even": "The replica set has {n} voting members: an even number can split in two with no majority. Make it odd."
+      "voting_members_even": "The replica set has {n} voting members: an even number can split in two with no majority. Make it odd.",
+      "prefix_holds_memory": "Memory is at {memPct}% of maxmemory and keys are being evicted ({evictPerMin} a minute, policy {policy}): keys under {prefix} hold {pct}% of memory, and {noTtl}% of them have no TTL."
     },
     "page": {
       "since": "monitored since {at}",
@@ -3652,7 +3653,8 @@
           "reusable": "Reusable",
           "growth": "Growth",
           "coveredBy": "Covered by",
-          "progress": "Progress"
+          "progress": "Progress",
+          "sentBy": "Sent by"
         },
         "series": {
           "query": "Queries",
@@ -3700,7 +3702,8 @@
           "storage": "Cache and storage",
           "ofCache": "of cache",
           "dirty": "dirty",
-          "data": "data"
+          "data": "data",
+          "sendsScans": "{n} · scans"
         },
         "tiles": {
           "ops": "Operations",
