@@ -378,7 +378,7 @@ export async function overview(input: PageContext): Promise<Panel[]> {
             ...(x.link ? { link: x.link } : {}),
             ...(x.name === scanner?.name
               ? {
-                  text: { key: `${P}.flow.scans`, values: { n: x.n } },
+                  text: { key: `${P}.flow.sendsScans`, values: { n: x.n } },
                   severity: 'warning' as Severity,
                 }
               : {}),

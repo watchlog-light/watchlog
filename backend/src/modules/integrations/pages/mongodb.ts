@@ -17,6 +17,7 @@ import {
   busiestMember,
   clientsTab,
   collectionPage,
+  compact,
   collectionsTab,
   connsBy,
   extraOf,
@@ -171,10 +172,10 @@ async function reasons(ctx: PageContext): Promise<Reason[]> {
         perMin: +(scans15 / 15).toFixed(1),
         ns: worst.ns ?? null,
         fields: worst.fields ? worst.fields.split(',').join(', ') : null,
-        // Documents each one read, in the same 15 minutes as the count.
+        // Documents each one read, in the same 15 minutes as the count ("197 k", as the table).
         examined:
           n > 0
-            ? Math.round(
+            ? compact(
                 (shapeExamined.find((x) => x.labels.shape === worst.id)?.points[0]?.[1] ?? 0) / n,
               )
             : null,

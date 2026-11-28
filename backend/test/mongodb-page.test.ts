@@ -427,7 +427,7 @@ describe('the MongoDB page', () => {
       client: 'shop/analytics',
       holder: 'shop/analytics',
       cachePct: 93,
-      examined: 300000,
+      examined: '300 k',
     });
     expect(reasons.find((r) => r.code === 'long_transaction')!.facts).toMatchObject({
       who: 'shop/api',
@@ -461,7 +461,7 @@ describe('the MongoDB page', () => {
     // The client sending the scans comes first in the flow, said.
     expect(flow.columns[0]!.rows[0]).toMatchObject({
       name: 'shop/analytics',
-      text: { key: 'integrations.mongodb.panels.flow.scans' },
+      text: { key: 'integrations.mongodb.panels.flow.sendsScans' },
     });
     const tiles = (
       overview.find((p) => p.id === 'summary') as unknown as {
