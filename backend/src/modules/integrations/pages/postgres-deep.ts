@@ -37,7 +37,7 @@ import { instant, one, pointsOf, range, valueOf } from './query.js';
 import type { ChecksPanel, FlowPanel, Link, PageContext, Panel, Severity, Text } from './types.js';
 
 const E = PG;
-const P = E.P;
+const P = 'integrations.db.panels';
 const RATE = '2m';
 
 const connsOf = (s: string) =>

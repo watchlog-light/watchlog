@@ -28,18 +28,10 @@ export interface Engine {
   /** The i18n prefix of the deep panels. */
   P: string;
 }
-export const PG: Engine = {
-  type: 'postgres',
-  m: 'watchlog_postgres',
-  stmt: 'queryid',
-  P: 'integrations.db.panels',
-};
-export const MY: Engine = {
-  type: 'mysql',
-  m: 'watchlog_mysql',
-  stmt: 'digest',
-  P: 'integrations.db.panels',
-};
+/** The deep panels' words, the same for both engines. */
+const P = 'integrations.db.panels';
+export const PG: Engine = { type: 'postgres', m: 'watchlog_postgres', stmt: 'queryid', P };
+export const MY: Engine = { type: 'mysql', m: 'watchlog_mysql', stmt: 'digest', P };
 
 /** The five classes of "active sessions by wait" (the collectors' WaitClasses). */
 export const WAITS = ['cpu', 'io', 'lock', 'client', 'other'] as const;
@@ -138,15 +130,15 @@ export async function waitsChart(ctx: PageContext, e: Engine, select = true): Pr
   const by = new Map(series.map((s) => [s.labels.wait ?? '', s]));
   return {
     id: 'waits',
-    title: `${e.P}.waits`,
+    title: `${P}.waits`,
     kind: 'stack',
     span: 2,
     unit: 'count',
     state: series.length ? 'ok' : 'empty',
-    note: { key: `${e.P}.waitsNote` },
+    note: { key: `${P}.waitsNote` },
     ...(select ? { select: true } : {}),
     series: WAITS.map((w) => ({
-      nameKey: `${e.P}.wait.${w}`,
+      nameKey: `${P}.wait.${w}`,
       points: pointsOf(by.get(w)),
       ...(WAIT_SEVERITY[w] ? { severity: WAIT_SEVERITY[w] } : {}),
     })),
@@ -403,9 +395,9 @@ export function statementRows(
     const sb = senders.get(id);
     const idx = missingIndex(e, f, fullScans);
     const hint: Text | undefined = st?.slower
-      ? { key: `${e.P}.hint.slower`, values: { x: Math.round(st.slower) } }
+      ? { key: `${P}.hint.slower`, values: { x: Math.round(st.slower) } }
       : idx
-        ? { key: `${e.P}.hint.index`, values: { table: idx.table } }
+        ? { key: `${P}.hint.index`, values: { table: idx.table } }
         : undefined;
     return {
       id,
@@ -553,7 +545,7 @@ export function treePanel(
       name: c.name,
       ...(c.link ? { link: c.link } : {}),
       state: {
-        key: waiting ? `${e.P}.tree.waits` : idle ? `${e.P}.tree.idleHolds` : `${e.P}.tree.holds`,
+        key: waiting ? `${P}.tree.waits` : idle ? `${P}.tree.idleHolds` : `${P}.tree.holds`,
         values: { wait: s.wait || null },
       },
       seconds: s.seconds,
@@ -564,11 +556,11 @@ export function treePanel(
   });
   return {
     id: 'tree',
-    title: `${e.P}.tree.title`,
+    title: `${P}.tree.title`,
     kind: 'tree',
     span: 2,
     state: nodes.length ? 'ok' : 'empty',
-    note: { key: `${e.P}.tree.note` },
+    note: { key: `${P}.tree.note` },
     nodes,
   };
 }
@@ -640,7 +632,7 @@ export async function scopedAlerts(
   const on = new Set(firing.map((f) => f.rule_id));
   return {
     id: 'alerts',
-    title: `${e.P}.alerts.${key}`,
+    title: `${P}.alerts.${key}`,
     kind: 'scoped_alerts',
     span: 2,
     state: 'ok',
@@ -753,7 +745,7 @@ export async function resourcePanels(ctx: PageContext, e: Engine): Promise<Panel
     p?.io ? range(ctx, p.io.replaceAll('$w', w)) : Promise.resolve([]),
     range(ctx, latency),
   ]);
-  const noProcess = p ? undefined : { key: `${e.P}.process.byAddress` };
+  const noProcess = p ? undefined : { key: `${P}.process.byAddress` };
   const limitLine = (r: QuerySeries[], key: string) =>
     r[0] && (r[0].points.at(-1)?.[1] ?? 0) > 0 && (r[0].points.at(-1)?.[1] ?? 0) < 2 ** 50
       ? [{ nameKey: key, points: pointsOf(r[0]), dashed: true }]
@@ -761,57 +753,57 @@ export async function resourcePanels(ctx: PageContext, e: Engine): Promise<Panel
   return [
     {
       id: 'cpu',
-      title: `${e.P}.process.cpu`,
+      title: `${P}.process.cpu`,
       kind: 'line',
       span: 1,
       unit: 'cores',
       state: cpu.length ? 'ok' : 'empty',
       ...(noProcess ? { note: noProcess } : {}),
       series: [
-        { nameKey: `${e.P}.process.used`, points: pointsOf(cpu[0]) },
-        ...limitLine(cpuLimit, `${e.P}.process.limit`),
+        { nameKey: `${P}.process.used`, points: pointsOf(cpu[0]) },
+        ...limitLine(cpuLimit, `${P}.process.limit`),
       ],
     },
     {
       id: 'memory',
-      title: `${e.P}.process.memory`,
+      title: `${P}.process.memory`,
       kind: 'line',
       span: 1,
       unit: 'bytes',
       state: mem.length ? 'ok' : 'empty',
       ...(noProcess ? { note: noProcess } : {}),
       series: [
-        { nameKey: `${e.P}.process.used`, points: pointsOf(mem[0]) },
-        ...limitLine(memLimit, `${e.P}.process.limit`),
+        { nameKey: `${P}.process.used`, points: pointsOf(mem[0]) },
+        ...limitLine(memLimit, `${P}.process.limit`),
       ],
     },
     {
       id: 'disk',
-      title: `${e.P}.process.disk`,
+      title: `${P}.process.disk`,
       kind: 'line',
       span: 1,
       unit: 'bytes_per_second',
       state: io.length ? 'ok' : 'empty',
       ...(p && !p.io
-        ? { note: { key: `${e.P}.process.noIo` } }
+        ? { note: { key: `${P}.process.noIo` } }
         : noProcess
           ? { note: noProcess }
           : {}),
       series: io.map((x) => ({
-        nameKey: `${e.P}.process.${x.labels.dir ?? 'read'}`,
+        nameKey: `${P}.process.${x.labels.dir ?? 'read'}`,
         points: pointsOf(x),
       })),
     },
     {
       id: 'latency',
-      title: `${e.P}.process.latency`,
+      title: `${P}.process.latency`,
       kind: 'line',
       span: 1,
       unit: 'seconds',
       state: lat.length ? 'ok' : 'empty',
-      note: { key: `${e.P}.process.latencyNote.${e.type}` },
+      note: { key: `${P}.process.latencyNote.${e.type}` },
       series: lat.map((x) => ({
-        nameKey: `${e.P}.process.${x.labels.op ?? 'read'}`,
+        nameKey: `${P}.process.${x.labels.op ?? 'read'}`,
         points: pointsOf(x),
       })),
     },
@@ -852,11 +844,11 @@ export async function capacityPanel(
       : null;
   return {
     id: 'capacity',
-    title: `${e.P}.capacity.title`,
+    title: `${P}.capacity.title`,
     kind: 'gauge',
     span: 2,
     state: mv || volume ? 'ok' : 'empty',
-    note: volume ? undefined : { key: `${e.P}.capacity.noVolume` },
+    note: volume ? undefined : { key: `${P}.capacity.noVolume` },
     items: [
       ...(volume
         ? [
@@ -868,25 +860,25 @@ export async function capacityPanel(
               warnAt: 0.85,
               note:
                 volDays !== null
-                  ? { key: `${e.P}.capacity.daysLeft`, values: { days: volDays } }
+                  ? { key: `${P}.capacity.daysLeft`, values: { days: volDays } }
                   : volume.perDay === null
-                    ? { key: `${e.P}.capacity.growthUnknown` }
-                    : { key: `${e.P}.capacity.notGrowing` },
+                    ? { key: `${P}.capacity.growthUnknown` }
+                    : { key: `${P}.capacity.notGrowing` },
             },
           ]
         : []),
       ...(mv
         ? [
             {
-              labelKey: `${e.P}.capacity.connections`,
+              labelKey: `${P}.capacity.connections`,
               value: cv ?? 0,
               max: mv,
               unit: 'count' as const,
               warnAt: 0.9,
               note:
                 connDays !== null
-                  ? { key: `${e.P}.capacity.daysLeft`, values: { days: connDays } }
-                  : { key: `${e.P}.capacity.notGrowing` },
+                  ? { key: `${P}.capacity.daysLeft`, values: { days: connDays } }
+                  : { key: `${P}.capacity.notGrowing` },
             },
           ]
         : []),
