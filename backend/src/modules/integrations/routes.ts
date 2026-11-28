@@ -836,6 +836,15 @@ export const applicationRoutes: FastifyPluginAsyncTypebox<{
           /** RabbitMQ's queue page (tab=queue): which queue. */
           queue: Type.Optional(Type.String({ minLength: 1, maxLength: 255 })),
           vhost: Type.Optional(Type.String({ minLength: 1, maxLength: 255 })),
+          /** A database's statement page (tab=statement): its queryid or digest (1.2). */
+          statement: Type.Optional(
+            Type.String({ minLength: 1, maxLength: 64, pattern: '^[-0-9a-zA-Z]+$' }),
+          ),
+          /** A database's table page (tab=table): "db/schema.table" (1.2). */
+          table: Type.Optional(Type.String({ minLength: 1, maxLength: 300 })),
+          /** The Waits tab's chosen period, unix seconds (1.2). */
+          from: Type.Optional(Type.Integer({ minimum: 0 })),
+          to: Type.Optional(Type.Integer({ minimum: 0 })),
         }),
         response: {
           200: Type.Object({
@@ -854,12 +863,18 @@ export const applicationRoutes: FastifyPluginAsyncTypebox<{
       const range = rangeOf(request.query.range);
       if (range === null)
         return sendProblem(reply, 400, 'range is one of 3600, 21600, 86400, 604800');
-      const { queue, vhost } = request.query;
+      const { queue, vhost, statement, table, from, to } = request.query;
+      const params: Record<string, string> = {
+        ...(queue ? { queue, vhost: vhost ?? '/' } : {}),
+        ...(statement ? { statement } : {}),
+        ...(table ? { table } : {}),
+        ...(from !== undefined && to !== undefined ? { from: String(from), to: String(to) } : {}),
+      };
       const found = await contextOf(
         request.user!.org.id,
         request.params.id,
         range,
-        queue ? { queue, vhost: vhost ?? '/' } : undefined,
+        Object.keys(params).length ? params : undefined,
       );
       if (!found) return sendProblem(reply, 404, 'Service not found');
       const page = pageOf(found.ctx.row.type);

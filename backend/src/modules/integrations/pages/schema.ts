@@ -152,6 +152,7 @@ export const PanelSchema = Type.Union([
       Type.Object({
         cells: Type.Array(Type.Union([Type.String(), Type.Number(), Type.Null()])),
         severity: Type.Optional(Severity),
+        link: Type.Optional(Link),
       }),
     ),
   }),
@@ -192,6 +193,7 @@ export const PanelSchema = Type.Union([
           }),
         ),
         next: Type.Optional(Num),
+        nextText: Type.Optional(Text),
       }),
     ),
   }),

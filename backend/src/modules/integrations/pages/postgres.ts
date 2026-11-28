@@ -9,6 +9,20 @@ import { genericPage } from './generic.js';
 import { ago, bytes, ipOwners, type Owner } from './owners.js';
 import { instant, one, pointsOf, range, some, SPARK_RANGE, valueOf } from './query.js';
 import type { IntegrationPage, PageContext, Panel, Reason, RowMetrics, Severity } from './types.js';
+import * as deep from './postgres-deep.js';
+import {
+  clientOf,
+  dominantWait,
+  longTxn,
+  memoryLimit,
+  ownersOf,
+  PG,
+  statementFacts,
+  statementStats,
+  transactionsOf,
+  treeSessions,
+  waitsOver,
+} from './db-deep.js';
 
 const P = 'integrations.postgres.panels';
 const RATE = '2m';
@@ -158,234 +172,9 @@ async function volumeOf(
   return { used: s - a, capacity: s, perDay: g ?? null, name: `${host}:${mount}` };
 }
 
-function statementRows(list: Statement[], calls1h: Map<string, number>) {
-  return list.map((x) => ({
-    cells: [
-      x.query ?? `queryid ${x.queryid}`,
-      ms(x.mean),
-      Math.round(calls1h.get(x.queryid) ?? 0),
-      ms(x.total),
-    ],
-    severity: x.mean > 1 ? ('warning' as Severity) : undefined,
-  }));
-}
-
+/** The Overview after the design (1.2, ADR-245). */
 async function overview(ctx: PageContext): Promise<Panel[]> {
-  const s = one(ctx.row.id);
-  const [
-    conns,
-    maxConn,
-    reserved,
-    commits,
-    rollbacks,
-    hit,
-    read,
-    lag,
-    replay,
-    size,
-    growth,
-    longest,
-    connSeries,
-    maxSeries,
-    commitSeries,
-    rollbackSeries,
-    busiest,
-    calls1h,
-    volume,
-  ] = await Promise.all([
-    instant(ctx, connsOf(s)),
-    instant(ctx, `max(watchlog_postgres_setting{${s}, name="max_connections"})`),
-    instant(ctx, `max(watchlog_postgres_setting{${s}, name="superuser_reserved_connections"})`),
-    instant(ctx, `sum(rate(watchlog_postgres_xact_commit_total{${s}}[${RATE}]))`),
-    instant(ctx, `sum(rate(watchlog_postgres_xact_rollback_total{${s}}[${RATE}]))`),
-    instant(ctx, `sum(rate(watchlog_postgres_blks_hit_total{${s}}[15m]))`),
-    instant(ctx, `sum(rate(watchlog_postgres_blks_read_total{${s}}[15m]))`),
-    instant(ctx, `max(watchlog_postgres_replica_lag_seconds{${s}})`),
-    instant(ctx, `max(watchlog_postgres_replay_lag_seconds{${s}})`),
-    instant(ctx, `sum(max by (db) (watchlog_postgres_database_size_bytes{${s}}))`),
-    instant(
-      ctx,
-      `sum(max by (db) (deriv(watchlog_postgres_database_size_bytes{${s}}[7d]) and last_over_time(watchlog_postgres_database_size_bytes{${s}}[1h] offset 1d))) * 86400`,
-    ),
-    instant(ctx, `max(watchlog_postgres_backend_max_seconds{${s}, kind="active"})`),
-    range(ctx, connsOf(s)),
-    range(ctx, `max(watchlog_postgres_setting{${s}, name="max_connections"})`),
-    range(ctx, `sum(rate(watchlog_postgres_xact_commit_total{${s}}[${RATE}]))`),
-    range(ctx, `sum(rate(watchlog_postgres_xact_rollback_total{${s}}[${RATE}]))`),
-    instant(
-      ctx,
-      `topk(10, sum by (db) (rate(watchlog_postgres_xact_commit_total{${s}}[${RATE}]) + rate(watchlog_postgres_xact_rollback_total{${s}}[${RATE}])))`,
-    ),
-    instant(ctx, `sum by (queryid) (increase(watchlog_postgres_statement_calls_total{${s}}[1h]))`),
-    volumeOf(ctx),
-  ]);
-  const c = valueOf(conns);
-  const m = valueOf(maxConn);
-  const cm = valueOf(commits) ?? 0;
-  const rb = valueOf(rollbacks) ?? 0;
-  const h = valueOf(hit) ?? 0;
-  const r = valueOf(read) ?? 0;
-  const lagS = valueOf(lag) ?? valueOf(replay);
-  const g = valueOf(growth);
-  const long = valueOf(longest);
-  const res = valueOf(reserved);
-  const callsBy = new Map(calls1h.map((x) => [x.labels.queryid ?? '', x.points[0]?.[1] ?? 0]));
-  const slowest = [...(extra(ctx).statements ?? [])].sort((a, b) => b.mean - a.mean).slice(0, 10);
-  const days =
-    volume && volume.perDay && volume.perDay > 0
-      ? Math.floor((volume.capacity - volume.used) / volume.perDay)
-      : null;
-  return [
-    {
-      id: 'summary',
-      title: `${P}.summary`,
-      kind: 'stat',
-      span: 2,
-      state: c === null ? 'empty' : 'ok',
-      tiles: [
-        {
-          id: 'connections',
-          labelKey: `${P}.connections`,
-          value: c,
-          unit: 'count',
-          sub: m ? { key: `${P}.ofMax`, values: { max: m } } : undefined,
-          severity: c !== null && m ? (c / m > 0.9 ? 'warning' : 'ok') : undefined,
-        },
-        {
-          id: 'tps',
-          labelKey: `${P}.tps`,
-          value: cm + rb,
-          unit: 'per_second',
-          sub:
-            cm + rb > 0
-              ? { key: `${P}.commitPct`, values: { pct: Math.round((cm / (cm + rb)) * 100) } }
-              : undefined,
-        },
-        {
-          id: 'cache',
-          labelKey: `${P}.cacheHit`,
-          value: h + r > 0 ? h / (h + r) : null,
-          unit: 'ratio',
-          severity: h + r > 0 && h / (h + r) < 0.9 ? 'warning' : undefined,
-        },
-        {
-          id: 'lag',
-          labelKey: `${P}.replicationLag`,
-          value: lagS,
-          unit: 'seconds',
-          sub: lagS === null ? { key: `${P}.noReplicas` } : undefined,
-          severity: lagS !== null && lagS > LAG_LINE ? 'warning' : undefined,
-        },
-        {
-          id: 'size',
-          labelKey: `${P}.size`,
-          value: valueOf(size),
-          unit: 'bytes',
-          sub:
-            g !== null ? { key: `${P}.perDay`, values: { growth: bytes(Math.abs(g)) } } : undefined,
-        },
-        {
-          id: 'longest',
-          labelKey: `${P}.longestQuery`,
-          value: long,
-          unit: 'seconds',
-          severity: long !== null && long > LONG_QUERY ? 'critical' : undefined,
-        },
-      ],
-    },
-    {
-      id: 'connections',
-      title: `${P}.connectionsOverTime`,
-      kind: 'line',
-      span: 1,
-      unit: 'count',
-      state: connSeries.length ? 'ok' : 'empty',
-      series: [
-        { nameKey: `${P}.series.connections`, points: pointsOf(connSeries[0]) },
-        ...(maxSeries[0]
-          ? [{ nameKey: `${P}.maxConnections`, points: pointsOf(maxSeries[0]), dashed: true }]
-          : []),
-      ],
-    },
-    {
-      id: 'transactions',
-      title: `${P}.transactions`,
-      kind: 'stack',
-      span: 1,
-      unit: 'per_second',
-      state: commitSeries.length ? 'ok' : 'empty',
-      series: [
-        { nameKey: `${P}.series.commits`, points: pointsOf(commitSeries[0]), severity: 'ok' },
-        {
-          nameKey: `${P}.series.rollbacks`,
-          points: pointsOf(rollbackSeries[0]),
-          severity: 'warning',
-        },
-      ],
-    },
-    {
-      id: 'slowest',
-      title: `${P}.slowest`,
-      kind: 'table',
-      span: 2,
-      state: slowest.length ? 'ok' : 'empty',
-      note: { key: `${P}.statementsNote` },
-      columns: [`${P}.cols.query`, `${P}.cols.mean`, `${P}.cols.calls1h`, `${P}.cols.total`],
-      rows: statementRows(slowest, callsBy),
-    },
-    {
-      id: 'busiest',
-      title: `${P}.busiest`,
-      kind: 'bars',
-      span: 1,
-      unit: 'per_second',
-      state: busiest.length ? 'ok' : 'empty',
-      items: busiest
-        .map((x) => ({ label: x.labels.db ?? '', value: x.points[0]?.[1] ?? 0 }))
-        .sort((a, b) => b.value - a.value),
-    },
-    {
-      id: 'capacity',
-      title: `${P}.capacity`,
-      kind: 'gauge',
-      span: 1,
-      state: m || volume ? 'ok' : 'empty',
-      note: ctx.row.target.kind === 'workload' || volume ? undefined : { key: `${P}.noVolume` },
-      items: [
-        ...(m
-          ? [
-              {
-                labelKey: `${P}.maxConnections`,
-                value: c ?? 0,
-                max: m,
-                unit: 'count' as const,
-                warnAt: 0.9,
-                note: res ? { key: `${P}.reserved`, values: { n: res } } : undefined,
-              },
-            ]
-          : []),
-        ...(volume
-          ? [
-              {
-                label: volume.name,
-                value: volume.used,
-                max: volume.capacity,
-                unit: 'bytes' as const,
-                warnAt: 0.85,
-                // Growth needs a day of history: minutes of it would read an image pull as
-                // the week's trend.
-                note:
-                  days !== null
-                    ? { key: `${P}.daysLeft`, values: { days } }
-                    : volume.perDay === null
-                      ? { key: `${P}.growthUnknown` }
-                      : { key: `${P}.notGrowing` },
-              },
-            ]
-          : []),
-      ],
-    },
-  ];
+  return deep.overview(ctx, await volumeOf(ctx));
 }
 
 async function connections(ctx: PageContext): Promise<Panel[]> {
@@ -476,6 +265,7 @@ async function connections(ctx: PageContext): Promise<Panel[]> {
       note: old ? { key: `${P}.noSessions`, values: { version: ctx.row.version } } : undefined,
       series: [{ nameKey: `${P}.series.sessions`, points: pointsOf(sessions[0]) }],
     },
+    ...(await deep.connectionsDeep(ctx)),
   ];
 }
 
@@ -503,8 +293,8 @@ async function queries(ctx: PageContext): Promise<Panel[]> {
     range(ctx, `sum(rate(watchlog_postgres_temp_bytes_total{${s}}[${RATE}]))`),
   ]);
   const list = extra(ctx).statements ?? [];
-  const top = [...list].sort((a, b) => b.total - a.total).slice(0, 20);
   return [
+    await deep.statementsPanel(ctx),
     {
       id: 'rows',
       title: `${P}.rows`,
@@ -532,30 +322,13 @@ async function queries(ctx: PageContext): Promise<Panel[]> {
       state: temp.length ? 'ok' : 'empty',
       series: [{ nameKey: `${P}.series.temp`, points: pointsOf(temp[0]) }],
     },
-    {
-      id: 'top',
-      title: `${P}.topQueries`,
-      kind: 'table',
-      span: 2,
-      state: top.length ? 'ok' : 'empty',
-      note: { key: `${P}.statementsNote` },
-      columns: [`${P}.cols.query`, `${P}.cols.total`, `${P}.cols.mean`, `${P}.cols.rowsPerCall`],
-      rows: top.map((x) => ({
-        cells: [
-          x.query ?? `queryid ${x.queryid}`,
-          ms(x.total),
-          ms(x.mean),
-          x.calls ? +(x.rows / x.calls).toFixed(1) : 0,
-        ],
-      })),
-    },
   ];
 }
 
 async function locks(ctx: PageContext): Promise<Panel[]> {
   const s = one(ctx.row.id);
   const end = Math.floor(ctx.now / 1000 / 3600) * 3600;
-  const [waits, deadlocks, locked, heat, owners] = await Promise.all([
+  const [waits, deadlocks, locked, heat] = await Promise.all([
     range(ctx, `sum by (wait) (watchlog_postgres_backends{${s}, db="", wait!=""})`),
     range(ctx, `sum(increase(watchlog_postgres_deadlocks_total{${s}}[5m]))`),
     instant(ctx, `topk(10, max by (table) (watchlog_postgres_locked_relation{${s}}))`),
@@ -568,11 +341,9 @@ async function locks(ctx: PageContext): Promise<Panel[]> {
           3600,
         )
       : Promise.resolve([]),
-    ipOwners(ctx.db, ctx.row.cluster_id),
   ]);
-  const blocking = [...(extra(ctx).blocking ?? [])].sort((a, b) => b.seconds - a.seconds);
-  const q = (text: string) => text || '–';
   return [
+    ...(await deep.locksDeep(ctx)),
     {
       id: 'waits',
       title: `${P}.waits`,
@@ -584,33 +355,6 @@ async function locks(ctx: PageContext): Promise<Panel[]> {
         name: x.labels.wait ?? '',
         points: pointsOf(x),
         severity: x.labels.wait === 'Lock' ? ('warning' as Severity) : undefined,
-      })),
-    },
-    {
-      id: 'blocking',
-      title: `${P}.blocking`,
-      kind: 'table',
-      span: 2,
-      state: blocking.length ? 'ok' : 'empty',
-      note: { key: `${P}.blockingNote` },
-      columns: [
-        `${P}.cols.blocked`,
-        `${P}.cols.waitingFor`,
-        `${P}.cols.for`,
-        `${P}.cols.blockedBy`,
-        `${P}.cols.blockedQuery`,
-        `${P}.cols.blockingQuery`,
-      ],
-      rows: blocking.map((x) => ({
-        cells: [
-          `${clientName(owners, x.blocked)} (${x.blocked_state})`,
-          x.wait,
-          duration(x.seconds),
-          `${clientName(owners, x.blocking)} (${x.blocking_state})`,
-          q(x.blocked_query),
-          q(x.blocking_query),
-        ],
-        severity: x.seconds > 60 ? ('warning' as Severity) : undefined,
       })),
     },
     {
@@ -748,6 +492,7 @@ async function replication(ctx: PageContext): Promise<Panel[]> {
       state: generated.length ? 'ok' : 'empty',
       series: [{ nameKey: `${P}.series.wal`, points: pointsOf(generated[0]) }],
     },
+    ...(await deep.replicationDeep(ctx, await volumeOf(ctx))),
   ];
 }
 
@@ -811,6 +556,7 @@ async function tables(ctx: PageContext): Promise<Panel[]> {
       state: sizes.length ? 'ok' : 'empty',
       series: sizes.map((x) => ({ name: x.labels.db ?? '', points: pointsOf(x) })),
     },
+    ...(await deep.tablesDeep(ctx)),
   ];
 }
 
@@ -865,6 +611,7 @@ async function vacuum(ctx: PageContext): Promise<Panel[]> {
             isStuck ? 'autovacuum isn’t finishing' : ratio > 0.2 ? 'due for vacuum' : '',
           ],
           severity: isStuck ? ('warning' as Severity) : undefined,
+          link: deep.tableLink(x.db, x.table),
         };
       }),
     },
@@ -897,6 +644,7 @@ async function vacuum(ctx: PageContext): Promise<Panel[]> {
             : undefined,
         })),
     },
+    ...(await deep.vacuumDeep(ctx)),
   ];
 }
 
@@ -975,16 +723,36 @@ async function reasons(ctx: PageContext): Promise<Reason[]> {
       code: 'idle_in_transaction',
       facts: { n: valueOf(idleTxN) ?? 1, duration: duration(it) },
     });
-  const blocking = extra(ctx).blocking ?? [];
-  if ((valueOf(waits) ?? 0) > 0 || blocking.length) {
-    const worst = [...blocking].sort((a, b) => b.seconds - a.seconds)[0];
+  // Lock waits (1.2): the root of the blocking tree is the holder; probable cause follows it
+  // to its workload or container (facts.holder), the finding names its state and table.
+  const tree = treeSessions(ctx);
+  const blockedN = tree.filter((t) => t.blockedBy.length).length;
+  if ((valueOf(waits) ?? 0) > 0 || blockedN) {
+    const root = tree.find(
+      (t) => !t.blockedBy.length && tree.some((o) => o.blockedBy.includes(t.id)),
+    );
+    const holder = root ? clientOf(owners, root.addr, root.app) : null;
+    const longest = tree
+      .filter((t) => t.blockedBy.length)
+      .reduce((m, t) => Math.max(m, t.seconds), 0);
+    const table =
+      (await instant(ctx, `topk(1, max by (table) (watchlog_postgres_locked_relation{${s}}))`))[0]
+        ?.labels.table ?? null;
     out.push({
-      severity: 'warning',
+      severity: longest > 60 ? 'critical' : 'warning',
       code: 'lock_waits',
       facts: {
-        n: Math.max(valueOf(waits) ?? 0, blocking.length),
-        who: worst ? clientName(owners, worst.blocking) : 'another session',
+        n: Math.max(valueOf(waits) ?? 0, blockedN),
+        who: holder?.name ?? 'another session',
+        holder: holder && owners.has(root!.addr) ? holder.name : null,
+        idle: root ? (/idle/.test(root.state) ? 1 : 0) : null,
+        held: root?.xact ? duration(root.xact) : null,
+        longest: duration(longest),
+        table,
       },
+      ...(holder?.link && (holder.link.kind === 'workload' || holder.link.kind === 'container')
+        ? { links: [{ kind: holder.link.kind, id: holder.link.id, name: holder.link.name }] }
+        : {}),
     });
   }
   if ((valueOf(deadlocks) ?? 0) > 0)
@@ -1030,19 +798,193 @@ async function reasons(ctx: PageContext): Promise<Reason[]> {
     });
   if (missing(ctx).some((p) => p.missing === 'pg_stat_statements'))
     out.push({ severity: 'info', code: 'statements_unavailable', facts: {} });
+  out.push(...(await deepReasons(ctx, owners)));
+  return out;
+}
+
+/**
+ * The 1.2 findings (ADR-245): a statement far slower than its usual, a transaction open too
+ * long, a slot that fills the disk, what the database mostly waits on, a sequence near its
+ * maximum, settings that hurt, a client leaking connections.
+ */
+async function deepReasons(
+  ctx: PageContext,
+  owners: Awaited<ReturnType<typeof ownersOf>>,
+): Promise<Reason[]> {
+  const s = one(ctx.row.id);
+  const now = Math.floor(ctx.now / 1000);
+  const [stats, w15, settings, pending, slotGrowth, seqs, mem, maxConn, conns] = await Promise.all([
+    statementStats(ctx, PG),
+    waitsOver(ctx, PG, now, 900),
+    instant(
+      ctx,
+      `max by (name) (watchlog_postgres_setting{${s}, name=~"fsync|full_page_writes|autovacuum|track_counts|shared_buffers|work_mem"})`,
+    ),
+    instant(ctx, `max(watchlog_postgres_pending_restart{${s}})`),
+    instant(ctx, `max by (slot) (deriv(watchlog_postgres_slot_retained_bytes{${s}}[1h]) > 0)`),
+    instant(ctx, `topk(1, max by (db, sequence) (watchlog_postgres_sequence_used_ratio{${s}}))`),
+    memoryLimit(ctx),
+    instant(ctx, `max(watchlog_postgres_setting{${s}, name="max_connections"})`),
+    instant(ctx, connsOf(s)),
+  ]);
+  const out: Reason[] = [];
+  const facts = statementFacts(ctx, PG);
+  const slow = [...stats.values()]
+    .filter((x) => x.slower)
+    .sort((a, b) => (b.share ?? 0) - (a.share ?? 0))[0];
+  if (slow) {
+    const since = slow.usual ? await deep.slowerSince(ctx, slow.id, slow.usual) : null;
+    out.push({
+      severity: 'warning',
+      code: 'statement_slower',
+      facts: {
+        statement: slow.id,
+        query: (facts.get(slow.id)?.text ?? `queryid ${slow.id}`).slice(0, 120),
+        x: Math.round(slow.slower!),
+        mean: deep.duration(slow.mean ?? 0),
+        sinceAt: since,
+      },
+    });
+  }
+  const txn = transactionsOf(ctx).find(longTxn);
+  if (txn) {
+    const who = clientOf(owners, txn.addr, txn.app);
+    out.push({
+      severity: txn.blocks > 0 ? 'critical' : 'warning',
+      code: 'long_transaction',
+      facts: {
+        who: who.name,
+        holder: owners.has(txn.addr) ? who.name : null,
+        age: deep.duration(txn.age),
+        idle: txn.idle ? deep.duration(txn.idleFor) : null,
+        blocks: txn.blocks,
+        xmin: txn.holdsXmin ? 1 : 0,
+      },
+      ...(who.link && (who.link.kind === 'workload' || who.link.kind === 'container')
+        ? { links: [{ kind: who.link.kind, id: who.link.id, name: who.link.name }] }
+        : {}),
+    });
+  }
+  // A slot whose kept WAL grows: when it fills the data volume at this rate.
+  const vol = slotGrowth.length ? await volumeOf(ctx) : null;
+  for (const x of slotGrowth) {
+    const g = x.points[0]?.[1] ?? 0;
+    if (!vol || g <= 0) continue;
+    const eta = (vol.capacity - vol.used) / g;
+    if (eta < 7 * 86400)
+      out.push({
+        severity: eta < 86400 ? 'critical' : 'warning',
+        code: 'slot_fills_disk',
+        facts: { slot: x.labels.slot ?? '', eta: deep.duration(eta) },
+      });
+  }
+  const top = dominantWait(w15);
+  if (top && top.wait !== 'cpu' && top.share >= 0.5 && w15.total >= 1)
+    out.push({
+      severity: top.wait === 'lock' ? 'warning' : 'info',
+      code: 'waits_mostly',
+      facts: {
+        pct: Math.round(top.share * 100),
+        wait: top.wait,
+        sessions: Math.round(w15.total * 10) / 10,
+      },
+    });
+  const q = seqs[0];
+  const used = q?.points[0]?.[1] ?? 0;
+  if (q && used >= 0.7)
+    out.push({
+      severity: used >= 0.9 ? 'warning' : 'info',
+      code: 'sequence_near_max',
+      facts: { sequence: `${q.labels.db}: ${q.labels.sequence}`, pct: Math.round(used * 100) },
+    });
+  const set = new Map(settings.map((x) => [x.labels.name ?? '', x.points[0]?.[1] ?? null]));
+  for (const name of ['fsync', 'full_page_writes', 'autovacuum', 'track_counts'])
+    if (set.get(name) === 0)
+      out.push({
+        severity: name === 'fsync' || name === 'full_page_writes' ? 'critical' : 'warning',
+        code: 'setting_risky',
+        facts: { name },
+      });
+  if ((valueOf(pending) ?? 0) > 0)
+    out.push({ severity: 'info', code: 'pending_restart', facts: { n: valueOf(pending) } });
+  const m = valueOf(maxConn);
+  const sb = set.get('shared_buffers');
+  const wm = set.get('work_mem');
+  if (mem && m && sb !== null && sb !== undefined && wm) {
+    const need = sb + m * wm;
+    if (need > 2 * mem)
+      out.push({
+        severity: 'info',
+        code: 'connections_vs_memory',
+        facts: { max: m, need: bytes(need), mem: bytes(mem) },
+      });
+  }
+  // A client keeping many connections that all sit idle: probably a leak.
+  const c = valueOf(conns);
+  if (m && c) {
+    const clients =
+      (ctx.row.status_details as { extra?: { clients?: Record<string, unknown>[] } }).extra
+        ?.clients ?? [];
+    const leak = clients
+      .filter(
+        (x) =>
+          Number(x.connections) >= 20 &&
+          Number(x.idle) === Number(x.connections) &&
+          Number(x.idle_min) >= 300,
+      )
+      .sort((a, b) => Number(b.connections) - Number(a.connections))[0];
+    if (leak && Number(leak.connections) / m >= 0.2) {
+      const who = clientOf(owners, String(leak.addr ?? ''), String(leak.app ?? ''));
+      out.push({
+        severity: c / m > 0.9 ? 'critical' : 'warning',
+        code: 'connection_leak',
+        facts: {
+          who: who.name,
+          holder: owners.has(String(leak.addr ?? '')) ? who.name : null,
+          n: Number(leak.connections),
+          idle: deep.duration(Number(leak.idle_min)),
+          pct: Math.round((c / m) * 100),
+        },
+        ...(who.link && (who.link.kind === 'workload' || who.link.kind === 'container')
+          ? { links: [{ kind: who.link.kind, id: who.link.id, name: who.link.name }] }
+          : {}),
+      });
+    }
+  }
   return out;
 }
 
 export const postgresPage: IntegrationPage = {
   id: 'postgres',
   tabs: [
+    // 1.2 (ADR-245): Overview, Queries, Waits, Connections, Locks, Replication, Tables,
+    // Vacuum, Alerts; a statement's and a table's page at their own addresses.
     { id: 'overview', title: 'integrations.postgres.tabs.overview', panels: overview },
-    { id: 'connections', title: 'integrations.postgres.tabs.connections', panels: connections },
     { id: 'queries', title: 'integrations.postgres.tabs.queries', panels: queries },
-    { id: 'locks', title: 'integrations.postgres.tabs.locks', panels: locks },
+    { id: 'waits', title: 'integrations.db.tabs.waits', panels: deep.waitsTab },
+    { id: 'connections', title: 'integrations.postgres.tabs.connections', panels: connections },
+    {
+      id: 'locks',
+      title: 'integrations.postgres.tabs.locks',
+      panels: locks,
+      count: async (ctx) => {
+        const n = treeSessions(ctx).filter((t) => t.blockedBy.length).length;
+        return n || null;
+      },
+    },
     { id: 'replication', title: 'integrations.postgres.tabs.replication', panels: replication },
     { id: 'tables', title: 'integrations.postgres.tabs.tables', panels: tables },
     { id: 'vacuum', title: 'integrations.postgres.tabs.vacuum', panels: vacuum },
+    { id: 'alerts', title: 'integrations.db.tabs.alerts', panels: async () => [], view: 'alerts' },
+    // A statement's page (/applications/:id/statements/:statement), a table's
+    // (/applications/:id/tables/:db/:table).
+    {
+      id: 'statement',
+      title: 'integrations.db.tabs.statement',
+      panels: deep.statementPage,
+      hidden: true,
+    },
+    { id: 'table', title: 'integrations.db.tabs.table', panels: deep.tablePage, hidden: true },
     {
       id: 'connection',
       title: 'integrations.tabs.connection',

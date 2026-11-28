@@ -659,3 +659,161 @@ export const byLabel = (r: QuerySeries[], label: string) =>
   new Map(r.map((x) => [x.labels[label] ?? '', num(x) ?? 0]));
 
 export { valueOf };
+
+// ------------------------------------------------------------------------- the process
+
+/**
+ * The database process's own resources (1.2, item 10), from the agents, no credentials: its
+ * container or pods on Kubernetes and Docker, its systemd service or process group on a
+ * server. Null for a service known only by its address.
+ */
+export function processOf(ctx: PageContext): {
+  cpu: string;
+  cpuLimit: string | null;
+  mem: string;
+  memLimit: string | null;
+  io: string | null;
+} | null {
+  const t = ctx.row.target;
+  const q = (v: string) => escapeLabelValue(v);
+  if (t.kind === 'workload') {
+    const s = `namespace="${q(t.namespace)}", workload_kind="${q(t.workload_kind)}", workload="${q(t.workload)}"`;
+    return {
+      cpu: `sum(rate(watchlog_container_cpu_seconds_total{${s}}[$w]))`,
+      cpuLimit: `sum(watchlog_container_cpu_limit_cores{${s}})`,
+      mem: `sum(watchlog_container_memory_working_set_bytes{${s}})`,
+      memLimit: `sum(watchlog_container_memory_limit_bytes{${s}})`,
+      io: `sum by (dir) (rate(watchlog_container_fs_io_bytes_total{${s}}[$w]))`,
+    };
+  }
+  if (t.kind === 'compose' || t.kind === 'container') {
+    const s =
+      t.kind === 'compose'
+        ? `host="${q(t.host)}", compose_project="${q(t.compose_project)}", compose_service="${q(t.compose_service)}"`
+        : `host="${q(t.host)}", container="${q(t.container)}"`;
+    return {
+      cpu: `sum(rate(watchlog_container_cpu_seconds_total{${s}}[$w]))`,
+      cpuLimit: `sum(watchlog_container_cpu_limit_cores{${s}})`,
+      mem: `sum(watchlog_container_memory_working_set_bytes{${s}})`,
+      memLimit: `sum(watchlog_container_memory_limit_bytes{${s}})`,
+      io: `sum by (dir) (rate(watchlog_container_fs_io_bytes_total{${s}}[$w]))`,
+    };
+  }
+  if (t.kind === 'native') {
+    if (t.source === 'service') {
+      const s = `host="${q(t.host)}", unit="${q(t.workload)}"`;
+      return {
+        cpu: `sum(rate(watchlog_service_cpu_seconds_total{${s}}[$w]))`,
+        cpuLimit: `sum(watchlog_service_cpu_limit_cores{${s}})`,
+        mem: `sum(watchlog_service_memory_working_set_bytes{${s}})`,
+        memLimit: `sum(watchlog_service_memory_limit_bytes{${s}})`,
+        io: `sum by (dir) (rate(watchlog_service_io_bytes_total{${s}}[$w]))`,
+      };
+    }
+    const s = `host="${q(t.host)}", group="${q(t.workload)}"`;
+    return {
+      cpu: `sum(rate(watchlog_process_group_cpu_seconds_total{${s}}[$w]))`,
+      cpuLimit: null,
+      mem: `sum(watchlog_process_group_memory_rss_bytes{${s}})`,
+      memLimit: null,
+      io: null,
+    };
+  }
+  return null;
+}
+
+/** The memory the process may use: its limit, for the "max_connections far above memory" check. */
+export async function memoryLimit(ctx: PageContext): Promise<number | null> {
+  const p = processOf(ctx);
+  if (!p?.memLimit) return null;
+  const v = valueOf(await instant(ctx, p.memLimit));
+  return v && v > 0 && v < 2 ** 50 ? v : null;
+}
+
+/**
+ * CPU, memory, disk I/O and I/O latency of the database process (item 10). I/O latency is the
+ * database's own view (PostgreSQL's timed block reads and writes, with track_io_timing;
+ * MySQL's data and redo files): the agent sees the process's bytes, not its waits.
+ */
+export async function resourcePanels(ctx: PageContext, e: Engine): Promise<Panel[]> {
+  const p = processOf(ctx);
+  const w = rateWindow(ctx);
+  const s = one(ctx.row.id);
+  // Seconds per operation: PostgreSQL's timed reads per block read, timed writes per buffer
+  // written; MySQL's time per read and per write on the data files.
+  const latency =
+    e.type === 'postgres'
+      ? `label_replace(sum(rate(watchlog_postgres_io_time_seconds_total{${s}, op="read"}[${w}])) / sum(rate(watchlog_postgres_blks_read_total{${s}}[${w}])), "op", "read", "", "") or label_replace(sum(rate(watchlog_postgres_io_time_seconds_total{${s}, op="write"}[${w}])) / sum(rate(watchlog_postgres_buffers_written_total{${s}}[${w}])), "op", "write", "", "")`
+      : `sum by (op) (rate(watchlog_mysql_file_io_seconds_total{${s}, file="data"}[${w}])) / sum by (op) (rate(watchlog_mysql_file_io_total{${s}, file="data"}[${w}]))`;
+  const [cpu, cpuLimit, mem, memLimit, io, lat] = await Promise.all([
+    p ? range(ctx, p.cpu.replaceAll('$w', w)) : Promise.resolve([]),
+    p?.cpuLimit ? range(ctx, p.cpuLimit) : Promise.resolve([]),
+    p ? range(ctx, p.mem) : Promise.resolve([]),
+    p?.memLimit ? range(ctx, p.memLimit) : Promise.resolve([]),
+    p?.io ? range(ctx, p.io.replaceAll('$w', w)) : Promise.resolve([]),
+    range(ctx, latency),
+  ]);
+  const noProcess = p ? undefined : { key: `${e.P}.process.byAddress` };
+  const limitLine = (r: QuerySeries[], key: string) =>
+    r[0] && (r[0].points.at(-1)?.[1] ?? 0) > 0 && (r[0].points.at(-1)?.[1] ?? 0) < 2 ** 50
+      ? [{ nameKey: key, points: pointsOf(r[0]), dashed: true }]
+      : [];
+  return [
+    {
+      id: 'cpu',
+      title: `${e.P}.process.cpu`,
+      kind: 'line',
+      span: 1,
+      unit: 'cores',
+      state: cpu.length ? 'ok' : 'empty',
+      ...(noProcess ? { note: noProcess } : {}),
+      series: [
+        { nameKey: `${e.P}.process.used`, points: pointsOf(cpu[0]) },
+        ...limitLine(cpuLimit, `${e.P}.process.limit`),
+      ],
+    },
+    {
+      id: 'memory',
+      title: `${e.P}.process.memory`,
+      kind: 'line',
+      span: 1,
+      unit: 'bytes',
+      state: mem.length ? 'ok' : 'empty',
+      ...(noProcess ? { note: noProcess } : {}),
+      series: [
+        { nameKey: `${e.P}.process.used`, points: pointsOf(mem[0]) },
+        ...limitLine(memLimit, `${e.P}.process.limit`),
+      ],
+    },
+    {
+      id: 'disk',
+      title: `${e.P}.process.disk`,
+      kind: 'line',
+      span: 1,
+      unit: 'bytes_per_second',
+      state: io.length ? 'ok' : 'empty',
+      ...(p && !p.io
+        ? { note: { key: `${e.P}.process.noIo` } }
+        : noProcess
+          ? { note: noProcess }
+          : {}),
+      series: io.map((x) => ({
+        nameKey: `${e.P}.process.${x.labels.dir ?? 'read'}`,
+        points: pointsOf(x),
+      })),
+    },
+    {
+      id: 'latency',
+      title: `${e.P}.process.latency`,
+      kind: 'line',
+      span: 1,
+      unit: 'seconds',
+      state: lat.length ? 'ok' : 'empty',
+      note: { key: `${e.P}.process.latencyNote.${e.type}` },
+      series: lat.map((x) => ({
+        nameKey: `${e.P}.process.${x.labels.op ?? 'read'}`,
+        points: pointsOf(x),
+      })),
+    },
+  ];
+}

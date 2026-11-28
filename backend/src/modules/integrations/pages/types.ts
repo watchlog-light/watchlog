@@ -99,7 +99,8 @@ export interface TablePanel extends Base {
   kind: 'table';
   /** Column header keys. */
   columns: string[];
-  rows: { cells: (string | number | null)[]; severity?: Severity }[];
+  /** A row may open a page (1.2: a table's, a statement's). */
+  rows: { cells: (string | number | null)[]; severity?: Severity; link?: Link }[];
 }
 export interface StatPanel extends Base {
   kind: 'stat';
@@ -136,6 +137,8 @@ export interface FlowPanel extends Base {
     }[];
     /** The rate into the next column (/s); none after the last. */
     next?: number | null;
+    /** Words instead of a rate between this column and the next (1.2: "86 of 200"). */
+    nextText?: Text;
   }[];
 }
 
