@@ -3,12 +3,18 @@
 package mongodb
 
 import (
+	"context"
 	"encoding/json"
+	"os"
 	"reflect"
+	"sort"
+	"strings"
 	"testing"
 	"time"
 
 	"go.mongodb.org/mongo-driver/v2/bson"
+
+	"github.com/watchlog-light/watchlog/agent/internal/integrations"
 )
 
 // "Slow query" lines as MongoDB 7.0.48 and 8.0.38 log them (measured on the e2e VM; the
@@ -161,5 +167,69 @@ func TestSlowTableNamesTheRecentClient(t *testing.T) {
 	}
 	if rows[0]["remote"] != "10.42.0.80" || rows[0]["count"] != 210 {
 		t.Fatalf("row = %v, want remote 10.42.0.80 and count 210", rows[0])
+	}
+}
+
+// TestLabScrape scrapes the Step 0 servers (WATCHLOG_TEST_MONGO_LAB: "name=host:port,…;…" one
+// target per ";", WATCHLOG_TEST_MONGO_LAB_PASSWORD for the clusterMonitor user watchlog, none
+// for a target whose name starts with "noauth") heavy, twice 20 s apart, prints each series
+// family and extra, and fails if a literal value from the lab's workloads left the agent: the
+// capture of what the collector sends (ADR-247).
+func TestLabScrape(t *testing.T) {
+	lab := os.Getenv("WATCHLOG_TEST_MONGO_LAB")
+	if lab == "" {
+		t.Skip("WATCHLOG_TEST_MONGO_LAB not set")
+	}
+	for _, target := range strings.Split(lab, ";") {
+		var members []integrations.Member
+		for _, m := range strings.Split(target, ",") {
+			name, addr, _ := strings.Cut(m, "=")
+			members = append(members, integrations.Member{Name: name, Address: addr})
+		}
+		tg := integrations.Target{ID: "lab", Type: "mongodb", Members: members, Settings: integrations.Settings{QueryText: true}}
+		if !strings.HasPrefix(members[0].Name, "noauth") {
+			tg.Auth = &integrations.Auth{Username: "watchlog", Password: os.Getenv("WATCHLOG_TEST_MONGO_LAB_PASSWORD")}
+		}
+		p := New()
+		ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
+		start := time.Now()
+		_ = p.Scrape(ctx, tg, true)
+		first := time.Since(start)
+		time.Sleep(20 * time.Second)
+		start = time.Now()
+		r := p.Scrape(ctx, tg, true)
+		second := time.Since(start)
+		start = time.Now()
+		_ = p.Scrape(ctx, tg, false)
+		light := time.Since(start)
+		cancel()
+		if r.State != integrations.StateOK {
+			t.Fatalf("%s: %s %s", target, r.State, r.Error)
+		}
+		fams := map[string]int{}
+		for _, smp := range r.Samples {
+			fams[smp.Name]++
+		}
+		names := make([]string, 0, len(fams))
+		for n := range fams {
+			names = append(names, n)
+		}
+		sort.Strings(names)
+		t.Logf("== %s %s: heavy %v then %v (catalog cached), light %v; %d series, permissions %v", members[0].Name,
+			r.ServiceVersion, first.Round(time.Millisecond), second.Round(time.Millisecond), light.Round(time.Millisecond),
+			len(r.Samples), r.Permissions)
+		for _, n := range names {
+			t.Logf("  %s ×%d", n, fams[n])
+		}
+		for k, v := range r.Extra {
+			b, _ := json.Marshal(v)
+			t.Logf("  extra %s: %s", k, trimText(string(b), 700))
+		}
+		all, _ := json.Marshal(r)
+		for _, lit := range []string{`"buy"`, `held`, `/p/`, `product 1`, `xxxxxxxx`} {
+			if strings.Contains(string(all), lit) {
+				t.Errorf("%s: a literal value left the agent: %s", members[0].Name, lit)
+			}
+		}
 	}
 }

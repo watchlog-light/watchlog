@@ -57,17 +57,27 @@ type MongoDB struct {
 	// slow is, per target and member, the last slow log line counted and the running
 	// counts (the server keeps only its last 1,024 lines; WatchLog counts what it sees).
 	slow map[string]*slowState
+	// catalogs are the last collection and index readings per target and member (ADR-247).
+	catalogs map[string]*catalog
+	// conns are the connection ids seen per client at the last heavy scrape, for churn.
+	conns map[string]map[string]map[int64]bool
 }
 
 type slowState struct {
 	last           time.Time
 	collscan, rest float64
 	recent         []slowEntry
+	// shapes are the running counts per shape; top the TopShapes with the most time.
+	shapes map[string]*shapeAgg
+	top    map[string]bool
+	// querystats: the last heavy scrape found $queryStats rows, so they are the source.
+	querystats bool
 }
 
 // New returns the integration.
 func New() *MongoDB {
-	return &MongoDB{heavyPerms: map[string]map[string]string{}, slow: map[string]*slowState{}}
+	return &MongoDB{heavyPerms: map[string]map[string]string{}, slow: map[string]*slowState{},
+		catalogs: map[string]*catalog{}, conns: map[string]map[string]map[int64]bool{}}
 }
 
 // connect opens a direct connection to one member: no discovery of the others, reads
@@ -176,8 +186,14 @@ func (p *MongoDB) Scrape(ctx context.Context, t integrations.Target, heavy bool)
 			st = &slowState{}
 			p.slow[t.ID+"/"+m.Name] = st
 		}
+		key := t.ID + "/" + m.Name
+		if p.conns[key] == nil {
+			p.conns[key] = map[string]map[int64]bool{}
+		}
+		s := &scrape{c: c, admin: c.Database("admin"), member: m.Name, queryText: t.Settings.QueryText, perms: perms,
+			extra: extra, slow: st, querystats: st.querystats, authOff: t.Auth == nil || t.Auth.Password == "",
+			catalog: p.catalogs[key], conns: p.conns[key]}
 		p.mu.Unlock()
-		s := &scrape{c: c, admin: c.Database("admin"), member: m.Name, queryText: t.Settings.QueryText, perms: perms, extra: extra, slow: st}
 		s.add("watchlog_integration_connect_seconds", connectTime.Seconds())
 		s.light(ctx)
 		if res.ServiceVersion == "" {
@@ -185,6 +201,11 @@ func (p *MongoDB) Scrape(ctx context.Context, t integrations.Target, heavy bool)
 		}
 		if heavy {
 			s.heavy(ctx)
+			p.mu.Lock()
+			st.querystats = s.querystats
+			p.catalogs[key] = s.catalog
+			p.conns[key] = s.conns
+			p.mu.Unlock()
 		}
 		res.Samples = append(res.Samples, s.out...)
 		_ = c.Disconnect(context.Background())
@@ -205,6 +226,9 @@ func (p *MongoDB) Scrape(ctx context.Context, t integrations.Target, heavy bool)
 	}
 	sort.Slice(res.Permissions, func(i, j int) bool { return res.Permissions[i].Tab < res.Permissions[j].Tab })
 	if heavy {
+		if rows := asRows(extra["shapes"]); len(rows) > 0 {
+			extra["shapes"] = MergeShapes(rows)
+		}
 		res.Extra = extra
 	}
 	switch {
@@ -230,6 +254,12 @@ type scrape struct {
 	version   string
 	slow      *slowState
 	replSet   bool
+	// newSlow are the slow log's entries new since the last scrape (counted ones).
+	newSlow    []slowEntry
+	querystats bool
+	authOff    bool
+	catalog    *catalog
+	conns      map[string]map[int64]bool
 }
 
 func (s *scrape) add(name string, v float64, pairs ...string) {
@@ -410,9 +440,12 @@ func (s *scrape) light(ctx context.Context) {
 	if str(ss, "process") == "mongos" {
 		s.add("watchlog_mongodb_mongos", 1)
 	}
+	s.serverDeep(ss)
 	s.replication(ctx)
 	s.oplog(ctx)
 	s.slowLog(ctx)
+	s.shapeSeries()
+	s.waits(ctx)
 }
 
 // Buckets sums serverStatus's latency histogram (lower bounds in microseconds, counts)
@@ -488,6 +521,7 @@ func (s *scrape) replication(ctx context.Context) {
 		}
 	}
 	s.add("watchlog_mongodb_primary_seen", primary)
+	s.add("watchlog_mongodb_members", float64(len(members)))
 	// The extra holds only lists of rows (ingest.ts): the set's name rides on each.
 	set := trimText(str(st, "set"), 64)
 	rows := make([]map[string]any, 0, len(members))
@@ -495,6 +529,7 @@ func (s *scrape) replication(ctx context.Context) {
 		rows = append(rows, map[string]any{"name": trimText(ShortHost(m.Name), 64), "state": m.State, "health": m.Health,
 			"lag": m.Lag, "uptime": m.Uptime, "seen_by": s.member, "set": set})
 	}
+	s.replicaDeep(ctx, st, rows)
 	if len(asRows(s.extra["members"])) == 0 || primary == 1 {
 		// The primary's view wins, as it knows every member's optime.
 		s.extra["members"] = rows
@@ -593,6 +628,13 @@ type slowEntry struct {
 	Millis   float64
 	Remote   string
 	Collscan bool
+	// ID names the shape whether or not its text is kept; FullShape is the text, kept only
+	// in the agent unless query text is on.
+	ID           string
+	FullShape    string
+	DocsExamined float64
+	KeysExamined float64
+	Returned     float64
 }
 
 // logLine is the part of a structured log line WatchLog reads.
@@ -611,6 +653,9 @@ type logLine struct {
 		Remote         string          `json:"remote"`
 		QueryShapeHash string          `json:"queryShapeHash"`
 		AppName        string          `json:"appName"`
+		DocsExamined   float64         `json:"docsExamined"`
+		KeysExamined   float64         `json:"keysExamined"`
+		Nreturned      float64         `json:"nreturned"`
 	} `json:"attr"`
 }
 
@@ -637,7 +682,8 @@ func ParseSlow(lines []string, withShape bool) []slowEntry {
 			continue
 		}
 		e := slowEntry{At: x.T.Date, NS: x.Attr.NS, Plan: trimText(x.Attr.PlanSummary, 128), Millis: x.Attr.DurationMillis,
-			Remote: hostOf(x.Attr.Remote), Hash: trimText(x.Attr.QueryShapeHash, 64)}
+			Remote: hostOf(x.Attr.Remote), Hash: trimText(x.Attr.QueryShapeHash, 64),
+			DocsExamined: x.Attr.DocsExamined, KeysExamined: x.Attr.KeysExamined, Returned: x.Attr.Nreturned}
 		e.Collscan = strings.Contains(e.Plan, "COLLSCAN")
 		var cmd map[string]json.RawMessage
 		_ = json.Unmarshal(x.Attr.Command, &cmd)
@@ -657,6 +703,15 @@ func ParseSlow(lines []string, withShape bool) []slowEntry {
 			_ = json.Unmarshal(cmd["q"], &q)
 			e.Op, e.Shape = map[string]string{"update": "update", "remove": "delete"}[x.Attr.Type], trimText(shapeOf(q), textLen)
 		}
+		if e.Op == "" {
+			for _, w := range []string{"insert", "update", "delete"} {
+				if _, ok := cmd[w]; ok {
+					e.Op = w
+				}
+			}
+		}
+		e.FullShape = e.Shape
+		e.ID = ShapeID(e.NS, e.Op, e.Shape)
 		if !withShape {
 			e.Shape = ""
 		}
@@ -803,6 +858,7 @@ func (s *scrape) slowLog(ctx context.Context) {
 	st := s.slow
 	first := st.last.IsZero()
 	newest := st.last
+	var fresh []slowEntry
 	for _, e := range entries {
 		if !e.At.After(st.last) {
 			continue
@@ -810,6 +866,7 @@ func (s *scrape) slowLog(ctx context.Context) {
 		if e.At.After(newest) {
 			newest = e.At
 		}
+		fresh = append(fresh, e)
 		st.recent = append(st.recent, e)
 		// The first scrape sees the ring's history: counted from the next one on, so a
 		// restart of the collector doesn't count old entries as a burst.
@@ -823,6 +880,10 @@ func (s *scrape) slowLog(ctx context.Context) {
 		}
 	}
 	st.last = newest
+	st.countShapes(fresh, !first)
+	if !first {
+		s.newSlow = fresh
+	}
 	cut := time.Now().Add(-time.Hour)
 	kept := st.recent[:0]
 	for _, e := range st.recent {
@@ -841,10 +902,39 @@ func (s *scrape) slowLog(ctx context.Context) {
 
 func (s *scrape) heavy(ctx context.Context) {
 	s.slowTable()
+	s.querystats = s.queryStats(ctx)
+	if !s.querystats {
+		s.shapeRows()
+	}
 	s.clients(ctx)
 	s.top(ctx)
+	s.settings(ctx, s.authOff)
+	s.readCatalog(ctx)
+}
+
+// readCatalog reads databases, collections and indexes every CatalogEvery and re-sends the
+// last reading in between (ADR-247: catalog work at most every 10 minutes).
+func (s *scrape) readCatalog(ctx context.Context) {
+	if c := s.catalog; c != nil && time.Since(c.at) < CatalogEvery {
+		s.out = append(s.out, c.samples...)
+		for k, rows := range c.rows {
+			s.extra[k] = append(asRows(s.extra[k]), rows...)
+		}
+		return
+	}
+	before := len(s.out)
+	keys := []string{"unused_indexes", "redundant_indexes"}
+	had := map[string]int{}
+	for _, k := range keys {
+		had[k] = len(asRows(s.extra[k]))
+	}
 	colls := s.databases(ctx)
 	s.collections(ctx, colls)
+	c := &catalog{at: time.Now(), samples: append([]metrics.Sample(nil), s.out[before:]...), rows: map[string][]map[string]any{}}
+	for _, k := range keys {
+		c.rows[k] = append([]map[string]any(nil), asRows(s.extra[k])[had[k]:]...)
+	}
+	s.catalog = c
 }
 
 // ClientWindow: how far back from a shape's newest slow entry its clients are counted.
@@ -921,12 +1011,13 @@ func (s *scrape) slowTable() {
 }
 
 // clients: $currentOp with idle connections, grouped by client address (mapped to a
-// workload or container by the backend) and application name. WatchLog's own left out.
+// workload or container by the backend) and application name, with the connections opened
+// since the last heavy scrape (ids not seen then). WatchLog's own left out.
 func (s *scrape) clients(ctx context.Context) {
 	cur, err := s.admin.Aggregate(ctx, mongo.Pipeline{
 		{{Key: "$currentOp", Value: bson.D{{Key: "allUsers", Value: true}, {Key: "idleConnections", Value: true}}}},
 		{{Key: "$match", Value: bson.D{{Key: "client", Value: bson.D{{Key: "$exists", Value: true}}}}}},
-		{{Key: "$project", Value: bson.D{{Key: "client", Value: 1}, {Key: "appName", Value: 1}, {Key: "active", Value: 1}, {Key: "secs_running", Value: 1}}}},
+		{{Key: "$project", Value: bson.D{{Key: "client", Value: 1}, {Key: "appName", Value: 1}, {Key: "connectionId", Value: 1}}}},
 	})
 	if err != nil {
 		if denied(err) {
@@ -937,7 +1028,9 @@ func (s *scrape) clients(ctx context.Context) {
 	defer func() { _ = cur.Close(ctx) }()
 	type key struct{ addr, app string }
 	by := map[key]int{}
-	longest := 0.0
+	opened := map[key]int{}
+	seen := map[string]map[int64]bool{}
+	firstTime := len(s.conns) == 0
 	for cur.Next(ctx) {
 		var d bson.M
 		if cur.Decode(&d) != nil {
@@ -947,17 +1040,25 @@ func (s *scrape) clients(ctx context.Context) {
 		if app == "watchlog" {
 			continue
 		}
-		by[key{hostOf(str(d, "client")), trimText(app, 64)}]++
-		if a, _ := d["active"].(bool); a {
-			if v, ok := toFloat(d["secs_running"]); ok {
-				longest = max(longest, v)
-			}
+		k := key{hostOf(str(d, "client")), trimText(app, 64)}
+		by[k]++
+		id, _ := toFloat(d["connectionId"])
+		if seen[k.addr] == nil {
+			seen[k.addr] = map[int64]bool{}
+		}
+		seen[k.addr][int64(id)] = true
+		if !firstTime && !s.conns[k.addr][int64(id)] {
+			opened[k]++
 		}
 	}
-	s.add("watchlog_mongodb_longest_op_seconds", longest)
+	s.conns = seen
 	rows := make([]map[string]any, 0, len(by))
 	for k, n := range by {
-		rows = append(rows, map[string]any{"addr": trimText(k.addr, 64), "app": k.app, "connections": n, "member": s.member})
+		r := map[string]any{"addr": trimText(k.addr, 64), "app": k.app, "connections": n, "member": s.member}
+		if !firstTime {
+			r["opened"] = opened[k]
+		}
+		rows = append(rows, r)
 	}
 	sort.Slice(rows, func(i, j int) bool { return rows[i]["connections"].(int) > rows[j]["connections"].(int) })
 	if len(rows) > MaxClients {
@@ -1084,12 +1185,14 @@ func (s *scrape) databases(ctx context.Context) []string {
 	return colls
 }
 
-// collections: $collStats storage stats for the listed collections, the largest 100 kept,
-// and $indexStats for those: the indexes with no use since the server started.
+// collections: $collStats storage stats for the listed collections, the largest 100 kept, and
+// $indexStats for those: indexes unused since the server started, redundant prefixes, builds,
+// and every index's size. Run by readCatalog every 10 minutes.
 func (s *scrape) collections(ctx context.Context, colls []string) {
 	type size struct {
-		ns          string
-		bytes, docs float64
+		ns                               string
+		bytes, docs, data, avg, free, ix float64
+		ixSizes                          bson.M
 	}
 	var sizes []size
 	for _, ns := range colls {
@@ -1097,7 +1200,9 @@ func (s *scrape) collections(ctx context.Context, colls []string) {
 		cur, err := s.c.Database(db).Collection(coll).Aggregate(ctx, mongo.Pipeline{
 			{{Key: "$collStats", Value: bson.D{{Key: "storageStats", Value: bson.D{}}}}},
 			{{Key: "$project", Value: bson.D{{Key: "storageStats.size", Value: 1}, {Key: "storageStats.storageSize", Value: 1},
-				{Key: "storageStats.totalIndexSize", Value: 1}, {Key: "storageStats.count", Value: 1}}}},
+				{Key: "storageStats.totalIndexSize", Value: 1}, {Key: "storageStats.count", Value: 1},
+				{Key: "storageStats.avgObjSize", Value: 1}, {Key: "storageStats.freeStorageSize", Value: 1},
+				{Key: "storageStats.indexSizes", Value: 1}}}},
 		})
 		if err != nil {
 			if denied(err) {
@@ -1109,10 +1214,15 @@ func (s *scrape) collections(ctx context.Context, colls []string) {
 		var d bson.M
 		if cur.Next(ctx) && cur.Decode(&d) == nil {
 			st := sub(d, "storageStats")
+			x := size{ns: ns, ixSizes: sub(st, "indexSizes")}
 			stor, _ := toFloat(st["storageSize"])
-			idx, _ := toFloat(st["totalIndexSize"])
-			docs, _ := toFloat(st["count"])
-			sizes = append(sizes, size{ns, stor + idx, docs})
+			x.ix, _ = toFloat(st["totalIndexSize"])
+			x.docs, _ = toFloat(st["count"])
+			x.data, _ = toFloat(st["size"])
+			x.avg, _ = toFloat(st["avgObjSize"])
+			x.free, _ = toFloat(st["freeStorageSize"])
+			x.bytes = stor + x.ix
+			sizes = append(sizes, x)
 		}
 		_ = cur.Close(ctx)
 	}
@@ -1120,14 +1230,17 @@ func (s *scrape) collections(ctx context.Context, colls []string) {
 	if len(sizes) > MaxCollections {
 		sizes = sizes[:MaxCollections]
 	}
-	var unused []map[string]any
+	var unused, redundant []map[string]any
+	indexTotal := 0.0
 	for _, x := range sizes {
 		ns := trimText(x.ns, 128)
 		s.add("watchlog_mongodb_collection_size_bytes", x.bytes, "ns", ns)
 		s.add("watchlog_mongodb_collection_documents", x.docs, "ns", ns)
-		if len(unused) >= MaxUnused {
-			continue
-		}
+		s.add("watchlog_mongodb_collection_data_bytes", x.data, "ns", ns)
+		s.add("watchlog_mongodb_collection_index_bytes", x.ix, "ns", ns)
+		s.add("watchlog_mongodb_collection_free_bytes", x.free, "ns", ns)
+		s.add("watchlog_mongodb_collection_avg_doc_bytes", x.avg, "ns", ns)
+		indexTotal += x.ix
 		db, coll, _ := strings.Cut(x.ns, ".")
 		cur, err := s.c.Database(db).Collection(coll).Aggregate(ctx, mongo.Pipeline{{{Key: "$indexStats", Value: bson.D{}}}})
 		if err != nil {
@@ -1136,22 +1249,68 @@ func (s *scrape) collections(ctx context.Context, colls []string) {
 			}
 			continue
 		}
+		var ixs []Index
 		for cur.Next(ctx) {
 			var d bson.M
 			if cur.Decode(&d) != nil {
 				continue
 			}
-			name := str(d, "name")
-			ops, _ := num(d, "accesses.ops")
-			if name == "_id_" || ops > 0 {
-				continue
-			}
-			since, _ := sub(d, "accesses")["since"].(bson.DateTime)
-			unused = append(unused, map[string]any{"ns": ns, "index": trimText(name, 128), "since": since.Time().Unix(), "member": s.member})
+			ixs = append(ixs, IndexFrom(ns, d, orderedKey(cur.Current), x.ixSizes))
 		}
 		_ = cur.Close(ctx)
+		red := Redundant(ixs)
+		for _, ix := range ixs {
+			if ix.Building {
+				s.extra["index_builds"] = append(asRows(s.extra["index_builds"]), map[string]any{"ns": ns,
+					"progress": trimText(ix.Name, 120), "member": s.member})
+			}
+			if by, ok := red[ix.Name]; ok && len(redundant) < MaxUnused {
+				redundant = append(redundant, map[string]any{"ns": ns, "index": trimText(ix.Name, 128),
+					"covered_by": trimText(by, 128), "bytes": ix.Bytes, "member": s.member})
+			}
+			if ix.Name == "_id_" || ix.Ops > 0 || ix.Building || len(unused) >= MaxUnused {
+				continue
+			}
+			unused = append(unused, map[string]any{"ns": ns, "index": trimText(ix.Name, 128), "since": ix.Since.Unix(),
+				"bytes": ix.Bytes, "member": s.member})
+		}
 	}
+	s.add("watchlog_mongodb_index_total_bytes", indexTotal)
 	s.extra["unused_indexes"] = append(asRows(s.extra["unused_indexes"]), unused...)
+	s.extra["redundant_indexes"] = append(asRows(s.extra["redundant_indexes"]), redundant...)
+}
+
+// orderedKey reads an $indexStats entry's key in its order (decoded as a map it is lost).
+func orderedKey(raw bson.Raw) bson.D {
+	v, err := raw.LookupErr("key")
+	if err != nil {
+		return nil
+	}
+	doc, ok := v.DocumentOK()
+	if !ok {
+		return nil
+	}
+	els, err := doc.Elements()
+	if err != nil {
+		return nil
+	}
+	out := make(bson.D, 0, len(els))
+	for _, e := range els {
+		val := e.Value()
+		var x any
+		switch {
+		case val.Type == bson.TypeString:
+			x = val.StringValue()
+		default:
+			if f, ok := val.AsFloat64OK(); ok {
+				x = f
+			} else {
+				x = val.String()
+			}
+		}
+		out = append(out, bson.E{Key: e.Key(), Value: x})
+	}
+	return out
 }
 
 func asRows(v any) []map[string]any {
