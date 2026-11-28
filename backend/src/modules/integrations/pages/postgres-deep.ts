@@ -22,6 +22,7 @@ import {
   slowerSince as slowerSinceOf,
   statementFacts,
   statementRows,
+  statementsNaming,
   statementsByWaits,
   statementStats,
   tablesIn,
@@ -996,6 +997,12 @@ export async function tablePage(input: PageContext): Promise<Panel[]> {
         severity: x.what === 'invalid' ? ('warning' as Severity) : undefined,
       })),
     },
+    await statementsNaming(
+      ctx,
+      E,
+      [table ?? '', (table ?? '').split('.').pop() ?? ''],
+      await fullScans(ctx),
+    ),
     await scopedAlerts(ctx, E, { table: `${db}/${table ?? ''}` }, [
       {
         key: 'dead',

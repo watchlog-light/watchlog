@@ -21,6 +21,7 @@ import {
   slowerSince,
   statementFacts,
   statementRows,
+  statementsNaming,
   statementsByWaits,
   statementStats,
   tablesIn,
@@ -1046,6 +1047,7 @@ export async function tablePage(input: PageContext): Promise<Panel[]> {
       columns: [`${P}.cols.index`, `${P}.cols.finding`],
       rows: unused.map((x) => ({ cells: [String(x.index), 'unused'] })),
     },
+    await statementsNaming(ctx, E, [`${db}.${table ?? ''}`, table ?? ''], await fullScans(ctx)),
     await scopedAlerts(ctx, E, { table: `${db}/${table ?? ''}` }, [
       {
         key: 'size',

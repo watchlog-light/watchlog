@@ -421,6 +421,42 @@ export function statementRows(
   });
 }
 
+/**
+ * The statements among the top 50 that name a table, by their text (1.2's table page): the
+ * names it may go by ("shop.events", "events"), the costliest first, at most 10.
+ */
+export async function statementsNaming(
+  ctx: PageContext,
+  e: Engine,
+  names: string[],
+  fullScans: Map<string, number>,
+): Promise<Panel> {
+  const [stats, senders, owners] = await Promise.all([
+    statementStats(ctx, e),
+    sentBy(ctx, e),
+    ownersOf(ctx),
+  ]);
+  const facts = statementFacts(ctx, e);
+  const want = new Set(names.filter(Boolean).map((n) => n.toLowerCase()));
+  const ids = [...facts.values()]
+    .filter((f) => tablesIn(f.text).some((t) => want.has(t.toLowerCase())))
+    .map((f) => f.id)
+    .sort((a, b) => (stats.get(b)?.share ?? 0) - (stats.get(a)?.share ?? 0))
+    .slice(0, 10);
+  return {
+    id: 'statements',
+    title: `${P}.table.statements`,
+    kind: 'statements',
+    span: 2,
+    state: ids.length ? 'ok' : 'empty',
+    note: { key: `${P}.table.statementsNote` },
+    shareOf: 'time',
+    full: true,
+    total: ids.length,
+    rows: statementRows(e, ids, stats, facts, senders, owners, fullScans),
+  };
+}
+
 export { statementLink };
 
 /** The statements by their active sessions over a period (the Waits tab's list). */
