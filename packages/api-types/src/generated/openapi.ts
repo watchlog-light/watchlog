@@ -13704,6 +13704,7 @@ export interface paths {
                     /** @enum {string} */
                     kind: 'table';
                     columns: string[];
+                    clock?: number[];
                     rows: {
                       cells: (string | number | null)[];
                       severity?: 'ok' | 'info' | 'warning' | 'critical';

@@ -38630,6 +38630,13 @@
                                   "type": "string"
                                 }
                               },
+                              "clock": {
+                                "type": "array",
+                                "items": {
+                                  "type": "integer",
+                                  "minimum": 0
+                                }
+                              },
                               "rows": {
                                 "type": "array",
                                 "items": {

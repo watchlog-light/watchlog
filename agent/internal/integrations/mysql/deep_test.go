@@ -146,3 +146,27 @@ func TestLabScrape(t *testing.T) {
 		}
 	}
 }
+
+// A client's "since" is its oldest connection seen opening after the collector's first look;
+// connections that were there at the first look are older than the collector and say nothing.
+func TestFirstSeen(t *testing.T) {
+	start := time.Unix(1_800_000_000, 0)
+	f := &firstSeen{start: start, ids: map[string]time.Time{}}
+	f.update(map[string]proc{"7": {}}, start)
+	f.update(map[string]proc{"7": {}, "9": {}}, start.Add(30*time.Second))
+	if !f.since("7").IsZero() {
+		t.Fatalf("a connection from the first look has no since: %v", f.since("7"))
+	}
+	if got := f.since("9"); !got.Equal(start.Add(30 * time.Second)) {
+		t.Fatalf("since = %v", got)
+	}
+	// Closed connections are forgotten; an id the server reuses later is new again.
+	f.update(map[string]proc{"7": {}}, start.Add(60*time.Second))
+	if _, ok := f.ids["9"]; ok {
+		t.Fatal("a closed connection stays remembered")
+	}
+	var none *firstSeen
+	if !none.since("1").IsZero() {
+		t.Fatal("no tracker, no since")
+	}
+}

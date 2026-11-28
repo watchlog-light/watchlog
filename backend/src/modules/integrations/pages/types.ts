@@ -99,6 +99,8 @@ export interface TablePanel extends Base {
   kind: 'table';
   /** Column header keys. */
   columns: string[];
+  /** Columns whose cells are unix seconds, shown as the viewer's clock time (1.2: "since"). */
+  clock?: number[];
   /** A row may open a page (1.2: a table's, a statement's). */
   rows: { cells: (string | number | null)[]; severity?: Severity; link?: Link }[];
 }

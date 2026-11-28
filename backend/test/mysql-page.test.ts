@@ -148,7 +148,16 @@ describe('the MySQL page', () => {
         members: [{ name: 'mysql-0', up: true }],
         extra: {
           clients: [
-            { addr: '10.244.2.63', user: 'app', connections: 36, member: 'mysql-0' },
+            {
+              addr: '10.244.2.63',
+              user: 'app',
+              connections: 36,
+              sleeping: 36,
+              idle_min: 360,
+              idle_max: 900,
+              since: 1_800_000_000,
+              member: 'mysql-0',
+            },
             { addr: '10.244.2.61', user: 'app', connections: 1, member: 'mysql-0' },
             { addr: '10.244.2.62', user: 'app', connections: 1, member: 'mysql-0' },
           ],
@@ -288,6 +297,16 @@ describe('the MySQL page', () => {
     expect(flow.columns[1]!.rows.find((r) => r.nameKey?.endsWith('flow.longest'))!.severity).toBe(
       'critical',
     );
+    // The design's "Connections by client": where it runs, the oldest idle, since when.
+    const clients = overview.find((p) => p.id === 'clients') as unknown as {
+      clock: number[];
+      rows: { cells: unknown[]; severity?: string }[];
+    };
+    expect(clients.clock).toEqual([6]);
+    expect(clients.rows[0]).toMatchObject({
+      cells: [expect.any(String), 'shop · Deployment', 36, 0, 36, '15 min', 1_800_000_000],
+      severity: 'critical',
+    });
     const blocking = (await panels('locks')).find((p) => p.id === 'blocking') as unknown as {
       rows: { cells: unknown[] }[];
     };

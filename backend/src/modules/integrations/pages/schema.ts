@@ -148,6 +148,7 @@ export const PanelSchema = Type.Union([
     ...base,
     kind: Type.Literal('table'),
     columns: Type.Array(Type.String()),
+    clock: Type.Optional(Type.Array(Type.Integer({ minimum: 0 }))),
     rows: Type.Array(
       Type.Object({
         cells: Type.Array(Type.Union([Type.String(), Type.Number(), Type.Null()])),

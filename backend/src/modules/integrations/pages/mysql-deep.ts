@@ -67,6 +67,23 @@ interface ClientRow {
   connections: number;
   sleeping?: number;
   idle_min?: number;
+  /** 1.2: the longest sleep, and when its oldest connection opened (seen by the collector). */
+  idle_max?: number;
+  since?: number;
+}
+
+/**
+ * Where a client runs (the design's "Where"): its namespace and kind on Kubernetes, its
+ * server and how it runs on a fleet, the local socket; empty when only its address is known.
+ */
+export function whereOf(link: Link | undefined, local: boolean): string {
+  if (local) return 'local socket';
+  if (!link || (link.kind !== 'workload' && link.kind !== 'container')) return '';
+  const parts = link.id.split('/');
+  if (link.kind === 'container') return parts.length > 1 ? `${parts[0]} · container` : 'container';
+  const [ns, kind] = parts;
+  const how = kind === 'Service' ? 'systemd' : kind === 'ProcessGroup' ? 'process' : kind;
+  return `${ns} · ${how}`;
 }
 const clientsOf = (ctx: PageContext): ClientRow[] =>
   ((ctx.row.status_details as { extra?: { clients?: ClientRow[] } }).extra?.clients ?? []).map(
@@ -86,13 +103,23 @@ function clientTable(owners: Map<string, Owner>, rows: ClientRow[]) {
       n: number;
       sleeping: number;
       idleMin: number | null;
+      idleMax: number | null;
+      since: number | null;
       local: boolean;
     }
   >();
   for (const x of rows) {
     const local = !x.addr || x.addr === 'localhost';
     const who = local ? { name: `${x.user}@localhost` } : clientOf(owners, x.addr, x.user);
-    const cur = by.get(who.name) ?? { ...who, n: 0, sleeping: 0, idleMin: null, local };
+    const cur = by.get(who.name) ?? {
+      ...who,
+      n: 0,
+      sleeping: 0,
+      idleMin: null,
+      idleMax: null,
+      since: null,
+      local,
+    };
     cur.n += x.connections;
     cur.sleeping += Number(x.sleeping ?? 0);
     if (Number(x.sleeping ?? 0) > 0)
@@ -100,6 +127,9 @@ function clientTable(owners: Map<string, Owner>, rows: ClientRow[]) {
         cur.idleMin === null
           ? Number(x.idle_min ?? 0)
           : Math.min(cur.idleMin, Number(x.idle_min ?? 0));
+    if (Number(x.sleeping ?? 0) > 0 && x.idle_max !== undefined)
+      cur.idleMax = Math.max(cur.idleMax ?? 0, Number(x.idle_max));
+    if (x.since) cur.since = cur.since === null ? x.since : Math.min(cur.since, x.since);
     by.set(who.name, cur);
   }
   return [...by.values()].sort((a, b) => b.n - a.n);
@@ -531,20 +561,26 @@ export async function overview(
       span: 1,
       layout: 'main',
       state: clients.length ? 'ok' : 'empty',
+      // The design's columns; "since" is the viewer's clock time (column 6).
       columns: [
         `${P}.cols.client`,
+        `${P}.cols.where`,
         `${P}.cols.connections`,
         `${P}.cols.running`,
         `${P}.cols.sleeping`,
-        `${P}.cols.noStatementFor`,
+        `${P}.cols.longestIdle`,
+        `${P}.cols.since`,
       ],
+      clock: [6],
       rows: clients.slice(0, 8).map((x) => ({
         cells: [
           x.name,
+          whereOf(x.link, x.local) || '–',
           x.n,
           x.n - x.sleeping,
           x.sleeping,
-          x.sleeping && x.idleMin !== null ? duration(x.idleMin) : '–',
+          x.sleeping ? duration(x.idleMax ?? x.idleMin ?? 0) : '–',
+          x.since,
         ],
         ...(x === leak ? { severity: 'critical' as Severity } : {}),
         ...(x.link ? { link: x.link } : {}),
@@ -1181,20 +1217,25 @@ export async function connectionsDeep(ctx: PageContext): Promise<Panel[]> {
       state: clientsOf(ctx).length ? 'ok' : 'empty',
       columns: [
         `${P}.cols.client`,
+        `${P}.cols.where`,
         `${P}.cols.connections`,
         `${P}.cols.running`,
         `${P}.cols.sleeping`,
-        `${P}.cols.noStatementFor`,
+        `${P}.cols.longestIdle`,
+        `${P}.cols.since`,
       ],
+      clock: [6],
       rows: clientTable(owners, clientsOf(ctx))
         .slice(0, 25)
         .map((x) => ({
           cells: [
             x.name,
+            whereOf(x.link, x.local) || '–',
             x.n,
             x.n - x.sleeping,
             x.sleeping,
-            x.sleeping && x.idleMin !== null ? duration(x.idleMin) : '–',
+            x.sleeping ? duration(x.idleMax ?? x.idleMin ?? 0) : '–',
+            x.since,
           ],
           ...(x.n >= 20 && x.sleeping === x.n && (x.idleMin ?? 0) >= 300
             ? { severity: 'critical' as Severity }

@@ -51,13 +51,50 @@ type MySQL struct {
 	catalogs map[string]*catalog
 	// tops are each target's top digests from its last heavy scrape.
 	tops map[string]map[string]bool
+	// seen are each member's connections by id with when the collector first saw them (1.2):
+	// the server keeps no connect time, so a client's "since" is its oldest connection seen
+	// open after the collector started.
+	seen map[string]*firstSeen
 	now  func() time.Time
+}
+
+// firstSeen remembers when each connection id was first in the process list; ids from the
+// first look are older than the collector and say nothing.
+type firstSeen struct {
+	start time.Time
+	ids   map[string]time.Time
+}
+
+// update keeps the ids still open: new ones at now, gone ones forgotten (bounded by
+// max_connections).
+func (f *firstSeen) update(open map[string]proc, now time.Time) {
+	for id := range f.ids {
+		if _, ok := open[id]; !ok {
+			delete(f.ids, id)
+		}
+	}
+	for id := range open {
+		if _, ok := f.ids[id]; !ok {
+			f.ids[id] = now
+		}
+	}
+}
+
+// since is when the connection was first seen, or zero when it was there at the first look.
+func (f *firstSeen) since(id string) time.Time {
+	if f == nil {
+		return time.Time{}
+	}
+	if t := f.ids[id]; t.After(f.start) {
+		return t
+	}
+	return time.Time{}
 }
 
 // New returns the integration.
 func New() *MySQL {
 	return &MySQL{heavyPerms: map[string]map[string]string{}, catalogs: map[string]*catalog{},
-		tops: map[string]map[string]bool{}, now: time.Now}
+		tops: map[string]map[string]bool{}, seen: map[string]*firstSeen{}, now: time.Now}
 }
 
 // tlsPreferred: TLS when the server offers it, without verifying its certificate (cluster
@@ -249,8 +286,15 @@ func (p *MySQL) Scrape(ctx context.Context, t integrations.Target, heavy bool) i
 		res.Members = append(res.Members, ms)
 		p.mu.Lock()
 		top := p.tops[t.ID]
+		seen := p.seen[t.ID+"/"+m.Name]
+		if seen == nil {
+			now := p.now()
+			seen = &firstSeen{start: now, ids: map[string]time.Time{}}
+			p.seen[t.ID+"/"+m.Name] = seen
+		}
 		p.mu.Unlock()
-		s := &scrape{s: c, member: m.Name, queryText: t.Settings.QueryText, perms: perms, extra: extra, top: top}
+		s := &scrape{s: c, member: m.Name, queryText: t.Settings.QueryText, perms: perms, extra: extra, top: top,
+			seen: seen, now: p.now}
 		s.add("watchlog_integration_connect_seconds", connectTime.Seconds())
 		s.light(ctx)
 		if res.ServiceVersion == "" {
@@ -313,6 +357,8 @@ type scrape struct {
 	procs     map[string]proc
 	// top are the top digests from the last heavy scrape; newTop this scrape's.
 	top, newTop map[string]bool
+	seen        *firstSeen
+	now         func() time.Time
 }
 
 // proc is one row of the process list: never its statement text.
@@ -463,6 +509,9 @@ func (s *scrape) light(ctx context.Context) {
 		}
 	})
 	if err == nil {
+		if s.seen != nil {
+			s.seen.update(s.procs, s.now())
+		}
 		s.add("watchlog_mysql_longest_query_seconds", longest)
 		s.add("watchlog_mysql_client_sessions", sessions)
 		for c, n := range byCommand {
@@ -612,11 +661,13 @@ func (s *scrape) clients() {
 	type agg struct {
 		n, sleeping int
 		// idleMin is the shortest sleep of the client's sleeping connections (1.2): "none of
-		// its 37 connections has run a statement for 6 min" when every one sleeps.
-		idleMin float64
+		// its 37 connections has run a statement for 6 min" when every one sleeps; idleMax
+		// the longest; since its oldest connection opened after the collector started.
+		idleMin, idleMax float64
+		since            time.Time
 	}
 	by := map[key]*agg{}
-	for _, p := range s.procs {
+	for id, p := range s.procs {
 		if client(p) {
 			k := key{hostOf(p.host), p.user}
 			a := by[k]
@@ -630,13 +681,21 @@ func (s *scrape) clients() {
 				if a.idleMin < 0 || p.time < a.idleMin {
 					a.idleMin = p.time
 				}
+				a.idleMax = max(a.idleMax, p.time)
+			}
+			if t := s.seen.since(id); !t.IsZero() && (a.since.IsZero() || t.Before(a.since)) {
+				a.since = t
 			}
 		}
 	}
 	rows := make([]map[string]any, 0, len(by))
 	for k, a := range by {
-		rows = append(rows, map[string]any{"addr": trimText(k.addr, 64), "user": trimText(k.user, 64), "connections": a.n,
-			"sleeping": a.sleeping, "idle_min": int(max(a.idleMin, 0)), "member": s.member})
+		row := map[string]any{"addr": trimText(k.addr, 64), "user": trimText(k.user, 64), "connections": a.n,
+			"sleeping": a.sleeping, "idle_min": int(max(a.idleMin, 0)), "idle_max": int(a.idleMax), "member": s.member}
+		if !a.since.IsZero() {
+			row["since"] = a.since.Unix()
+		}
+		rows = append(rows, row)
 	}
 	sort.Slice(rows, func(i, j int) bool { return rows[i]["connections"].(int) > rows[j]["connections"].(int) })
 	if len(rows) > MaxClients {
