@@ -3659,7 +3659,8 @@
           "growth": "Growth",
           "coveredBy": "Covered by",
           "progress": "Progress",
-          "sentBy": "Sent by"
+          "sentBy": "Sent by",
+          "returned": "Returned"
         },
         "series": {
           "query": "Queries",
@@ -3686,7 +3687,10 @@
           "opened": "opened",
           "ops": "operations",
           "queued": "queued",
-          "seconds": "seconds spent"
+          "seconds": "seconds spent",
+          "reads": "reads",
+          "writes": "writes",
+          "commands": "commands"
         },
         "flow": {
           "title": "Operation flow, now",
@@ -3847,7 +3851,8 @@
           "shape": "An operation shape",
           "collection": "A collection"
         },
-        "openShape": "Open the operation"
+        "openShape": "Open the operation",
+        "latencyByType": "Mean latency by type"
       },
       "missing": {
         "overview": {

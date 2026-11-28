@@ -35,7 +35,7 @@ const calls = (v: number) =>
             class="border-b border-border text-left text-11 font-medium tracking-wider whitespace-nowrap text-text-muted uppercase"
           >
             <th scope="col" class="px-4 py-2 font-medium">
-              {{ $t('integrations.db.panels.cols.statement') }}
+              {{ $t(panel.words?.text ?? 'integrations.db.panels.cols.statement') }}
             </th>
             <th scope="col" class="px-2 py-2 text-right font-medium">
               {{ $t('integrations.db.panels.cols.callsPerSecond') }}
@@ -53,7 +53,7 @@ const calls = (v: number) =>
               }}
             </th>
             <th scope="col" class="px-2 py-2 text-right font-medium">
-              {{ $t('integrations.db.panels.cols.rowsPerCall') }}
+              {{ $t(panel.words?.rows ?? 'integrations.db.panels.cols.rowsPerCall') }}
             </th>
             <th scope="col" class="px-4 py-2 font-medium">
               {{ $t('integrations.db.panels.cols.sentBy') }}
