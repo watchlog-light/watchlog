@@ -276,6 +276,12 @@ export const ThresholdScopeSchema = Type.Object(
         { additionalProperties: false },
       ),
     ),
+    /** One statement of a database (1.2, with `service`): its queryid or digest. */
+    statement: Type.Optional(
+      Type.String({ minLength: 1, maxLength: 64, pattern: '^[-0-9a-zA-Z]+$' }),
+    ),
+    /** One table of a database (1.2, with `service`): "db/schema.table" or "db/table". */
+    table: Type.Optional(Type.String({ minLength: 3, maxLength: 300 })),
     /** Pod label selector (equality); resolved to at most 500 pods (ADR-085). */
     labels: Type.Optional(
       Type.Record(Type.String({ maxLength: 317 }), Type.String({ maxLength: 63 }), {

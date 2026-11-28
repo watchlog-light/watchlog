@@ -37,6 +37,19 @@ export interface QueryScope {
   vhost?: string;
   queue?: string;
   /**
+   * One database statement (1.2): PostgreSQL's series carry queryid, MySQL's digest; the
+   * label follows the metric (resolveScope).
+   */
+  statement?: string;
+  statementLabel?: 'queryid' | 'digest';
+  /** One database table (1.2): its series carry db and table ("db/schema.table"). */
+  table?: string;
+  /**
+   * The free bytes of a database's data volume (1.2, resolved from its target): a scalar
+   * expression the fill-the-disk metrics divide by the growth of what they keep.
+   */
+  freeBytes?: string;
+  /**
    * Nginx services whose numbers come from eBPF (resolved from the database by
    * resolveScope): their series carry the workload, not the service id.
    */
@@ -792,6 +805,60 @@ const ENTRIES = {
     agg: 'max',
     expr: (s, _r, a) => `${a} by (service, service_type) (watchlog_postgres_lock_waits${s()})`,
   },
+  // 1.2 (ADR-245): blocking, long transactions, statements, slots, sequences, tables.
+  /** How long the longest-waiting blocked session has waited (the blocking tree). */
+  'postgres.blocked.longest': {
+    unit: 'seconds',
+    agg: 'max',
+    expr: (s) => `max by (service, service_type) (watchlog_postgres_longest_block_seconds${s()})`,
+  },
+  /** The oldest open transaction, idle or not. */
+  'postgres.xact.oldest': {
+    unit: 'seconds',
+    agg: 'max',
+    expr: (s) => `max by (service, service_type) (watchlog_postgres_oldest_xact_seconds${s()})`,
+  },
+  /** Each top statement's mean time (a statement's own alert). */
+  'postgres.statement.mean': {
+    unit: 'seconds',
+    agg: 'max',
+    expr: (s, r) =>
+      `sum by (service, service_type, queryid) (rate(watchlog_postgres_statement_seconds_total${s()}[${r}])) / (sum by (service, service_type, queryid) (rate(watchlog_postgres_statement_calls_total${s()}[${r}])) > 0)`,
+  },
+  /** How many times slower than its usual a top statement is, when it is far slower. */
+  'postgres.statement.slower': {
+    unit: 'count',
+    agg: 'max',
+    expr: (s) => slowerExpr('watchlog_postgres', 'queryid', s),
+  },
+  /** Seconds until a replication slot's kept WAL fills the data volume at its last hour's growth. */
+  'postgres.slot.fill_eta': {
+    unit: 'seconds',
+    agg: 'min',
+    expr: (s, _r, _a, scope) =>
+      scope.freeBytes
+        ? `scalar(${scope.freeBytes}) / (max by (service, service_type, slot) (deriv(watchlog_postgres_slot_retained_bytes${s()}[1h])) > 0)`
+        : 'vector(0) < 0',
+  },
+  /** The fullest readable sequence's share of its maximum. */
+  'postgres.sequence.used': {
+    unit: 'ratio',
+    agg: 'max',
+    expr: (s) =>
+      `max by (service, service_type, db, sequence) (watchlog_postgres_sequence_used_ratio${s()})`,
+  },
+  'postgres.table.dead_rows': {
+    unit: 'count',
+    agg: 'max',
+    expr: (s) =>
+      `max by (service, service_type, db, table) (watchlog_postgres_table_dead_rows${s()})`,
+  },
+  'postgres.table.size': {
+    unit: 'bytes',
+    agg: 'max',
+    expr: (s) =>
+      `max by (service, service_type, db, table) (watchlog_postgres_table_size_bytes${s()})`,
+  },
   // MySQL and MariaDB (v0.5 slice 1, ADR-163): status variables and the process list, per
   // member where a member can differ.
   'mysql.connections': {
@@ -849,6 +916,48 @@ const ENTRIES = {
     agg: 'sum',
     expr: (s, r, a) =>
       `${a} by (service, service_type) (rate(watchlog_mysql_deadlocks_total${s()}[${r}]))`,
+  },
+  // 1.2 (ADR-245): blocking, long transactions, statements, binary logs, tables.
+  'mysql.blocked.longest': {
+    unit: 'seconds',
+    agg: 'max',
+    expr: (s) => `max by (service, service_type) (watchlog_mysql_longest_block_seconds${s()})`,
+  },
+  'mysql.xact.oldest': {
+    unit: 'seconds',
+    agg: 'max',
+    expr: (s) => `max by (service, service_type) (watchlog_mysql_oldest_xact_seconds${s()})`,
+  },
+  'mysql.statement.mean': {
+    unit: 'seconds',
+    agg: 'max',
+    expr: (s, r) =>
+      `sum by (service, service_type, digest) (rate(watchlog_mysql_statement_seconds_total${s()}[${r}])) / (sum by (service, service_type, digest) (rate(watchlog_mysql_statement_calls_total${s()}[${r}])) > 0)`,
+  },
+  'mysql.statement.slower': {
+    unit: 'count',
+    agg: 'max',
+    expr: (s) => slowerExpr('watchlog_mysql', 'digest', s),
+  },
+  /** Seconds until the binary logs fill the data volume at their last hour's growth. */
+  'mysql.binlog.fill_eta': {
+    unit: 'seconds',
+    agg: 'min',
+    expr: (s, _r, _a, scope) =>
+      scope.freeBytes
+        ? `scalar(${scope.freeBytes}) / (max by (service, service_type) (deriv(watchlog_mysql_binlog_bytes${s()}[1h])) > 0)`
+        : 'vector(0) < 0',
+  },
+  'mysql.history_list': {
+    unit: 'count',
+    agg: 'max',
+    expr: (s) => `max by (service, service_type) (watchlog_mysql_history_list_length${s()})`,
+  },
+  'mysql.table.size': {
+    unit: 'bytes',
+    agg: 'max',
+    expr: (s) =>
+      `max by (service, service_type, db, table) (watchlog_mysql_table_size_bytes_estimate${s()})`,
   },
   'mysql.lock_waits': {
     unit: 'count',
@@ -1267,7 +1376,27 @@ function matchers(scope: QueryScope): string[] {
     out.push(`vhost="${escapeLabelValue(scope.vhost ?? '/')}"`);
     out.push(`queue="${escapeLabelValue(scope.queue)}"`);
   }
+  if (scope.statement !== undefined)
+    out.push(`${scope.statementLabel ?? 'queryid'}="${escapeLabelValue(scope.statement)}"`);
+  if (scope.table !== undefined) {
+    const [db, table] = scope.table.split('/', 2);
+    out.push(`db="${escapeLabelValue(db ?? '')}"`, `table="${escapeLabelValue(table ?? '')}"`);
+  }
   return out;
+}
+
+/**
+ * A statement far slower than its usual (1.2): its mean over 15 minutes divided by its mean
+ * over the 6 hours before, when it is 5 ms slower, ran 20 times or more, and its calls didn't
+ * rise by half (then it is load, not a regression). The same rule as the page's (slowerOf).
+ */
+function slowerExpr(m: string, label: string, s: (...extra: string[]) => string): string {
+  const by = `service, service_type, ${label}`;
+  const rate = (metric: string, w: string, off = '') =>
+    `sum by (${by}) (rate(${m}_statement_${metric}_total${s()}[${w}]${off}))`;
+  const mean = `(${rate('seconds', '15m')} / ${rate('calls', '15m')})`;
+  const usual = `(${rate('seconds', '6h', ' offset 15m')} / (${rate('calls', '6h', ' offset 15m')} > 0))`;
+  return `(${mean} / ${usual}) and (${mean} - ${usual} > 0.005) and (${rate('calls', '15m')} * 900 >= 20) and (${rate('calls', '15m')} <= 1.5 * ${rate('calls', '6h', ' offset 15m')})`;
 }
 
 /** The labels that name the server of an HTTP series: a workload, or a Docker container. */

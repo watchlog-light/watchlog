@@ -117,6 +117,44 @@ const BY_TYPE: Partial<Record<IntegrationType, ServiceAlertDefault[]>> = {
       condition: { op: '>', value: 0 },
       forSeconds: 0,
     },
+    // 1.2 (ADR-245): few and precise.
+    {
+      key: 'postgres_blocking',
+      name: 'PostgreSQL session blocked over 1 minute',
+      metric: 'postgres.blocked.longest',
+      condition: { op: '>', value: 60 },
+      forSeconds: 0,
+      severity: 'critical',
+    },
+    {
+      key: 'postgres_long_transaction',
+      name: 'PostgreSQL transaction open over 30 minutes',
+      metric: 'postgres.xact.oldest',
+      condition: { op: '>', value: 1800 },
+      forSeconds: 0,
+    },
+    {
+      key: 'postgres_statement_slower',
+      name: 'PostgreSQL statement far slower than usual',
+      metric: 'postgres.statement.slower',
+      condition: { op: '>', value: 3 },
+      forSeconds: 600,
+    },
+    {
+      key: 'postgres_slot_fills_disk',
+      name: 'PostgreSQL replication slot fills the disk within a day',
+      metric: 'postgres.slot.fill_eta',
+      condition: { op: '<', value: 86_400 },
+      forSeconds: 600,
+      severity: 'critical',
+    },
+    {
+      key: 'postgres_sequence_high',
+      name: 'PostgreSQL sequence above 90% of its maximum',
+      metric: 'postgres.sequence.used',
+      condition: { op: '>', value: 0.9 },
+      forSeconds: 0,
+    },
   ],
   mysql: [
     {
@@ -155,6 +193,37 @@ const BY_TYPE: Partial<Record<IntegrationType, ServiceAlertDefault[]>> = {
       metric: 'mysql.deadlocks.rate',
       condition: { op: '>', value: 0 },
       forSeconds: 0,
+    },
+    // 1.2 (ADR-245). A key near its maximum isn't readable with the documented grants (Step 0).
+    {
+      key: 'mysql_blocking',
+      name: 'MySQL session blocked over 1 minute',
+      metric: 'mysql.blocked.longest',
+      condition: { op: '>', value: 60 },
+      forSeconds: 0,
+      severity: 'critical',
+    },
+    {
+      key: 'mysql_long_transaction',
+      name: 'MySQL transaction open over 30 minutes',
+      metric: 'mysql.xact.oldest',
+      condition: { op: '>', value: 1800 },
+      forSeconds: 0,
+    },
+    {
+      key: 'mysql_statement_slower',
+      name: 'MySQL statement far slower than usual',
+      metric: 'mysql.statement.slower',
+      condition: { op: '>', value: 3 },
+      forSeconds: 600,
+    },
+    {
+      key: 'mysql_binlog_fills_disk',
+      name: 'MySQL binary logs fill the disk within a day',
+      metric: 'mysql.binlog.fill_eta',
+      condition: { op: '<', value: 86_400 },
+      forSeconds: 600,
+      severity: 'critical',
     },
   ],
   mongodb: [

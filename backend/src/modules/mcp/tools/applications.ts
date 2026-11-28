@@ -72,7 +72,32 @@ const INTEGRATION_SENTENCES: Record<string, string> = {
   idle_in_transaction:
     'Sessions are idle inside a transaction (facts.n, the longest facts.duration): they hold locks and block vacuum.',
   lock_waits:
-    "Sessions are waiting for locks (facts.n); facts.who holds them. MySQL also gives facts.table, how long the worst one waited (facts.duration), how long the holder's transaction has been open (facts.held) and facts.holder, its workload or container.",
+    "Sessions are waiting for locks (facts.n); facts.who holds them (facts.holder, its workload or container), with facts.table, how long the worst one waited (facts.duration or facts.longest) and how long the holder's transaction has been open (facts.held); facts.idle is 1 when the holder sits idle in its transaction.",
+  // PostgreSQL and MySQL, 1.2
+  statement_slower:
+    'A top statement (facts.statement: facts.query) runs facts.x times slower than its usual (mean facts.mean), with no rise in calls, since facts.sinceAt (unix seconds).',
+  long_transaction:
+    'A transaction of facts.who (facts.holder) has been open for facts.age (idle for facts.idle when set) and blocks facts.blocks sessions; facts.xmin is 1 when it holds back vacuum (PostgreSQL), facts.history is the undo it keeps (MySQL).',
+  slot_fills_disk:
+    "Replication slot facts.slot keeps WAL that fills the data volume in facts.eta at its last hour's growth.",
+  waits_mostly:
+    'Over the last 15 minutes facts.pct% of the active sessions waited on facts.wait (facts.sessions active on average).',
+  sequence_near_max:
+    'Sequence facts.sequence is at facts.pct% of its maximum: inserts fail when it runs out.',
+  setting_risky: 'A setting that risks data or performance is set: facts.name.',
+  pending_restart: 'facts.n settings were changed and wait for a restart.',
+  connections_vs_memory:
+    'max_connections (facts.max) with work_mem and shared_buffers could need facts.need, above twice the memory limit (facts.mem).',
+  connection_leak:
+    'facts.who (facts.holder) keeps facts.n connections that all sit idle for at least facts.idle: probably a connection leak; connections are at facts.pct% of the limit.',
+  history_list_long:
+    "InnoDB's history list is long (facts.n): a long transaction keeps purge from cleaning up.",
+  binlog_fills_disk:
+    "The binary logs fill the data volume in facts.eta at their last hour's growth.",
+  buffer_pool_vs_memory:
+    'innodb_buffer_pool_size (facts.pool) is close to the memory limit (facts.mem).',
+  redo_nearly_full:
+    "The redo log is facts.pct% full: writes stall when the checkpoint can't keep up.",
   deadlocks: 'Deadlocks happened in the last 15 minutes (facts.n).',
   replica_lag: 'A replica is behind its primary (facts.duration).',
   slot_retains_wal: 'An inactive replication slot (facts.slot) keeps WAL on disk (facts.size).',
@@ -295,6 +320,7 @@ export const getApplicationTool = defineTool({
     'One monitored service (Redis, PostgreSQL, MySQL, MongoDB, Nginx, Traefik, RabbitMQ, Kafka…): its health, every reason WatchLog sees (most severe first, each with a code, a sentence, facts and the workloads or containers it points to), and the workloads or containers that connect to it over the last hour, with connection and failed-connect counts (from network flows; `connected.flows` is false when the agents report none).',
     'Pass `name` as list_applications shows it ("shop/redis" on Kubernetes, "billing/postgres" for a Compose service, or a container name), or its id.',
     'For RabbitMQ it adds `rabbitmq`: the queues that need a look (type, ready, unacked, in and out a second, consumers, how busy, drains in) and the clients that connected in the last 24 hours (bytes each way, a "mostly" guess from the traffic direction, how they ended); pass `queue` for one queue\'s facts, timeline and probable cause. RabbitMQ\'s metrics do not say which client consumes which queue.',
+    'For PostgreSQL and MySQL it adds `database`: what the database waited on over the last 15 minutes (the share of active sessions by wait: cpu, io, lock, client, other), the statements that cost the most (calls a second, mean time now and as usual, share of the time, "sent mostly by" when one client clearly sends it, a "probably missing an index" or "N× slower" hint), and who blocks whom (the blocking tree, root blocker first, with each session\'s client, state and how long). Pass `statement` (a queryid or digest from those lists) for one statement\'s facts, its mean time over the last hour, its senders and the tables it names. Statement text is normalised (no values).',
     'Example question: "Why is payments/postgres critical, and which services use it?"',
   ),
   input: Type.Object(
@@ -307,6 +333,15 @@ export const getApplicationTool = defineTool({
           maxLength: 255,
           description:
             'RabbitMQ only: one queue\'s detail ("orders", or "billing/orders" outside the default vhost).',
+        }),
+      ),
+      statement: Type.Optional(
+        Type.String({
+          minLength: 1,
+          maxLength: 64,
+          pattern: '^[-0-9a-zA-Z]+$',
+          description:
+            "PostgreSQL or MySQL only: one statement's detail, by its queryid or digest.",
         }),
       ),
     },
@@ -343,10 +378,15 @@ export const getApplicationTool = defineTool({
     );
     const rabbit =
       d.page.id === 'rabbitmq' ? await rabbitmqOf(api, match[0]!.id, args.queue) : null;
+    const database =
+      d.page.id === 'postgres' || d.page.id === 'mysql'
+        ? await databaseOf(api, match[0]!.id, args.statement)
+        : null;
     return {
       body: {
         cluster: clusterField(cluster),
         ...(rabbit ? { rabbitmq: rabbit } : {}),
+        ...(database ? { database } : {}),
         application: {
           ...appField(d.application),
           monitoredSince: d.application.monitoredSince,
@@ -457,6 +497,86 @@ async function rabbitmqOf(
     clients: c ? c.clients.slice(0, 30) : null,
     ...(queue
       ? { queue: one ?? { error: 'Queue not found among the queues WatchLog reads.' } }
+      : {}),
+  };
+}
+
+interface ApiPanel {
+  id: string;
+  kind: string;
+  state: string;
+  rows?: Record<string, unknown>[];
+  nodes?: Record<string, unknown>[];
+  series?: { nameKey?: string; name?: string; points: [number, number | null][] }[];
+  items?: { label: string; value: number }[];
+}
+
+const panelOf = (panels: ApiPanel[] | undefined, id: string) => panels?.find((p) => p.id === id);
+const lastOf = (points: [number, number | null][] | undefined) =>
+  points?.filter((p) => p[1] !== null).at(-1)?.[1] ?? null;
+
+/** A database's waits, costliest statements and blocking tree, and one statement when asked (1.2). */
+async function databaseOf(
+  api: { get<T>(path: string, query?: Record<string, string>): Promise<T> },
+  id: string,
+  statement?: string,
+) {
+  const soft = <T>(p: Promise<T>) => p.catch(() => null);
+  const now = Math.floor(Date.now() / 1000);
+  const tab = (t: string, extra: Record<string, string> = {}) =>
+    soft(
+      api.get<{ panels: ApiPanel[] }>(`/applications/${id}/panels`, {
+        tab: t,
+        range: '3600',
+        ...extra,
+      }),
+    );
+  const [waits, queries, locks, one] = await Promise.all([
+    tab('waits', { from: String(now - 900), to: String(now) }),
+    tab('queries'),
+    tab('locks'),
+    statement ? tab('statement', { statement }) : Promise.resolve(null),
+  ]);
+  const summary = panelOf(waits?.panels, 'summary');
+  const stmtRow = (r: Record<string, unknown>) => ({
+    id: r.id,
+    text: text(String(r.text ?? ''), 300),
+    callsPerSecond: r.calls,
+    meanSeconds: r.mean,
+    usualSeconds: r.usual,
+    share: r.share,
+    ...(r.sentBy ? { sentMostlyBy: name(String((r.sentBy as { name: string }).name)) } : {}),
+    ...(r.hint ? { hint: r.hint } : {}),
+  });
+  return {
+    waitsLast15Minutes: summary?.rows ?? null,
+    statements: (panelOf(queries?.panels, 'top')?.rows ?? []).slice(0, 10).map(stmtRow),
+    blocking: (panelOf(locks?.panels, 'tree')?.nodes ?? []).slice(0, 20).map((n) => ({
+      depth: n.depth,
+      client: name(String(n.name ?? '')),
+      state: n.state,
+      seconds: n.seconds,
+      transactionSeconds: n.xact,
+      ...(n.query ? { query: text(String(n.query), 300) } : {}),
+    })),
+    note: 'Statement text is normalised; "sent mostly by" appears only when one client sends at least 70% of a statement.',
+    ...(statement
+      ? {
+          statement: one
+            ? {
+                facts: panelOf(one.panels, 'facts')?.rows ?? null,
+                meanSecondsNow: lastOf(panelOf(one.panels, 'mean')?.series?.[0]?.points),
+                meanSecondsLastHour:
+                  panelOf(one.panels, 'mean')?.series?.[0]?.points.slice(-12) ?? null,
+                senders:
+                  panelOf(one.panels, 'senders')?.items?.map((x) => ({
+                    client: name(x.label),
+                    share: x.value,
+                  })) ?? null,
+                tables: panelOf(one.panels, 'tables')?.rows ?? null,
+              }
+            : { error: 'Statement not found among the top statements WatchLog reads.' },
+        }
       : {}),
   };
 }

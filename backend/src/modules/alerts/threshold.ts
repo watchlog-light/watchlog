@@ -5,7 +5,13 @@
 import { sql } from 'kysely';
 import type { Database } from '../../db/index.js';
 import type { PodSpec } from '../kubernetes/views.js';
-import { METRIC_KEYS, metricUnit, type MetricKey, type QueryScope } from '../query/catalog.js';
+import {
+  escapeLabelValue,
+  METRIC_KEYS,
+  metricUnit,
+  type MetricKey,
+  type QueryScope,
+} from '../query/catalog.js';
 import type { Condition } from './defaults.js';
 import type { EvalContext, RuleEvaluator } from './engine.js';
 import { queryThreshold } from './metric-rules.js';
@@ -33,11 +39,15 @@ export interface ThresholdScope {
   serviceType?: string;
   /** One queue of a RabbitMQ service (1.1.0), with `service`. */
   queue?: { vhost?: string; name: string };
+  /** One statement of a database (1.2): its queryid (PostgreSQL) or digest (MySQL). */
+  statement?: string;
+  /** One table of a database (1.2): "db/schema.table" or "db/table". */
+  table?: string;
 }
 
 const KUBE_FIELDS = ['namespaces', 'workload', 'node', 'labels'] as const;
 const DOCKER_FIELDS = ['host', 'container', 'unit', 'group'] as const;
-const SERVICE_FIELDS = ['service', 'serviceType', 'queue'] as const;
+const SERVICE_FIELDS = ['service', 'serviceType', 'queue', 'statement', 'table'] as const;
 
 export class SelectorTooBroad extends Error {
   constructor(readonly pods: number) {
@@ -96,6 +106,19 @@ export async function resolveScope(
   if (scope.queue) {
     q.vhost = scope.queue.vhost ?? '/';
     q.queue = scope.queue.name;
+  }
+  if (scope.statement) {
+    q.statement = scope.statement;
+    q.statementLabel = metric?.startsWith('mysql.') ? 'digest' : 'queryid';
+  }
+  if (scope.table) q.table = scope.table;
+  // A database's data volume, for the fill-the-disk metrics (1.2): of one service only.
+  if (
+    (metric === 'postgres.slot.fill_eta' || metric === 'mysql.binlog.fill_eta') &&
+    scope.service
+  ) {
+    const free = await freeBytesOf(db, scope.service);
+    if (free) q.freeBytes = free;
   }
   // Nginx's eBPF series name the workload, not the service: resolve which (nginx.ts).
   if (metric?.startsWith('nginx.')) {
@@ -240,6 +263,20 @@ export async function validateThreshold(
     if (!rule.scope.service) return 'A queue is scoped with its service';
     if (!rule.metric.startsWith('rabbitmq.queue.')) return `${rule.metric} has no queues`;
   }
+  // A statement or a table (1.2): of one database, on a metric that has them.
+  if (rule.scope.statement) {
+    if (!rule.scope.service) return 'A statement is scoped with its service';
+    if (!/^(postgres|mysql)\.statement\./.test(rule.metric))
+      return `${rule.metric} has no statements`;
+    if (!/^[-0-9a-zA-Z]{1,64}$/.test(rule.scope.statement))
+      return 'A statement is its queryid or digest';
+  }
+  if (rule.scope.table) {
+    if (!rule.scope.service) return 'A table is scoped with its service';
+    if (!/^(postgres|mysql)\.table\./.test(rule.metric)) return `${rule.metric} has no tables`;
+    if (!rule.scope.table.includes('/') || rule.scope.table.length > 300)
+      return 'A table is "database/table"';
+  }
   if (rule.scope.serviceType) {
     const t = rule.scope.serviceType;
     if (!(INTEGRATION_TYPES as readonly string[]).includes(t)) return `Unknown service type "${t}"`;
@@ -279,4 +316,31 @@ export async function validateThreshold(
     }
   }
   return null;
+}
+
+/**
+ * The free bytes of a monitored database's data volume, as a PromQL expression (1.2): its
+ * pods' volume claims on Kubernetes (the least free), else the host filesystem that holds
+ * /var/lib (the least free of /, /var, /var/lib, /var/lib/docker). Null for a service known
+ * only by its address.
+ */
+export async function freeBytesOf(db: Database, serviceId: string): Promise<string | null> {
+  const row = await db
+    .selectFrom('integrations')
+    .select(['target', 'collector_host'])
+    .where('id', '=', serviceId)
+    .executeTakeFirst();
+  const t = row?.target as
+    | { kind: 'workload'; namespace: string; workload_kind: string; workload: string }
+    | { kind: 'compose' | 'container' | 'native'; host: string }
+    | { kind: 'address' }
+    | undefined;
+  if (!t) return null;
+  const e = escapeLabelValue;
+  if (t.kind === 'workload') {
+    const sel = `namespace="${e(t.namespace)}", workload_kind="${e(t.workload_kind)}", workload="${e(t.workload)}"`;
+    return `min(max by (persistentvolumeclaim) (watchlog_pod_volume_bytes{${sel}, state="capacity"}) - max by (persistentvolumeclaim) (watchlog_pod_volume_bytes{${sel}, state="used"}))`;
+  }
+  if (t.kind === 'address') return null;
+  return `min(watchlog_node_filesystem_bytes{host="${e(t.host)}", state="avail", mount=~"/|/var|/var/lib|/var/lib/docker"})`;
 }
