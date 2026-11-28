@@ -4,6 +4,7 @@ import { KeyRound } from '@lucide/vue';
 import type { Panel } from '@watchlog/api-types';
 import BaseButton from '@/components/ui/BaseButton.vue';
 import Skeleton from '@/components/ui/Skeleton.vue';
+import PanelLink from './PanelLink.vue';
 
 // A service-page panel's frame (ADR-135): its title and note, then one of loading,
 // error, "needs a permission" (ADR-134: what is missing and how to grant it), empty, or
@@ -21,9 +22,19 @@ defineEmits<{ retry: [] }>();
   >
     <div class="flex flex-wrap items-baseline justify-between gap-2">
       <h3 class="text-13 font-medium text-text-muted">{{ $t(panel.title) }}</h3>
-      <span v-if="panel.note" class="text-12 text-text-subtle">{{
-        $t(panel.note.key, panel.note.values ?? {})
-      }}</span>
+      <span v-if="panel.note || panel.more" class="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+        <span v-if="panel.note" class="text-12 text-text-subtle">{{
+          $t(panel.note.key, panel.note.values ?? {})
+        }}</span>
+        <!-- 1.4: the tab with the whole list ("All shapes →"). -->
+        <PanelLink
+          v-if="panel.more"
+          class="text-13 font-semibold"
+          :link="{ kind: 'tab', tab: panel.more.tab, name: panel.more.tab }"
+          data-testid="panel-more"
+          >{{ $t(panel.more.key) }}</PanelLink
+        >
+      </span>
     </div>
     <div v-if="loading && panel.state !== 'ok'" role="status" :aria-label="$t('common.loading')">
       <Skeleton v-for="i in 3" :key="i" class="w-full" />

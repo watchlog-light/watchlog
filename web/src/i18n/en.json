@@ -3122,7 +3122,8 @@
           "changes": "changes",
           "failures": "failures",
           "lag": "lag",
-          "pending": "pending"
+          "pending": "pending",
+          "hitRate": "hit rate"
         },
         "flow": {
           "title": "Command flow, now",
@@ -3167,7 +3168,8 @@
         },
         "charts": {
           "memory": "Memory against maxmemory",
-          "evictions": "Evicted and expired keys"
+          "evictions": "Evicted and expired keys",
+          "hitRate": "Hit rate"
         },
         "marker": {
           "evictions": "{at} evictions start"
@@ -3195,7 +3197,8 @@
         "prefixTable": {
           "title": "What fills the memory",
           "note": "from a sample of key names, at most 20,000 every 10 minutes; values are never read",
-          "sampled": "{n} key names in the last sample; values are never read"
+          "sampled": "{n} key names in the last sample; values are never read",
+          "all": "All prefixes →"
         },
         "largest": {
           "title": "Largest sampled keys",
@@ -3741,7 +3744,8 @@
         },
         "slowHour": {
           "title": "Slow operations, last hour",
-          "note": "by shape: field names and operators, values are ?"
+          "note": "by shape: field names and operators, values are ?",
+          "all": "All shapes →"
         },
         "shapes": {
           "title": "Operation shapes by their share of the time",
