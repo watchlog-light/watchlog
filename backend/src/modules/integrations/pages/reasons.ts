@@ -54,11 +54,12 @@ export function statusReasons(
     }
   }
   for (const p of d.permissions ?? []) {
-    out.push({
-      severity: 'info',
-      code: 'needs_permission',
-      facts: { tab: p.tab, missing: p.missing },
-    });
+    // A command the server doesn't have (a managed service, 1.4) is no missing privilege.
+    out.push(
+      p.missing === 'unsupported'
+        ? { severity: 'info', code: 'source_unsupported', facts: { tab: p.tab } }
+        : { severity: 'info', code: 'needs_permission', facts: { tab: p.tab, missing: p.missing } },
+    );
   }
   return out;
 }

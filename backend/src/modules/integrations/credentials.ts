@@ -79,7 +79,8 @@ function createUser(type: IntegrationType, user: string, password: string): stri
         `"GRANT pg_monitor TO ${user}"`,
       ];
     case 'redis':
-      // Read-only commands only; ~* lets MEMORY USAGE and SCAN see key names (ADR-134).
+      // Read-only commands only; ~* lets MEMORY USAGE, TYPE and SCAN see key names, never a
+      // value (ADR-134, ADR-247).
       return [
         'redis-cli',
         'ACL',
@@ -91,13 +92,30 @@ function createUser(type: IntegrationType, user: string, password: string): stri
         `'~*'`,
         '+info',
         '+ping',
-        '+slowlog',
-        '+latency',
+        // Only the reading subcommands: SLOWLOG RESET and LATENCY RESET are writes (1.4).
+        `'+slowlog|get'`,
+        `'+slowlog|len'`,
+        `'+latency|latest'`,
+        `'+latency|histogram'`,
         `'+config|get'`,
         `'+client|list'`,
         `'+memory|stats'`,
         `'+memory|usage'`,
         '+scan',
+        // The key sampler's metadata and the streams' groups (1.4): never a value.
+        '+type',
+        '+pttl',
+        '+hlen',
+        '+llen',
+        '+scard',
+        '+zcard',
+        '+xlen',
+        `'+xinfo|groups'`,
+        `'+xinfo|consumers'`,
+        '+xpending',
+        `'+cluster|info'`,
+        `'+cluster|shards'`,
+        `'+acl|whoami'`,
       ];
     case 'mysql':
       // One form for MySQL and MariaDB (ADR-163): the shell picks the client the image

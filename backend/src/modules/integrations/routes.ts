@@ -924,10 +924,13 @@ export const applicationRoutes: FastifyPluginAsyncTypebox<{
             ? {
                 ...p,
                 state: 'needs_permission' as const,
-                missing: {
-                  key: `integrations.${found.ctx.row.type}.missing.${m.tab.replace('/', '.')}`,
-                  values: { missing: m.missing },
-                },
+                missing:
+                  m.missing === 'unsupported'
+                    ? { key: 'integrations.page.unsupported' }
+                    : {
+                        key: `integrations.${found.ctx.row.type}.missing.${m.tab.replace('/', '.')}`,
+                        values: { missing: m.missing },
+                      },
               }
             : p;
         });

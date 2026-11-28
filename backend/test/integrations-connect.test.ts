@@ -66,7 +66,7 @@ describe('sealed access', () => {
       port: 6379,
     };
     expect(connectCommand('redis', compose, pw, { container: 'shop-cache-1' })).toBe(
-      `docker exec shop-cache-1 redis-cli ACL SETUSER watchlog reset on '>${pw}' '~*' +info +ping +slowlog +latency '+config|get' '+client|list' '+memory|stats' '+memory|usage' +scan`,
+      `docker exec shop-cache-1 redis-cli ACL SETUSER watchlog reset on '>${pw}' '~*' +info +ping '+slowlog|get' '+slowlog|len' '+latency|latest' '+latency|histogram' '+config|get' '+client|list' '+memory|stats' '+memory|usage' +scan +type +pttl +hlen +llen +scard +zcard +xlen '+xinfo|groups' '+xinfo|consumers' +xpending '+cluster|info' '+cluster|shards' '+acl|whoami'`,
     );
     expect(connectCommand('nginx', compose, pw)).toBeNull();
     // MySQL and MariaDB (ADR-163): one form, root's password asked at the prompt; the
@@ -409,7 +409,7 @@ describe('connect flow', () => {
     ).toBe(204);
     const after = (await api('GET', `/applications/${id}/access`)).json();
     expect(after.access).toBeNull();
-    expect(after.settings).toEqual({ queryText: false, paused: true });
+    expect(after.settings).toEqual({ queryText: false, paused: true, keyNames: false });
     expect(
       after.events
         .slice(0, 3)

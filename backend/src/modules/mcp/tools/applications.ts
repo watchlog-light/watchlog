@@ -238,6 +238,8 @@ export function reasonSentence(r: { code: string; facts: Record<string, unknown>
       return "One member can't be reached.";
     case 'needs_permission':
       return "A tab can't be filled: the collector's user lacks a privilege.";
+    case 'source_unsupported':
+      return "A tab can't be filled: the server doesn't have the command it reads (a managed service).";
     default:
       return INTEGRATION_SENTENCES[r.code] ?? 'See the facts.';
   }
