@@ -2854,7 +2854,10 @@
       "error": "Its alert rules couldn't be loaded.",
       "enable": "Enable {name}",
       "off": "off",
-      "anyMetric": "Any metric on this page can be used in a rule."
+      "anyMetric": "Any metric on this page can be used in a rule.",
+      "newDefaults": "WatchLog has a default alert this service was set up without: | WatchLog has {n} default alerts this service was set up without:",
+      "addNewDefaults": "Add it, on | Add them, on",
+      "newDefaultsAdded": "Added. | Added {n} alerts."
     },
     "redis": {
       "tabs": {

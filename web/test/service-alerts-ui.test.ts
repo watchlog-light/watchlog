@@ -117,6 +117,47 @@ async function mountBlock(role = 'owner') {
 }
 
 describe('alerts for a service', () => {
+  it('offers the defaults added since the service was set up, and adds them on', async () => {
+    const have = [
+      rule({ id: 'r1', defaultKey: 'unreachable' }),
+      rule({ id: 'r2', name: 'Service slow to connect', defaultKey: 'slow_connect' }),
+    ];
+    const defaults = {
+      defaults: [
+        { key: 'unreachable', name: 'Service unreachable' },
+        { key: 'slow_connect', name: 'Service slow to connect' },
+        { key: 'redis_evicting', name: 'Redis evicting keys' },
+      ],
+    };
+    const { calls } = mockFetch({
+      'GET /api/v1/alert-rules': [
+        { status: 200, body: { rules: have } },
+        {
+          status: 200,
+          body: { rules: [...have, rule({ id: 'r9', defaultKey: 'redis_evicting' })] },
+        },
+      ],
+      'GET /api/v1/alert-channels': { status: 200, body: { channels: [] } },
+      'GET /api/v1/clusters': { status: 200, body: CLUSTERS },
+      'GET /api/v1/applications/alert-defaults?type=redis': [
+        { status: 200, body: defaults },
+        { status: 200, body: defaults },
+      ],
+      [`POST /api/v1/applications/${APP.id}/alert-defaults`]: {
+        status: 200,
+        body: { added: ['redis_evicting'] },
+      },
+    });
+    const w = await mountBlock();
+    const offer = w.get('[data-testid="new-defaults"]');
+    expect(offer.text()).toContain('a default alert this service was set up without');
+    expect(offer.findAll('li')).toHaveLength(1);
+    await w.get('[data-testid="add-new-defaults"]').trigger('click');
+    await flushPromises();
+    expect(calls.find((c) => c.method === 'POST')?.body).toEqual({ keys: ['redis_evicting'] });
+    expect(w.find('[data-testid="new-defaults"]').exists()).toBe(false);
+  });
+
   it('lists its rules, switches one, and adds a rule with the service chosen', async () => {
     const { calls } = mockFetch({
       'GET /api/v1/alert-rules': { status: 200, body: { rules: RULES } },

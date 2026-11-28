@@ -23,25 +23,50 @@ import { useToastStore } from '@/stores/toast';
 // switched on or off in place, how many fire, and "+ Add rule", which opens the rule
 // editor with the service already chosen. Viewers read (ADR-140).
 const props = defineProps<{ app: Application }>();
-const { t } = useI18n();
+const { t, te } = useI18n();
 const auth = useAuthStore();
 const toast = useToastStore();
 
 const data = useLoader(async () => {
-  const [r, c, cl] = await Promise.all([
+  const [r, c, cl, d] = await Promise.all([
     api<AlertRuleList>('/alert-rules'),
     auth.canManage
       ? api<AlertChannelList>('/alert-channels')
       : Promise.resolve({ channels: [] } as unknown as AlertChannelList),
     api<ClusterList>('/clusters'),
+    api<{ defaults: { key: string; name: string }[] }>(
+      `/applications/alert-defaults?type=${encodeURIComponent(props.app.type)}`,
+    ).catch(() => ({ defaults: [] })),
   ]);
-  return { rules: r.rules, channels: c.channels, clusters: cl.clusters };
+  return { rules: r.rules, channels: c.channels, clusters: cl.clusters, defaults: d.defaults };
 });
 onMounted(data.load);
 const rules = computed(() =>
   (data.data.value?.rules ?? []).filter((r) => r.service?.id === props.app.id),
 );
 
+// Defaults WatchLog added after this service was set up (1.2's for databases): never on by
+// themselves; offered here, added in one click by an Owner or Admin.
+const missing = computed(() => {
+  const have = new Set(rules.value.map((r) => r.defaultKey));
+  return (data.data.value?.defaults ?? []).filter((d) => !have.has(d.key));
+});
+const defaultName = (d: { key: string; name: string }) =>
+  te(`applications.monitor.alert.${d.key}`) ? t(`applications.monitor.alert.${d.key}`) : d.name;
+const adding = ref(false);
+async function addMissing() {
+  adding.value = true;
+  try {
+    const keys = missing.value.map((d) => d.key);
+    await api(`/applications/${props.app.id}/alert-defaults`, { method: 'POST', body: { keys } });
+    toast.show(t('integrations.alerts.newDefaultsAdded', { n: keys.length }, keys.length));
+    await data.load();
+  } catch (err) {
+    toast.show(err instanceof ApiError ? err.message : String(err), 'warning');
+  } finally {
+    adding.value = false;
+  }
+}
 const editing = ref<AlertRule | null>(null);
 const drawerOpen = ref(false);
 function open(rule: AlertRule | null) {
@@ -115,6 +140,30 @@ async function toggle(rule: AlertRule, enabled: boolean) {
         }}</span>
       </li>
     </ul>
+    <div
+      v-if="data.loaded.value && missing.length && rules.length"
+      class="flex flex-col gap-2 border-t border-border px-4 py-3 sm:px-5"
+      data-testid="new-defaults"
+    >
+      <p class="text-13 text-text">
+        {{ $t('integrations.alerts.newDefaults', { n: missing.length }, missing.length) }}
+      </p>
+      <ul class="list-disc pl-5 text-13 text-text-muted">
+        <li v-for="d in missing" :key="d.key">{{ defaultName(d) }}</li>
+      </ul>
+      <LockedControl class="self-start">
+        <BaseButton
+          variant="secondary"
+          :loading="adding"
+          :disabled="!auth.canManage"
+          data-testid="add-new-defaults"
+          @click="addMissing"
+          >{{
+            $t('integrations.alerts.addNewDefaults', { n: missing.length }, missing.length)
+          }}</BaseButton
+        >
+      </LockedControl>
+    </div>
     <p class="px-4 pb-3 text-12 text-text-muted sm:px-5">
       {{ $t('integrations.alerts.anyMetric') }}
     </p>
