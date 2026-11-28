@@ -47,10 +47,18 @@ type MySQL struct {
 	// heavyPerms are the heavy scrape's permission notes per target, repeated by the
 	// light scrapes in between so a panel's note doesn't come and go.
 	heavyPerms map[string]map[string]string
+	// catalogs are each member's last catalog scan (1.2: every 10 minutes, re-sent between).
+	catalogs map[string]*catalog
+	// tops are each target's top digests from its last heavy scrape.
+	tops map[string]map[string]bool
+	now  func() time.Time
 }
 
 // New returns the integration.
-func New() *MySQL { return &MySQL{heavyPerms: map[string]map[string]string{}} }
+func New() *MySQL {
+	return &MySQL{heavyPerms: map[string]map[string]string{}, catalogs: map[string]*catalog{},
+		tops: map[string]map[string]bool{}, now: time.Now}
+}
 
 // tlsPreferred: TLS when the server offers it, without verifying its certificate (cluster
 // networks; the same as PostgreSQL's sslmode=prefer).
@@ -89,6 +97,9 @@ func connect(ctx context.Context, m integrations.Member, auth *integrations.Auth
 	cfg.Net, cfg.Addr = "tcp", m.Address
 	cfg.Timeout, cfg.ReadTimeout, cfg.WriteTimeout = integrations.DialTimeout, 10*time.Second, 5*time.Second
 	cfg.TLSConfig = tlsPreferred
+	// Preferred means preferred: a server without TLS (the official MariaDB image) is read in
+	// plain text, as PostgreSQL's sslmode=prefer (1.2; before, the connection failed).
+	cfg.AllowFallbackToPlaintext = true
 	cfg.AllowNativePasswords = true
 	cfg.ConnectionAttributes = "program_name:watchlog"
 	conn, err := mysql.NewConnector(cfg)
@@ -108,16 +119,17 @@ func connect(ctx context.Context, m integrations.Member, auth *integrations.Auth
 		s.close()
 		return nil, took, err
 	}
-	for _, q := range []string{"SET SESSION TRANSACTION READ ONLY", "SET SESSION lock_wait_timeout = 5"} {
+	// 1.2 (ADR-245): a metadata or row lock is waited for at most 2 s.
+	for _, q := range []string{"SET SESSION TRANSACTION READ ONLY", "SET SESSION lock_wait_timeout = 2", "SET SESSION innodb_lock_wait_timeout = 2"} {
 		if _, err := c.ExecContext(ctx, q); err != nil {
 			s.close()
 			return nil, took, err
 		}
 	}
-	// The statement limit: MySQL's in milliseconds, MariaDB's in seconds; one of them
+	// The statement limit, 2 s: MySQL's in milliseconds, MariaDB's in seconds; one of them
 	// exists.
-	if _, err := c.ExecContext(ctx, "SET SESSION max_execution_time = 5000"); err != nil {
-		_, _ = c.ExecContext(ctx, "SET SESSION max_statement_time = 5")
+	if _, err := c.ExecContext(ctx, "SET SESSION max_execution_time = 2000"); err != nil {
+		_, _ = c.ExecContext(ctx, "SET SESSION max_statement_time = 2")
 	}
 	return s, took, nil
 }
@@ -235,7 +247,10 @@ func (p *MySQL) Scrape(ctx context.Context, t integrations.Target, heavy bool) i
 		ms.Up = true
 		up++
 		res.Members = append(res.Members, ms)
-		s := &scrape{s: c, member: m.Name, queryText: t.Settings.QueryText, perms: perms, extra: extra}
+		p.mu.Lock()
+		top := p.tops[t.ID]
+		p.mu.Unlock()
+		s := &scrape{s: c, member: m.Name, queryText: t.Settings.QueryText, perms: perms, extra: extra, top: top}
 		s.add("watchlog_integration_connect_seconds", connectTime.Seconds())
 		s.light(ctx)
 		if res.ServiceVersion == "" {
@@ -243,6 +258,12 @@ func (p *MySQL) Scrape(ctx context.Context, t integrations.Target, heavy bool) i
 		}
 		if heavy {
 			s.heavy(ctx)
+			s.catalogOf(ctx, p, t.ID+"/"+m.Name)
+			if s.newTop != nil {
+				p.mu.Lock()
+				p.tops[t.ID] = s.newTop
+				p.mu.Unlock()
+			}
 		}
 		res.Samples = append(res.Samples, s.out...)
 		c.close()
@@ -290,12 +311,14 @@ type scrape struct {
 	perfOn    bool
 	threadID  string
 	procs     map[string]proc
+	// top are the top digests from the last heavy scrape; newTop this scrape's.
+	top, newTop map[string]bool
 }
 
 // proc is one row of the process list: never its statement text.
 type proc struct {
-	user, host, command string
-	time                float64
+	user, host, command, state string
+	time                       float64
 }
 
 func (s *scrape) add(name string, v float64, pairs ...string) {
@@ -341,7 +364,10 @@ var statusGauges = map[string]string{
 }
 
 // settings are the variables read (an allow-list, ADR-163).
-var settings = []string{"max_connections", "innodb_buffer_pool_size", "innodb_page_size", "read_only", "performance_schema", "wsrep_on", "max_user_connections"}
+var settings = []string{"max_connections", "innodb_buffer_pool_size", "innodb_page_size", "read_only", "performance_schema", "wsrep_on", "max_user_connections",
+	// 1.2: settings that hurt when set wrong (ADR-245).
+	"innodb_flush_log_at_trx_commit", "sync_binlog", "innodb_doublewrite", "log_bin", "binlog_expire_logs_seconds", "expire_logs_days",
+	"innodb_redo_log_capacity", "innodb_log_file_size"}
 
 func (s *scrape) light(ctx context.Context) {
 	var version string
@@ -421,11 +447,11 @@ func (s *scrape) light(ctx context.Context) {
 	s.procs = map[string]proc{}
 	longest, sessions := 0.0, 0.0
 	byCommand := map[string]float64{}
-	err := s.s.rows(ctx, "SELECT ID, COALESCE(USER, ''), COALESCE(HOST, ''), COALESCE(COMMAND, ''), COALESCE(TIME, 0) FROM information_schema.PROCESSLIST", func(v []string) {
+	err := s.s.rows(ctx, "SELECT ID, COALESCE(USER, ''), COALESCE(HOST, ''), COALESCE(COMMAND, ''), COALESCE(TIME, 0), COALESCE(STATE, '') FROM information_schema.PROCESSLIST", func(v []string) {
 		if v[0] == s.threadID {
 			return
 		}
-		p := proc{user: v[1], host: v[2], command: v[3], time: f(v[4])}
+		p := proc{user: v[1], host: v[2], command: v[3], time: f(v[4]), state: v[5]}
 		s.procs[v[0]] = p
 		if !client(p) {
 			return
@@ -445,6 +471,7 @@ func (s *scrape) light(ctx context.Context) {
 	}
 
 	s.replication(ctx)
+	s.waits(ctx)
 }
 
 // client: a session a client opened, not a replication, daemon or system thread.
@@ -513,16 +540,59 @@ func redactError(s string) string {
 
 func (s *scrape) heavy(ctx context.Context) {
 	s.clients()
-	s.locks(ctx)
-	s.tables(ctx)
+	pairs := s.locks(ctx)
 	if s.perfOn {
 		s.statements(ctx)
+		s.statementClients(ctx)
 		if !s.mariadb {
 			s.histogram(ctx)
 		}
 	} else {
 		s.perms["queries/top"] = "performance_schema"
 		s.perms["overview/slowest"] = "performance_schema"
+	}
+	// 1.2 (ADR-245): metadata locks and the tree, the oldest transactions, redo, the latest
+	// deadlock, replication per channel, binary logs, users, file I/O.
+	pairs = append(pairs, s.metadataWaits(ctx)...)
+	s.tree(pairs)
+	blocks := map[string]int{}
+	for _, p := range pairs {
+		blocks[p[1]]++
+	}
+	s.transactions(ctx, blocks)
+	s.redo(ctx)
+	s.deadlock(ctx)
+	s.channels(ctx)
+	s.binlogs(ctx)
+	s.users(ctx)
+	s.fileIO(ctx)
+}
+
+// catalogOf sends the member's catalog scan: a new one when the last is older than
+// CatalogEvery, else the cached one again.
+func (s *scrape) catalogOf(ctx context.Context, p *MySQL, key string) {
+	p.mu.Lock()
+	c := p.catalogs[key]
+	p.mu.Unlock()
+	if c == nil || p.now().Sub(c.at) >= CatalogEvery {
+		cat := &scrape{s: s.s, member: s.member, perms: map[string]string{}, extra: map[string]any{}, perfOn: s.perfOn}
+		s.tablesInto(ctx, cat)
+		if s.perfOn {
+			s.indexUsage(ctx, cat)
+		}
+		c = &catalog{at: p.now(), samples: cat.out, extra: cat.extra, perms: cat.perms}
+		p.mu.Lock()
+		p.catalogs[key] = c
+		p.mu.Unlock()
+	}
+	s.out = append(s.out, c.samples...)
+	for k, v := range c.extra {
+		if rows, ok := v.([]map[string]any); ok {
+			s.extra[k] = append(asRows(s.extra[k]), rows...)
+		}
+	}
+	for k, v := range c.perms {
+		s.perms[k] = v
 	}
 }
 
@@ -577,13 +647,15 @@ const lockQueryMariaDB = `SELECT w.trx_mysql_thread_id, b.trx_mysql_thread_id,
 	LEFT JOIN information_schema.INNODB_LOCKS l ON l.lock_id = lw.requested_lock_id
 	ORDER BY 3 DESC LIMIT 20`
 
-func (s *scrape) locks(ctx context.Context) {
+func (s *scrape) locks(ctx context.Context) [][2]string {
 	q := lockQueryMySQL
 	if s.mariadb {
 		q = lockQueryMariaDB
 	}
 	blocking := []map[string]any{}
+	var pairs [][2]string
 	err := s.s.rows(ctx, q, func(v []string) {
+		pairs = append(pairs, [2]string{v[0], v[1]})
 		w, b := s.procs[v[0]], s.procs[v[1]]
 		blocking = append(blocking, map[string]any{
 			"blocked": trimText(hostOf(w.host), 64), "blocked_user": trimText(w.user, 64),
@@ -604,20 +676,21 @@ func (s *scrape) locks(ctx context.Context) {
 	}
 	s.add("watchlog_mysql_lock_waits", float64(len(blocking)))
 	s.extra["blocking"] = append(asRows(s.extra["blocking"]), blocking...)
+	return pairs
 }
 
-// tables: the largest tables by InnoDB's persistent statistics (estimates: clustered and
-// other index pages × the page size).
-func (s *scrape) tables(ctx context.Context) {
+// tablesInto: the largest tables by InnoDB's persistent statistics (estimates: clustered
+// and other index pages × the page size), into the catalog scan.
+func (s *scrape) tablesInto(ctx context.Context, cat *scrape) {
 	err := s.s.rows(ctx, `SELECT database_name, table_name, (clustered_index_size + sum_of_other_index_sizes) * @@innodb_page_size, n_rows
 		FROM mysql.innodb_table_stats WHERE database_name NOT IN ('mysql', 'sys', 'performance_schema', 'information_schema')
 		ORDER BY 3 DESC LIMIT `+strconv.Itoa(TopTables), func(v []string) {
 		db, table := trimText(v[0], 64), trimText(v[1], 128)
-		s.add("watchlog_mysql_table_size_bytes_estimate", f(v[2]), "db", db, "table", table)
-		s.add("watchlog_mysql_table_rows_estimate", f(v[3]), "db", db, "table", table)
+		cat.add("watchlog_mysql_table_size_bytes_estimate", f(v[2]), "db", db, "table", table)
+		cat.add("watchlog_mysql_table_rows_estimate", f(v[3]), "db", db, "table", table)
 	})
 	if err != nil && denied(err) {
-		s.perms["storage/tables"] = "SELECT on mysql.innodb_table_stats"
+		cat.perms["storage/tables"] = "SELECT on mysql.innodb_table_stats"
 	}
 }
 
@@ -627,20 +700,30 @@ func (s *scrape) tables(ctx context.Context) {
 func (s *scrape) statements(ctx context.Context) {
 	rows := []map[string]any{}
 	// One row per digest: the same statement run in several schemas is summed.
+	s.newTop = map[string]bool{}
 	err := s.s.rows(ctx, `SELECT DIGEST, MIN(COALESCE(SCHEMA_NAME, '')), MIN(COALESCE(DIGEST_TEXT, '')), SUM(COUNT_STAR),
 		SUM(SUM_TIMER_WAIT) / 1e12, SUM(SUM_TIMER_WAIT) / GREATEST(SUM(COUNT_STAR), 1) / 1e12, MAX(MAX_TIMER_WAIT) / 1e12,
-		SUM(SUM_ROWS_EXAMINED), SUM(SUM_ROWS_SENT)
+		SUM(SUM_ROWS_EXAMINED), SUM(SUM_ROWS_SENT), SUM(SUM_NO_INDEX_USED), SUM(SUM_CREATED_TMP_DISK_TABLES),
+		SUM(SUM_ERRORS), SUM(SUM_WARNINGS)
 		FROM performance_schema.events_statements_summary_by_digest
 		WHERE DIGEST IS NOT NULL AND DIGEST_TEXT NOT LIKE 'SHOW %' AND DIGEST_TEXT NOT LIKE 'SET %'
 		  AND DIGEST_TEXT NOT LIKE 'SELECT @@%' AND DIGEST_TEXT NOT LIKE '%performance\\_schema%'
 		  AND DIGEST_TEXT NOT LIKE '%information\\_schema%' AND DIGEST_TEXT NOT LIKE '%innodb\\_table\\_stats%'
 		GROUP BY DIGEST ORDER BY 5 DESC LIMIT `+strconv.Itoa(TopStatements), func(v []string) {
 		id := shortDigest(v[0])
+		s.newTop[id] = true
 		s.add("watchlog_mysql_statement_calls_total", f(v[3]), "digest", id)
 		s.add("watchlog_mysql_statement_seconds_total", f(v[4]), "digest", id)
+		s.add("watchlog_mysql_statement_rows_examined_total", f(v[7]), "digest", id)
+		s.add("watchlog_mysql_statement_rows_sent_total", f(v[8]), "digest", id)
+		s.add("watchlog_mysql_statement_no_index_total", f(v[9]), "digest", id)
+		s.add("watchlog_mysql_statement_tmp_disk_total", f(v[10]), "digest", id)
+		s.add("watchlog_mysql_statement_errors_total", f(v[11]), "digest", id)
+		s.add("watchlog_mysql_statement_warnings_total", f(v[12]), "digest", id)
 		row := map[string]any{
 			"digest": id, "db": trimText(v[1], 64), "calls": int64(f(v[3])), "total": f(v[4]), "mean": f(v[5]),
 			"max": f(v[6]), "rows_examined": int64(f(v[7])), "rows_sent": int64(f(v[8])),
+			"no_index": int64(f(v[9])), "tmp_disk": int64(f(v[10])), "errors": int64(f(v[11])), "warnings": int64(f(v[12])),
 		}
 		if s.queryText {
 			row["query"] = Normalise(v[2])
