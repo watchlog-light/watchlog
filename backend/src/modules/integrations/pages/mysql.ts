@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // The MySQL and MariaDB page (SPEC §4.12, ADR-163, v0.5 slice 1): Overview, Connections,
-// Queries, Locks, InnoDB and storage, and Replication, from the collector's status-variable
+// Queries, Waits, Locks, Replication, Tables, InnoDB and Alerts (1.2, ADR-245), from the collector's status-variable
 // series; statements (the digest summary), lock waits, clients and replica state from its
 // status. One type for both servers; the product comes from the server's version.
 import { genericPage } from './generic.js';

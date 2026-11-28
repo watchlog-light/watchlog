@@ -89,8 +89,7 @@ export async function overview(
     slots,
     xid,
     stmtsOn,
-    settings,
-    pending,
+    autovacuumOn,
     commitSeries,
     rollbackSeries,
     blockedSeries,
@@ -125,11 +124,7 @@ export async function overview(
     instant(ctx, `max by (slot) (watchlog_postgres_slot_active{${s}})`),
     instant(ctx, `max(watchlog_postgres_xid_age{${s}})`),
     instant(ctx, `count(watchlog_postgres_statement_calls_total{${s}})`),
-    instant(
-      ctx,
-      `max by (name) (watchlog_postgres_setting{${s}, name=~"fsync|full_page_writes|autovacuum|track_counts"})`,
-    ),
-    instant(ctx, `max(watchlog_postgres_pending_restart{${s}})`),
+    instant(ctx, `max(watchlog_postgres_setting{${s}, name="autovacuum"})`),
     range(ctx, `sum(rate(watchlog_postgres_xact_commit_total{${s}}[${RATE}]))`),
     range(ctx, `sum(rate(watchlog_postgres_xact_rollback_total{${s}}[${RATE}]))`),
     range(ctx, `sum(watchlog_postgres_blocked_sessions{${s}})`),
@@ -323,9 +318,13 @@ export async function overview(
     ],
   };
 
-  const settingOff = settings
-    .filter((x) => (x.points[0]?.[1] ?? 1) === 0)
-    .map((x) => x.labels.name ?? '');
+  // Tables autovacuum hasn't caught up with: a fifth or more of their rows dead (the Vacuum
+  // tab's "due for vacuum"). Risky settings and a pending restart are findings above.
+  const vacuumDue = (
+    (ctx.row.status_details as { extra?: { vacuum?: { live: number; dead: number }[] } }).extra
+      ?.vacuum ?? []
+  ).filter((x) => x.dead > 0 && x.dead / (x.live + x.dead) > 0.2).length;
+  const autovacuumOff = valueOf(autovacuumOn) === 0;
   const inactive = slots.filter((x) => (x.points[0]?.[1] ?? 1) === 0).length;
   const xidAge = valueOf(xid) ?? 0;
   const checks: ChecksPanel = {
@@ -339,7 +338,7 @@ export async function overview(
       {
         id: 'lock_waits',
         labelKey: `${P}.checks.lockWaits`,
-        state: longBlock > 60 ? 'fail' : nBlocked > 0 ? 'warn' : 'pass',
+        state: longBlock > 30 ? 'fail' : 'pass',
         value: { key: `${P}.checks.sessions`, values: { n: nBlocked } },
         link: { kind: 'tab', tab: 'locks', name: 'locks' },
       },
@@ -393,14 +392,13 @@ export async function overview(
         value: { key: `${P}.checks.xidOf`, values: { n: Math.round(xidAge / 1e6) } },
       },
       {
-        id: 'settings',
-        labelKey: `${P}.checks.settings`,
-        state: settingOff.length ? 'fail' : (valueOf(pending) ?? 0) > 0 ? 'warn' : 'pass',
-        value: settingOff.length
-          ? { key: `${P}.checks.settingOff`, values: { names: settingOff.join(', ') } }
-          : (valueOf(pending) ?? 0) > 0
-            ? { key: `${P}.checks.pendingRestart`, values: { n: valueOf(pending) } }
-            : { key: `${P}.checks.settingsOk` },
+        id: 'autovacuum',
+        labelKey: `${P}.checks.autovacuum`,
+        state: autovacuumOff ? 'fail' : vacuumDue > 0 ? 'warn' : 'pass',
+        value: autovacuumOff
+          ? { key: `${P}.checks.settingOff`, values: { names: 'autovacuum' } }
+          : { key: `${P}.checks.tablesWaiting`, values: { n: vacuumDue } },
+        ...(vacuumDue > 0 ? { link: { kind: 'tab' as const, tab: 'vacuum', name: 'vacuum' } } : {}),
       },
       {
         id: 'statements',

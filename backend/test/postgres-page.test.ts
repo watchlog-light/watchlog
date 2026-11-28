@@ -399,6 +399,22 @@ describe('the PostgreSQL page', () => {
     expect(flow.columns[2]!.rows.find((r) => r.nameKey?.endsWith('flow.longest'))!.severity).toBe(
       'critical',
     );
+    // The design's eight checks; public.orders has 40% dead rows: autovacuum is behind.
+    const checks = panel(ov, 'checks').items as { id: string; state: string; value: unknown }[];
+    expect(checks.map((c) => c.id)).toEqual([
+      'lock_waits',
+      'idle_tx',
+      'connections',
+      'replicas',
+      'slots',
+      'xid',
+      'autovacuum',
+      'statements',
+    ]);
+    expect(checks.find((c) => c.id === 'autovacuum')).toMatchObject({
+      state: 'warn',
+      value: { values: { n: 1 } },
+    });
     expect(panel(ov, 'slowest').state).toBe('needs_permission');
     expect(panel(ov, 'slowest').missing).toEqual({
       key: 'integrations.postgres.missing.overview.slowest',

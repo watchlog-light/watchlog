@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-// The PostgreSQL page (SPEC §4.12, v0.3 slice 8): Overview, Connections, Queries, Locks
-// and waits, Replication, Tables and storage, and Vacuum, from the collector's
+// The PostgreSQL page (SPEC §4.12, v0.3 slice 8; 1.2, ADR-245): Overview, Queries, Waits,
+// Connections, Locks, Replication, Tables, Vacuum and Alerts, from the collector's
 // pg_stat_* series; statements, blocking sessions, clients, vacuum and unused indexes
 // from its status. The data volume's capacity is the PVC on Kubernetes and the host
 // filesystem that holds Docker's data on Docker.
@@ -803,6 +803,8 @@ async function reasons(ctx: PageContext): Promise<Reason[]> {
             : null,
         held: root?.xact ? duration(root.xact) : null,
         longest: duration(longest),
+        // The sentence's word for it, as MySQL's facts name it.
+        duration: duration(longest),
         table,
       },
       ...(holder?.link && (holder.link.kind === 'workload' || holder.link.kind === 'container')
