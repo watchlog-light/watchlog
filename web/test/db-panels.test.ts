@@ -229,15 +229,38 @@ describe('the flow and table rows', () => {
           nextText: { key: `${P}.flow.ofMax`, values: { n: 86, max: 200 } },
         },
         {
-          id: 'sessions',
-          title: { key: `${P}.flow.sessions` },
-          value: 31,
-          unit: 'count',
+          id: 'queries',
+          title: { key: `${P}.flow.queries` },
+          value: 1420,
+          unit: 'per_second',
+          valueKey: `${P}.flow.txPerSecond`,
           rows: [],
+        },
+        {
+          id: 'innodb',
+          title: { key: `${P}.flow.innodb` },
+          value: 0.99,
+          unit: 'ratio',
+          rows: [
+            {
+              name: '',
+              nameKey: `${P}.flow.largestTable`,
+              value: null,
+              unit: 'bytes',
+              text: { key: `${P}.flow.tableSize`, values: { table: 'orders', size: '38 GiB' } },
+              link: { kind: 'table', id: 'shop/orders', name: 'shop.orders' },
+            },
+          ],
         },
       ],
     });
     expect(flow.text()).toContain('86 of 200');
+    // A database's own word for its rate, never RabbitMQ's messages.
+    expect(flow.text()).toContain('1,420tx/s');
+    // A labelled row: its label, then its words opening the table's page.
+    const row = flow.findAll('[data-testid="flow-row"]').at(-1)!;
+    expect(row.text()).toBe('largest tableorders · 38 GiB');
+    expect(row.get('a').attributes('href')).toBe(`/applications/${ID}/tables/shop/orders`);
     const table = await mountPanel({
       ...base,
       id: 'growing',

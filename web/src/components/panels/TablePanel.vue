@@ -16,6 +16,9 @@ const dayFmt = new Intl.DateTimeFormat(undefined, {
   hour: '2-digit',
   minute: '2-digit',
 });
+// Six columns or more (MySQL's connections by client) fit the design's column with less room
+// between them.
+const pad = props.panel.columns.length >= 6 ? 'px-2.5 first:pl-4 last:pr-4' : 'px-4';
 function show(cell: string | number | null, j: number) {
   if (cell === null) return '–';
   if (typeof cell !== 'number' || !props.panel.clock?.includes(j)) return cell;
@@ -31,7 +34,12 @@ function show(cell: string | number | null, j: number) {
         <tr
           class="border-b border-border text-left text-11 font-medium tracking-wider text-text-muted uppercase"
         >
-          <th v-for="c in panel.columns" :key="c" scope="col" class="px-4 py-2 font-medium">
+          <th
+            v-for="c in panel.columns"
+            :key="c"
+            scope="col"
+            :class="['py-2 font-medium whitespace-nowrap', pad]"
+          >
             {{ $t(c) }}
           </th>
         </tr>
@@ -47,7 +55,8 @@ function show(cell: string | number | null, j: number) {
             v-for="(cell, j) in r.cells"
             :key="j"
             :class="[
-              'max-w-[24rem] truncate px-4 py-2',
+              'max-w-[24rem] truncate py-2',
+              pad,
               j === 0 ? 'font-mono' : 'text-text-muted tabular-nums',
               j === 0 && r.severity ? SEVERITY_TEXT[r.severity] : '',
             ]"

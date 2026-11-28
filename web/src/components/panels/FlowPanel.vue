@@ -23,7 +23,8 @@ function big(c: Column): { n: string; unit: string } {
     const n = formatRate(c.value).replace(/\/s$/, '');
     return {
       n: Number(n).toLocaleString('en', { maximumFractionDigits: 2 }),
-      unit: t('integrations.rabbitmq.panels.flow.msgPerSecond'),
+      // A database's own word ("tx/s", "q/s"); RabbitMQ's messages otherwise.
+      unit: t(c.valueKey ?? 'integrations.rabbitmq.panels.flow.msgPerSecond'),
     };
   }
   if (c.unit === 'count')
@@ -76,21 +77,24 @@ const title = (c: Column) =>
                 r.severity ? SEVERITY_TEXT[r.severity] : r.nameKey ? '' : 'text-text',
               ]"
             >
-              <PanelLink v-if="r.link" :link="r.link">{{ r.name }}</PanelLink>
-              <template v-else-if="r.nameKey && r.text">{{
-                $t(textOf(r.text).key, textOf(r.text).values)
-              }}</template>
-              <template v-else>{{ r.nameKey ? $t(r.nameKey) : r.name }}</template>
+              <template v-if="r.nameKey">{{ $t(r.nameKey) }}</template>
+              <PanelLink v-else-if="r.link" :link="r.link">{{ r.name }}</PanelLink>
+              <template v-else>{{ r.name }}</template>
             </span>
+            <!-- The value, or its words ("1 · holds a lock", "orders · 38 GiB"); a labelled row's
+                 words open its link (the largest table's page). -->
             <span
               class="ml-auto text-12 tabular-nums"
               :class="r.severity ? SEVERITY_TEXT[r.severity] : 'text-text-muted'"
-              >{{
-                r.text && !r.nameKey
-                  ? $t(textOf(r.text).key, textOf(r.text).values)
-                  : formatValue(r.value, r.unit)
-              }}</span
             >
+              <PanelLink v-if="r.text && r.nameKey && r.link" :link="r.link">{{
+                $t(textOf(r.text).key, textOf(r.text).values)
+              }}</PanelLink>
+              <template v-else-if="r.text">{{
+                $t(textOf(r.text).key, textOf(r.text).values)
+              }}</template>
+              <template v-else>{{ formatValue(r.value, r.unit) }}</template>
+            </span>
           </li>
         </ul>
       </li>
