@@ -6,7 +6,22 @@ import PanelLink from './PanelLink.vue';
 // Rows from the service (slow queries, queues, upstreams): text from the service is data,
 // shown in mono and truncated with its full value on hover; a row with a severity is
 // coloured in its first cell and marked for screen readers.
-defineProps<{ panel: PanelOf<'table'> }>();
+const props = defineProps<{ panel: PanelOf<'table'> }>();
+// A clock column (1.2) holds unix seconds: the viewer's time of day, with the day when it
+// isn't today.
+const clockFmt = new Intl.DateTimeFormat(undefined, { hour: '2-digit', minute: '2-digit' });
+const dayFmt = new Intl.DateTimeFormat(undefined, {
+  month: 'short',
+  day: 'numeric',
+  hour: '2-digit',
+  minute: '2-digit',
+});
+function show(cell: string | number | null, j: number) {
+  if (cell === null) return '–';
+  if (typeof cell !== 'number' || !props.panel.clock?.includes(j)) return cell;
+  const d = new Date(cell * 1000);
+  return (d.toDateString() === new Date().toDateString() ? clockFmt : dayFmt).format(d);
+}
 </script>
 
 <template>
@@ -36,13 +51,13 @@ defineProps<{ panel: PanelOf<'table'> }>();
               j === 0 ? 'font-mono' : 'text-text-muted tabular-nums',
               j === 0 && r.severity ? SEVERITY_TEXT[r.severity] : '',
             ]"
-            :title="cell === null ? undefined : String(cell)"
+            :title="cell === null ? undefined : String(show(cell, j))"
           >
             <span v-if="j === 0 && r.severity && r.severity !== 'ok'" class="sr-only"
               >{{ $t(`integrations.severity.${r.severity}`) }}:
             </span>
             <PanelLink v-if="j === 0 && r.link" :link="r.link">{{ cell ?? '–' }}</PanelLink>
-            <template v-else>{{ cell ?? '–' }}</template>
+            <template v-else>{{ show(cell, j) }}</template>
           </td>
         </tr>
       </tbody>

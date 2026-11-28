@@ -252,5 +252,20 @@ describe('the flow and table rows', () => {
       ],
     });
     expect(table.get('a').attributes('href')).toBe(`/applications/${ID}/tables/shop/public.orders`);
+    // A clock column: unix seconds as the viewer's time of day.
+    const at = new Date();
+    at.setHours(13, 55, 0, 0);
+    const clients = await mountPanel({
+      ...base,
+      id: 'clients',
+      title: `${P}.clients.title`,
+      kind: 'table',
+      columns: [`${P}.cols.client`, `${P}.cols.since`],
+      clock: [1],
+      rows: [{ cells: ['report', Math.floor(at.getTime() / 1000)] }, { cells: ['web', null] }],
+    });
+    const cells = clients.findAll('td').map((c) => c.text());
+    expect(cells[1]).toMatch(/13:55|1:55/);
+    expect(cells[3]).toBe('–');
   });
 });
