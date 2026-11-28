@@ -2504,7 +2504,8 @@
         "phpfpm_status_off": "Connected, but no number has data: the pool's status page is off. Set pm.status_path in its pool configuration and reload PHP-FPM.",
         "server": "Connected, but none of its numbers has data, so it isn't shown as healthy. The collector's log on {host} says why (with docker run: docker logs --tail 50 watchlog-integrations):",
         "kubernetes": "Connected, but none of its numbers has data, so it isn't shown as healthy. The collector's log says why:"
-      }
+      },
+      "sourceUnsupported": "The server doesn't have the command the {tab} panel reads, so it stays empty (a managed service, for example)."
     },
     "firing": "{n} firing",
     "members": "{up} of {total} members",
@@ -2948,7 +2949,8 @@
         "mongodb": "WatchLog checks that its collector reaches every member of this MongoDB and how fast it connects.",
         "elasticsearch": "WatchLog checks that its collector reaches every member of this Elasticsearch and how fast it connects. Cluster health, indices and search latency come with its integration (v0.5).",
         "kafka": "WatchLog checks that its collector reaches every broker of this Kafka and how fast it connects."
-      }
+      },
+      "unsupported": "Not available on this server: it doesn't have the command this panel reads (a managed service, for example)."
     },
     "panel": {
       "empty": "No data yet in this time range.",

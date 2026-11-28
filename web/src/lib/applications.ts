@@ -204,6 +204,8 @@ export function reasonLine(
         key: 'applications.reason.needsPermission',
         values: { tab: f.tab, missing: f.missing },
       };
+    case 'source_unsupported':
+      return { key: 'applications.reason.sourceUnsupported', values: { tab: f.tab } };
     case 'no_metrics':
       // The page shows the command under the line, so the words don't repeat it.
       return noMetricsText(f, 'applications.reason.noMetricsPage');
