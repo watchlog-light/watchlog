@@ -198,8 +198,9 @@ func (s *scrape) waits(ctx context.Context) {
 			builds = append(builds, map[string]any{"ns": trimText(str(d, "ns"), 128), "progress": trimText(msg, 120),
 				"seconds": num0(d, "secs_running"), "member": s.member})
 		}
-		// The server's own work (replication, TTL, monitors) has no client.
-		if addr == "" || strings.HasPrefix(str(d, "desc"), "OplogFetcher") {
+		// The server's own work (replication, TTL, monitors) has no client; a secondary
+		// reading the oplog, or anything on local, admin or config, is no workload's.
+		if addr == "" || strings.HasPrefix(str(d, "desc"), "OplogFetcher") || systemNS(str(d, "ns")) {
 			continue
 		}
 		class := WaitClassOf(d)

@@ -254,8 +254,12 @@ func (r *Redis) member(ctx context.Context, t integrations.Target, m integration
 	} else if unknownCommand(err) {
 		out.perms["commands/slowlog"] = "unsupported"
 	}
-	// LATENCY HISTOGRAM (Redis 7+): every command's latency, merged.
-	if v, err := c.Do(ctx, "LATENCY", "HISTOGRAM"); err == nil {
+	// LATENCY HISTOGRAM (Redis 7+, Valkey): every command's latency, merged. Not sent to an
+	// older server, where it fails and would count as the server's own failed calls.
+	major := majorOf(info)
+	if major < 7 {
+		// nothing: the page says the histogram needs Redis 7
+	} else if v, err := c.Do(ctx, "LATENCY", "HISTOGRAM"); err == nil {
 		for le, n := range Histogram(v) {
 			lbl("watchlog_redis_command_latency_bucket", n, "le", le)
 		}
@@ -341,7 +345,9 @@ func (r *Redis) member(ctx context.Context, t integrations.Target, m integration
 		} else if unknownCommand(err) {
 			out.perms["replication/cluster"] = "unsupported"
 		}
-		if v, err := c.Do(ctx, "CLUSTER", "SHARDS"); err == nil {
+		if major < 7 {
+			// CLUSTER SHARDS comes with Redis 7: state and slot counts only.
+		} else if v, err := c.Do(ctx, "CLUSTER", "SHARDS"); err == nil {
 			for _, row := range Shards(v) {
 				row["member"] = m.Name
 				out.lists["cluster_nodes"] = append(out.lists["cluster_nodes"], row)
@@ -554,6 +560,16 @@ func (r *Redis) Probe(ctx context.Context, t integrations.Target) integrations.P
 		out.Error = short(lastErr)
 	}
 	return out
+}
+
+// majorOf is the server's major version (Valkey 7.2+ counts as 7 or more).
+func majorOf(info Info) int {
+	v := info.Version()
+	if i := strings.IndexByte(v, '.'); i > 0 {
+		v = v[:i]
+	}
+	n, _ := strconv.Atoi(v)
+	return n
 }
 
 func aclUser(a *integrations.Auth) string {
