@@ -3176,6 +3176,9 @@
           "top": "Turn performance_schema on to see statements: performance_schema=ON in the server's configuration, then restart it.",
           "clients": "MariaDB keeps no statement history by default: --performance-schema-consumer-events-statements-history=ON (a restart) shows who sends each statement."
         },
+        "waits": {
+          "by-statement": "MariaDB doesn't record each session's running statement by default: --performance-schema-consumer-events-statements-current=ON (a restart) shows which statements wait."
+        },
         "locks": {
           "blocking": "WatchLog's user needs {missing} to see who blocks whom."
         },
