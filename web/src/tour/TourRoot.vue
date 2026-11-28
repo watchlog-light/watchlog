@@ -52,10 +52,14 @@ let raf = 0;
 
 const eventKind = (k: TourKind) => (k === 'server' ? 'server' : 'kubernetes');
 
-/** What All clusters and the alerts list say now: open alerts, their cause, their titles. */
+/**
+ * What the demo has open now: the alerts its stories could tell (from /demo/tour, so the tour
+ * opens no page of its own that the analytics would count), and All clusters' answer for their
+ * cause and their titles (the page the visitor lands on).
+ */
 async function loadLive(): Promise<void> {
-  const [firing, all] = await Promise.all([
-    api<{ alerts: OpenAlert[] }>('/alerts?view=firing&limit=200'),
+  const [tour, all] = await Promise.all([
+    api<{ stories: TourStory[]; another: string[]; open: OpenAlert[] }>('/demo/tour'),
     api<{
       problems: {
         title: string;
@@ -64,7 +68,8 @@ async function loadLive(): Promise<void> {
       }[];
     }>('/overview/all?range=86400').catch(() => ({ problems: [] })),
   ]);
-  alerts.value = firing.alerts;
+  stories.value = tour.stories;
+  another.value = tour.another;
   const c = new Map<string, 'likely' | 'possible' | 'none'>();
   const tt = new Map<string, string>();
   for (const p of all.problems)
@@ -75,6 +80,7 @@ async function loadLive(): Promise<void> {
     }
   causes.value = c;
   titles.value = tt;
+  alerts.value = tour.open.map((a) => ({ ...a, title: tt.get(a.id) ?? a.rule.name }));
 }
 
 const pick = (k: TourKind) => chooseStory(stories.value, k, alerts.value, causes.value);
@@ -85,14 +91,9 @@ const openFor = (c: ChosenStory) => since(c.alert.firedAt ?? c.alert.startedAt);
 
 async function begin(entryKind: TourKind | null, reason: 'link' | 'first' | 'replay') {
   try {
-    const [tour, health] = await Promise.all([
-      api<{ stories: TourStory[]; another: string[] }>('/demo/tour'),
-      fetch('/api/v1/health')
-        .then((r) => r.json() as Promise<{ version?: string }>)
-        .catch(() => ({}) as { version?: string }),
-    ]);
-    stories.value = tour.stories;
-    another.value = tour.another;
+    const health = await fetch('/api/v1/health')
+      .then((r) => r.json() as Promise<{ version?: string }>)
+      .catch(() => ({}) as { version?: string });
     // A release's version only: a development build has no install command to give.
     version.value = /^\d+\.\d+\.\d+$/.test(health.version ?? '') ? health.version! : null;
     await loadLive();
@@ -142,7 +143,12 @@ async function go(n: Step) {
   } else if ((n === 2 || n === 3) && c) {
     if (route.name !== 'alert' || route.params.id !== c.alert.id) await router.push(alertRoute(c));
   } else if (n === 4) {
-    void loadLive().catch(() => {});
+    // Only the tour's own answer: All clusters' would read as the visitor opening that page.
+    void api<{ open: OpenAlert[] }>('/demo/tour')
+      .then((t) => {
+        alerts.value = t.open.map((a) => ({ ...a, title: titles.value.get(a.id) ?? a.rule.name }));
+      })
+      .catch(() => {});
   }
   await nextTick();
   if (n >= 1 && n <= 3) await light(n);
