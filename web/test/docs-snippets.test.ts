@@ -10,6 +10,7 @@ import {
   EXPOSE_LANGS,
   exposeSnippet,
   fillDocSnippets,
+  installSnippet,
   kubectlPatchSnippet,
   PUSH_LANGS,
   pushSnippet,
@@ -119,5 +120,12 @@ describe('the snippets themselves', () => {
     expect(exposeSnippet('php')).toContain('promphp/prometheus_client_php');
     expect(exposeSnippet('java')).toContain('io.prometheus.metrics.exporter.httpserver.HTTPServer');
     expect(docSnippet('nothing')).toBeNull();
+  });
+
+  it('install.md opens each way in with the commands the demo tour gives (1.3.0)', () => {
+    const md = readFileSync(`${DOCS}install.md`, 'utf8');
+    const version = /--version (\d+\.\d+\.\d+)/.exec(md)![1]!;
+    expect(md).toContain(installSnippet('kubernetes', version));
+    expect(md).toContain(installSnippet('server', version));
   });
 });

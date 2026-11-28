@@ -375,3 +375,23 @@ export function fillDocSnippets(markdown) {
 export function docSnippetIds(markdown) {
   return [...markdown.matchAll(MARK)].map((m) => m[1]);
 }
+
+/**
+ * The first command of an install (1.3.0, the live demo tour's last card), as the install docs
+ * give it (`docs/site/install.md`, checked by web/test/docs-snippets.test.ts): the Helm chart
+ * on a cluster, or WatchLog itself on a Linux host with Docker Compose (the agents come from
+ * its Settings afterwards), pinned to a release.
+ */
+export function installSnippet(kind, version) {
+  if (kind === 'kubernetes')
+    return [
+      `helm install watchlog oci://ghcr.io/watchlog-light/charts/watchlog --version ${version} \\`,
+      '  --namespace watchlog --create-namespace',
+    ].join('\n');
+  const raw = `https://raw.githubusercontent.com/watchlog-light/watchlog/v${version}/deploy/docker`;
+  return [
+    'mkdir watchlog && cd watchlog',
+    `curl -fsSLO ${raw}/compose.yaml`,
+    `curl -fsSL -o .env ${raw}/.env.example`,
+  ].join('\n');
+}

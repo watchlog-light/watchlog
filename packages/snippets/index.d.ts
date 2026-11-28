@@ -50,3 +50,6 @@ export declare function docSnippet(id: string): [string, string] | null;
 /** A Markdown page with every `<!-- snippet:id -->…<!-- /snippet -->` filled from here. */
 export declare function fillDocSnippets(markdown: string): string;
 export declare function docSnippetIds(markdown: string): string[];
+
+/** The first command of an install, as the install docs give it (1.3.0). */
+export declare function installSnippet(kind: 'kubernetes' | 'server', version: string): string;
