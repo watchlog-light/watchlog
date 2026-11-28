@@ -3990,6 +3990,8 @@
           "noStatementFor": "No statement for",
           "where": "Where",
           "longestIdle": "Oldest idle",
+          "seqRows6h": "Rows read by sequential scans, 6 h",
+          "fullScanRows6h": "Rows read by full scans, 6 h",
           "since": "Since",
           "outcome": "Outcome",
           "slot": "Slot",
@@ -4042,10 +4044,7 @@
           "senders": "Who sends it",
           "sendersNote": "the clients whose sessions ran it last, in the last hour",
           "sendersNoteMysql": "each client thread's last ten statements, in the last hour",
-          "tables": "Tables it names",
-          "table": "Table",
-          "fullScans": "{n} rows read by sequential scans in 6 h",
-          "fullScanRows": "{n} rows read by full scans in 6 h"
+          "tables": "Tables it names"
         },
         "table": {
           "facts": "This table",
