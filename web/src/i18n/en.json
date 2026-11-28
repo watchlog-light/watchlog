@@ -4062,6 +4062,8 @@
           "noPrimaryKey": "none: updates and deletes by row are slow, and logical replication can't send them",
           "estimate": "InnoDB's persistent statistics: estimates",
           "sizeOverTime": "Size",
+          "statements": "Statements that name it",
+          "statementsNote": "among the 50 statements with the most time, by their text",
           "deadOverTime": "Dead rows",
           "scans": "Sequential against index scans",
           "scansNote": "read every 10 minutes",
