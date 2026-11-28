@@ -126,7 +126,7 @@ for (const width of [1440, 390]) {
     const valkey = SERVICES[4][1];
     // A shape, from the Overview's slow operations.
     await page.goto(`/applications/${mongo}`);
-    await page.locator('[data-panel="slow"] a').first().click();
+    await page.locator('[data-panel="slow"] [data-testid="table-row"] a').first().click();
     await expect(page).toHaveURL(new RegExp(`/applications/${mongo}/statements/`));
     await settled(page);
     await expect(page.getByTestId('db-item-name')).toContainText(/find|aggregate|update|insert/);
@@ -137,7 +137,7 @@ for (const width of [1440, 390]) {
     // A collection, from the Collections tab; back goes to Collections.
     await page.goto(`/applications/${mongo}?tab=collections`);
     await settled(page);
-    await page.locator('[data-panel="collections"] a').first().click();
+    await page.locator('[data-panel="collections"] [data-testid="table-row"] a').first().click();
     await expect(page).toHaveURL(new RegExp(`/applications/${mongo}/tables/`));
     await settled(page);
     await layoutOk(page, 'mongo collection');
@@ -146,7 +146,7 @@ for (const width of [1440, 390]) {
     await expect(page).toHaveURL(/tab=collections/);
     // A key prefix, from what fills the memory.
     await page.goto(`/applications/${redis}`);
-    await page.locator('[data-panel="prefixes"] a').first().click();
+    await page.locator('[data-panel="prefixes"] [data-testid="table-row"] a').first().click();
     await expect(page).toHaveURL(new RegExp(`/applications/${redis}/items/prefix/`));
     await settled(page);
     await expect(page.getByTestId('db-item-name')).toContainText('*');
@@ -155,7 +155,7 @@ for (const width of [1440, 390]) {
     // A command, from the Commands tab.
     await page.goto(`/applications/${redis}?tab=commands`);
     await settled(page);
-    await page.locator('[data-panel="commands"] a').first().click();
+    await page.locator('[data-panel="commands"] [data-testid="table-row"] a').first().click();
     await expect(page).toHaveURL(new RegExp(`/applications/${redis}/items/command/`));
     await settled(page);
     await layoutOk(page, 'redis command');
@@ -163,7 +163,7 @@ for (const width of [1440, 390]) {
     // A stream group, from the Streams tab.
     await page.goto(`/applications/${valkey}?tab=streams`);
     await settled(page);
-    await page.locator('[data-panel="groups"] a').first().click();
+    await page.locator('[data-panel="groups"] [data-testid="table-row"] a').first().click();
     await expect(page).toHaveURL(new RegExp(`/applications/${valkey}/items/group/`));
     await settled(page);
     await expect(page.getByTestId('db-item-name')).toContainText('·');
