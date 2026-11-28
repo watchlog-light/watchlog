@@ -154,7 +154,7 @@ onMounted(() => {
       <RouterLink
         v-if="a.total > rows.length"
         :to="link"
-        class="text-13 text-text-muted hover:text-text hover:underline"
+        class="inline-flex items-center text-13 text-text-muted hover:text-text hover:underline max-lg:min-h-11"
         data-testid="wc-card-more"
         >{{ $t('whatChanged.more', { n: a.total - rows.length }) }}</RouterLink
       >
