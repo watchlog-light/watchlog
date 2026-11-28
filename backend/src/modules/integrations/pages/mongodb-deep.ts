@@ -16,6 +16,7 @@ import {
   missingIndex,
   ownersOf,
   periodOf,
+  processOf,
   resourcePanels,
   scopedAlerts,
   sentBy,
@@ -397,7 +398,10 @@ export async function overview(input: PageContext): Promise<Panel[]> {
             nameKey: `${P}.flow.scans`,
             value: null,
             unit: 'count' as const,
-            text: { key: `${P}.flow.perMin`, values: { n: Math.round(valueOf(allScans) ?? 0) } },
+            text: {
+              key: `${P}.flow.perMin`,
+              values: { n: Math.round(valueOf(allScans) ?? 0).toLocaleString('en') },
+            },
             ...(scansMin > 0 ? { severity: 'warning' as Severity } : {}),
           },
           { name: '', nameKey: `${P}.flow.p95read`, value: valueOf(p95), unit: 'seconds' as const },
@@ -494,7 +498,10 @@ export async function overview(input: PageContext): Promise<Panel[]> {
         id: 'collscan',
         labelKey: `${P}.checks.collscan`,
         state: scansMin >= 1 ? 'fail' : scansMin > 0 ? 'warn' : 'pass',
-        value: { key: `${P}.checks.perMin`, values: { n: Math.round(scansMin) } },
+        value: {
+          key: `${P}.checks.perMin`,
+          values: { n: Math.round(scansMin).toLocaleString('en') },
+        },
         link: { kind: 'tab', tab: 'operations', name: 'operations' },
       },
       {
@@ -694,7 +701,9 @@ export async function overview(input: PageContext): Promise<Panel[]> {
     },
     checks,
     slowTable(ctx, facts, hour, senders, owners),
-    ...(await resourcePanels(ctx, E)),
+    // The process's CPU, memory and disk, when an agent sees it (not for a service known
+    // only by its address: three empty panels would say nothing).
+    ...(processOf(ctx) ? await resourcePanels(ctx, E) : []),
   ];
 }
 
@@ -742,7 +751,7 @@ function slowTable(
       `${P}.cols.mean`,
       `${P}.cols.docsRead`,
       `${P}.cols.plan`,
-      `${D}.cols.sentBy`,
+      `${P}.cols.sentBy`,
     ],
     rows: ids.slice(0, 5).map((id) => {
       const f = facts.get(id);
@@ -1501,7 +1510,7 @@ export async function storageTab(input: PageContext): Promise<Panel[]> {
         .map((x) => ({ label: x.labels.ns ?? '', value: x.points[0]?.[1] ?? 0 }))
         .sort((a, b) => b.value - a.value),
     },
-    ...(await resourcePanels(ctx, E)),
+    ...(processOf(ctx) ? await resourcePanels(ctx, E) : []),
   ];
 }
 

@@ -58,6 +58,7 @@ async function reasons(ctx: PageContext): Promise<Reason[]> {
     primary,
     lag,
     shapeScans,
+    shapeExamined,
     slowScans,
     conns,
     cache,
@@ -80,6 +81,10 @@ async function reasons(ctx: PageContext): Promise<Reason[]> {
     instant(ctx, `topk(1, max by (rs_member) (watchlog_mongodb_replication_lag_seconds{${s}}))`),
     // The shapes' calls in 15 minutes (the slow log's, or $queryStats'), by shape.
     instant(ctx, `sum by (shape) (increase(watchlog_mongodb_statement_calls_total{${s}}[15m]))`),
+    instant(
+      ctx,
+      `sum by (shape) (increase(watchlog_mongodb_statement_docs_examined_total{${s}}[15m]))`,
+    ),
     instant(ctx, `sum(increase(watchlog_mongodb_slow_ops_total{${s}, plan="collscan"}[15m]))`),
     instant(ctx, connsBy(s)),
     instant(ctx, `max by (state) (watchlog_mongodb_cache_bytes{${s}})`),
@@ -166,7 +171,13 @@ async function reasons(ctx: PageContext): Promise<Reason[]> {
         perMin: +(scans15 / 15).toFixed(1),
         ns: worst.ns ?? null,
         fields: worst.fields ? worst.fields.split(',').join(', ') : null,
-        examined: n > 0 ? Math.round((worst.examined ?? 0) / Math.max(worst.calls ?? 1, 1)) : null,
+        // Documents each one read, in the same 15 minutes as the count.
+        examined:
+          n > 0
+            ? Math.round(
+                (shapeExamined.find((x) => x.labels.shape === worst.id)?.points[0]?.[1] ?? 0) / n,
+              )
+            : null,
         mean: null,
         client,
         // Probable cause follows it: a workload ("ns/name") or a container.

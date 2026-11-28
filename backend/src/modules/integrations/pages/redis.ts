@@ -94,27 +94,31 @@ async function reasons(ctx: PageContext): Promise<Reason[]> {
   // What fills the memory: the largest prefix, grown in two hours, mostly without a TTL.
   const big = prefixes.rows.find((x) => x.prefix !== 'other');
   const grew = big && big.share2h !== null ? big.share - big.share2h : null;
-  const pressed = evMin > 0 || (r !== null && r > 0.9);
-  if (pressed && big && big.share >= 0.3 && ((grew ?? 0) >= 0.05 || (big.ttl ?? 1) < 0.5))
+  // Keys evicted, and the cause first: the largest prefix, mostly without a TTL or grown in two
+  // hours. It replaces "memory near max" and "evicting", which it says too.
+  const filling =
+    evMin > 0 && big && big.share >= 0.3 && ((grew ?? 0) >= 0.05 || (big.ttl ?? 1) < 0.5);
+  if (filling)
     out.push({
-      severity: evMin > 0 ? 'warning' : 'info',
-      code: 'prefix_fills_memory',
+      severity: r !== null && r > 0.98 ? 'critical' : 'warning',
+      code: big.share2h !== null ? 'prefix_fills_memory' : 'prefix_holds_memory',
       facts: {
         prefix: deep.star(big.prefix),
         pct: Math.round(big.share * 100),
         from: big.share2h === null ? null : Math.round(big.share2h * 100),
         noTtl: big.ttl === null ? null : Math.round((1 - big.ttl) * 100),
-        evictPerMin: evMin > 0 ? Math.round(evMin) : null,
+        evictPerMin: Math.round(evMin).toLocaleString('en'),
+        memPct: r === null ? null : Math.round(r * 100),
         policy: pol,
       },
     });
-  if (r !== null && r > 0.9)
+  if (r !== null && r > 0.9 && !filling)
     out.push({
       severity: r > 0.98 ? 'critical' : 'warning',
       code: 'memory_near_max',
       facts: { pct: Math.round(r * 100), member: top!.labels.member ?? null },
     });
-  if (evMin > 0 && !out.some((x) => x.code === 'prefix_fills_memory'))
+  if (evMin > 0 && !filling)
     out.push({ severity: 'warning', code: 'evicting', facts: { n: Math.round(evMin * 15) } });
   // The main thread: busy most of a core whatever the memory says; the costly command and its
   // sender from the slow log, when there is one.

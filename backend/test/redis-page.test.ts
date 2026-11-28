@@ -703,7 +703,9 @@ describe('the Redis page', () => {
       consumer: 'billing-worker-1',
       holder: 'billing-worker',
     });
-    expect(by('prefix_fills_memory')?.facts).toMatchObject({
+    // Only 30 minutes written: no share two hours ago, so the prefix "holds" rather than "grew".
+    expect(by('memory_near_max')).toBeUndefined();
+    expect(by('prefix_holds_memory')?.facts).toMatchObject({
       prefix: 'session:*',
       pct: 58,
       noTtl: 92,

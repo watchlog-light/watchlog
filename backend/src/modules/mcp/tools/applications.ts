@@ -141,7 +141,9 @@ const INTEGRATION_SENTENCES: Record<string, string> = {
   mongos_only: "A mongos: only its own operations and connections are seen, not the shards'.",
   // Redis and Valkey (1.4, ADR-247)
   prefix_fills_memory:
-    'Keys under facts.prefix fill the memory (facts.pct%, from facts.from% two hours ago; facts.noTtl% without a TTL); keys are evicted (facts.evictPerMin a minute, policy facts.policy).',
+    'Memory is at facts.memPct% of maxmemory and keys are evicted (facts.evictPerMin a minute, policy facts.policy): keys under facts.prefix grew from facts.from% to facts.pct% of memory in two hours; facts.noTtl% of them have no TTL.',
+  prefix_holds_memory:
+    'Memory is at facts.memPct% of maxmemory and keys are evicted (facts.evictPerMin a minute, policy facts.policy): keys under facts.prefix hold facts.pct% of memory; facts.noTtl% of them have no TTL.',
   main_thread_saturated:
     'The main thread is saturated (facts.pct% of one core); the costliest command in the slow log is facts.cmd, sent by facts.client.',
   save_wont_fit:

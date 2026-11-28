@@ -449,7 +449,10 @@ export async function overview(input: PageContext): Promise<Panel[]> {
             nameKey: `${P}.flow.evicted`,
             value: null,
             unit: 'count' as const,
-            text: { key: `${P}.flow.perMin`, values: { n: Math.round(evMin) } },
+            text: {
+              key: `${P}.flow.perMin`,
+              values: { n: Math.round(evMin).toLocaleString('en') },
+            },
             ...(evMin > 0 ? { severity: 'warning' as Severity } : {}),
           },
         ],
@@ -522,7 +525,7 @@ export async function overview(input: PageContext): Promise<Panel[]> {
         id: 'evicted',
         labelKey: `${P}.checks.evicted`,
         state: evMin > 0 ? 'fail' : 'pass',
-        value: { key: `${P}.checks.perMin`, values: { n: Math.round(evMin) } },
+        value: { key: `${P}.checks.perMin`, values: { n: Math.round(evMin).toLocaleString('en') } },
         link: { kind: 'tab', tab: 'memory', name: 'memory' },
       },
       {
