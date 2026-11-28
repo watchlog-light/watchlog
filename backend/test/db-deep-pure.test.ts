@@ -91,6 +91,14 @@ describe('missingIndex', () => {
         scans,
       ),
     ).toEqual({ table: 'events' });
+    // Before the first catalog scan: the statement's table, never in the digest's capitals.
+    expect(
+      missingIndex(
+        MY,
+        { id: 'd', text: 'SELECT COUNT ( * ) FROM EVENTS', examined: 5_000, sent: 1, noIndex: 1 },
+        new Map(),
+      ),
+    ).toEqual({ table: 'events' });
     expect(
       missingIndex(
         MY,

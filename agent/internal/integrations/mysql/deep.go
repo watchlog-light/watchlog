@@ -63,6 +63,13 @@ func (s *scrape) waits(ctx context.Context) {
 	})
 	digests := map[string]string{}
 	if s.perfOn {
+		// Each thread's running statement (events_statements_current: on by default on MySQL,
+		// off on MariaDB); without it the waits stay, only "by statement" says what is missing.
+		var on string
+		_ = s.s.conn.QueryRowContext(ctx, "SELECT ENABLED FROM performance_schema.setup_consumers WHERE NAME = 'events_statements_current'").Scan(&on)
+		if !strings.EqualFold(on, "YES") {
+			s.perms["waits/by-statement"] = "performance_schema_consumer_events_statements_current"
+		}
 		_ = s.s.rows(ctx, `SELECT t.PROCESSLIST_ID, MIN(c.DIGEST) FROM performance_schema.threads t
 			JOIN performance_schema.events_statements_current c ON c.THREAD_ID = t.THREAD_ID
 			WHERE c.DIGEST IS NOT NULL AND c.END_EVENT_ID IS NULL GROUP BY t.PROCESSLIST_ID`, func(v []string) {

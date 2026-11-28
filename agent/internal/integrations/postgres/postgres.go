@@ -434,13 +434,15 @@ func (s *scrape) heavy(ctx context.Context, m integrations.Member, auth *integra
 	s.extra["blocking"] = append(asRows(s.extra["blocking"]), blocking...)
 
 	// Lock waits right now (sampled each heavy scrape, for the hour × day heatmap), and the
-	// most locked tables.
+	// most locked tables (tables only: a write also locks each of the table's indexes, which
+	// would list "stock_pkey" beside "stock" for the same lock).
 	var waiting float64
 	_ = s.c.QueryRow(ctx, "select count(*) from pg_locks where not granted").Scan(&waiting)
 	s.add("watchlog_postgres_lock_waits", waiting)
 	_ = s.rows(ctx, `select coalesce(c.relname, l.relation::text), count(*) from pg_locks l
 		left join pg_class c on c.oid = l.relation
-		where l.locktype = 'relation' and l.relation is not null and c.relnamespace not in
+		where l.locktype = 'relation' and l.relation is not null and c.relkind in ('r', 'p', 'm')
+		  and c.relnamespace not in
 		  (select oid from pg_namespace where nspname in ('pg_catalog', 'information_schema'))
 		group by 1 order by 2 desc limit `+strconv.Itoa(TopLocked), func(v []any) {
 		s.add("watchlog_postgres_locked_relation", f(v[1]), "table", trimText(str(v[0]), 63))

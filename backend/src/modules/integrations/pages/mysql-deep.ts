@@ -382,7 +382,7 @@ export async function overview(
       {
         id: 'lock_waits',
         labelKey: `${P}.checks.lockWaits`,
-        state: longBlock > 30 ? 'fail' : 'pass',
+        state: longBlock > 60 ? 'fail' : nBlocked > 0 ? 'warn' : 'pass',
         value: { key: `${P}.checks.sessions`, values: { n: nBlocked } },
         link: { kind: 'tab', tab: 'locks', name: 'locks' },
       },

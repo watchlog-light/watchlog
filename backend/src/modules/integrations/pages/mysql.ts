@@ -237,6 +237,7 @@ async function queries(ctx: PageContext): Promise<Panel[]> {
       }))
     : meanBuckets(list);
   return [
+    await deep.statementsPanel(ctx),
     {
       id: 'rows',
       title: `${P}.rows`,
@@ -272,7 +273,6 @@ async function queries(ctx: PageContext): Promise<Panel[]> {
         { nameKey: `${P}.series.fullScans`, points: pointsOf(scans[0]) },
       ],
     },
-    await deep.statementsPanel(ctx),
   ];
 }
 
@@ -285,6 +285,9 @@ async function locks(ctx: PageContext): Promise<Panel[]> {
     ipOwners(ctx.db, ctx.row.cluster_id),
   ]);
   const blocking = [...(extra(ctx).blocking ?? [])].sort((a, b) => b.seconds - a.seconds);
+  // A collector before 1.2 sends the pairs, not the tree: they stay readable; with the tree
+  // they would say the same thing twice.
+  const legacy = !(ctx.row.status_details as { extra?: { lock_tree?: unknown } }).extra?.lock_tree;
   return [
     ...(await deep.locksDeep(ctx)),
     {
@@ -306,31 +309,35 @@ async function locks(ctx: PageContext): Promise<Panel[]> {
       note: { key: `${P}.rowLockTimeNote` },
       series: [{ nameKey: `${P}.series.waitTime`, points: pointsOf(waitTime[0]) }],
     },
-    {
-      id: 'blocking',
-      title: `${P}.blocking`,
-      kind: 'table',
-      span: 2,
-      ...(needs(ctx, 'locks/blocking') ?? { state: blocking.length ? 'ok' : 'empty' }),
-      note: { key: `${P}.blockingNote` },
-      columns: [
-        `${P}.cols.waiting`,
-        `${P}.cols.table`,
-        `${P}.cols.for`,
-        `${P}.cols.blockedBy`,
-        `${P}.cols.openFor`,
-      ],
-      rows: blocking.map((x) => ({
-        cells: [
-          clientName(owners, x.blocked, x.blocked_user),
-          x.table || '–',
-          duration(x.seconds),
-          `${clientName(owners, x.blocking, x.blocking_user)} (${x.blocking_state || '?'})`,
-          duration(x.held),
-        ],
-        severity: x.seconds > 60 ? ('warning' as Severity) : undefined,
-      })),
-    } as Panel,
+    ...(legacy
+      ? [
+          {
+            id: 'blocking',
+            title: `${P}.blocking`,
+            kind: 'table',
+            span: 2,
+            ...(needs(ctx, 'locks/blocking') ?? { state: blocking.length ? 'ok' : 'empty' }),
+            note: { key: `${P}.blockingNote` },
+            columns: [
+              `${P}.cols.waiting`,
+              `${P}.cols.table`,
+              `${P}.cols.for`,
+              `${P}.cols.blockedBy`,
+              `${P}.cols.openFor`,
+            ],
+            rows: blocking.map((x) => ({
+              cells: [
+                clientName(owners, x.blocked, x.blocked_user),
+                x.table || '–',
+                duration(x.seconds),
+                `${clientName(owners, x.blocking, x.blocking_user)} (${x.blocking_state || '?'})`,
+                duration(x.held),
+              ],
+              severity: x.seconds > 60 ? ('warning' as Severity) : undefined,
+            })),
+          } as Panel,
+        ]
+      : []),
     {
       id: 'deadlocks',
       title: `${P}.deadlocks`,

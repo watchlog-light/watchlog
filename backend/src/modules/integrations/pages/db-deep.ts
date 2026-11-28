@@ -363,7 +363,10 @@ export function missingIndex(
   };
   if (e.type === 'mysql') {
     if (!f.noIndex || (f.examined ?? 0) < 100 * Math.max(f.sent ?? 0, 1)) return null;
-    const t = pick() ?? tables[0];
+    // The digest writes a table named like a keyword in capitals (FROM EVENTS).
+    const first =
+      tables[0] && tables[0] === tables[0].toUpperCase() ? tables[0].toLowerCase() : tables[0];
+    const t = pick() ?? first;
     return t ? { table: t } : null;
   }
   if ((f.blocks ?? 0) < 100 * Math.max(f.rows ?? 0, 1)) return null;
