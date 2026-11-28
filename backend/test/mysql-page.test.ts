@@ -108,7 +108,17 @@ async function pod(clusterId: string, ns: string, name: string, workload: string
 
 type Panel = { id: string; state: string; [k: string]: unknown };
 
-const TABS = ['overview', 'connections', 'queries', 'locks', 'storage', 'replication'];
+// 1.2: the design's tabs (the statement and table pages are hidden; Alerts is its own view).
+const TABS = [
+  'overview',
+  'queries',
+  'waits',
+  'connections',
+  'locks',
+  'replication',
+  'tables',
+  'storage',
+];
 
 describe('the MySQL page', () => {
   it('fills every tab, says what is wrong, and names the lock holder (Kubernetes, MySQL 8.4)', async () => {
@@ -222,7 +232,7 @@ describe('the MySQL page', () => {
 
     const d = (await api('GET', `/applications/${id}`)).json();
     expect(d.page.id).toBe('mysql');
-    expect(d.page.tabs.map((t: { id: string }) => t.id)).toEqual([...TABS, 'connection']);
+    expect(d.page.tabs.map((t: { id: string }) => t.id)).toEqual([...TABS, 'alerts', 'connection']);
     const reasons = d.reasons as { code: string; facts: Record<string, unknown> }[];
     const codes = reasons.map((r) => r.code);
     for (const c of [
@@ -264,12 +274,20 @@ describe('the MySQL page', () => {
         tiles: { id: string; value: number | null; severity?: string }[];
       }
     ).tiles;
+    // 1.2's tiles: connections as a share of the limit (38 of 40), buffer pool hit; the
+    // longest query is the threads column's row, red over 5 minutes.
     expect(tiles.find((t) => t.id === 'connections')).toMatchObject({
-      value: 38,
-      severity: 'warning',
+      value: 0.95,
+      severity: 'critical',
     });
     expect(tiles.find((t) => t.id === 'buffer')!.value).toBeCloseTo(0.99, 2);
-    expect(tiles.find((t) => t.id === 'longest')!.severity).toBe('critical');
+    const flow = overview.find((p) => p.id === 'flow') as unknown as {
+      columns: { id: string; rows: { nameKey?: string; severity?: string }[] }[];
+    };
+    expect(flow.columns.map((c) => c.id)).toEqual(['clients', 'threads', 'statements', 'innodb']);
+    expect(flow.columns[1]!.rows.find((r) => r.nameKey?.endsWith('flow.longest'))!.severity).toBe(
+      'critical',
+    );
     const blocking = (await panels('locks')).find((p) => p.id === 'blocking') as unknown as {
       rows: { cells: unknown[] }[];
     };

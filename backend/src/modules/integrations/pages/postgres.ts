@@ -11,6 +11,7 @@ import { instant, one, pointsOf, range, some, SPARK_RANGE, valueOf } from './que
 import type { IntegrationPage, PageContext, Panel, Reason, RowMetrics, Severity } from './types.js';
 import * as deep from './postgres-deep.js';
 import {
+  capacityPanel,
   clientOf,
   dominantWait,
   longTxn,
@@ -342,8 +343,44 @@ async function locks(ctx: PageContext): Promise<Panel[]> {
         )
       : Promise.resolve([]),
   ]);
+  // A collector before 1.2 sends the pairs, not the tree: they stay readable.
+  const blocking = [...(extra(ctx).blocking ?? [])].sort((a, b) => b.seconds - a.seconds);
+  const legacy = !(ctx.row.status_details as { extra?: { lock_tree?: unknown } }).extra?.lock_tree;
+  const owners = legacy && blocking.length ? await ipOwners(ctx.db, ctx.row.cluster_id) : null;
+  const q = (text: string) => text || '–';
   return [
     ...(await deep.locksDeep(ctx)),
+    ...(owners
+      ? [
+          {
+            id: 'blocking',
+            title: `${P}.blocking`,
+            kind: 'table' as const,
+            span: 2 as const,
+            state: 'ok' as const,
+            note: { key: `${P}.blockingNote` },
+            columns: [
+              `${P}.cols.blocked`,
+              `${P}.cols.waitingFor`,
+              `${P}.cols.for`,
+              `${P}.cols.blockedBy`,
+              `${P}.cols.blockedQuery`,
+              `${P}.cols.blockingQuery`,
+            ],
+            rows: blocking.map((x) => ({
+              cells: [
+                `${clientName(owners, x.blocked)} (${x.blocked_state})`,
+                x.wait,
+                duration(x.seconds),
+                `${clientName(owners, x.blocking)} (${x.blocking_state})`,
+                q(x.blocked_query),
+                q(x.blocking_query),
+              ],
+              severity: x.seconds > 60 ? ('warning' as Severity) : undefined,
+            })),
+          },
+        ]
+      : []),
     {
       id: 'waits',
       title: `${P}.waits`,
@@ -557,6 +594,7 @@ async function tables(ctx: PageContext): Promise<Panel[]> {
       series: sizes.map((x) => ({ name: x.labels.db ?? '', points: pointsOf(x) })),
     },
     ...(await deep.tablesDeep(ctx)),
+    await capacityPanel(ctx, PG, await volumeOf(ctx)),
   ];
 }
 
@@ -724,17 +762,26 @@ async function reasons(ctx: PageContext): Promise<Reason[]> {
       facts: { n: valueOf(idleTxN) ?? 1, duration: duration(it) },
     });
   // Lock waits (1.2): the root of the blocking tree is the holder; probable cause follows it
-  // to its workload or container (facts.holder), the finding names its state and table.
+  // to its workload or container (facts.holder), the finding names its state and table. A
+  // collector before 1.2 sends only the pairs: the longest wait's blocker is the holder.
   const tree = treeSessions(ctx);
   const blockedN = tree.filter((t) => t.blockedBy.length).length;
-  if ((valueOf(waits) ?? 0) > 0 || blockedN) {
+  const pairs = [...(extra(ctx).blocking ?? [])].sort((a, b) => b.seconds - a.seconds);
+  if ((valueOf(waits) ?? 0) > 0 || blockedN || pairs.length) {
     const root = tree.find(
       (t) => !t.blockedBy.length && tree.some((o) => o.blockedBy.includes(t.id)),
     );
-    const holder = root ? clientOf(owners, root.addr, root.app) : null;
-    const longest = tree
-      .filter((t) => t.blockedBy.length)
-      .reduce((m, t) => Math.max(m, t.seconds), 0);
+    const pair = pairs[0];
+    const holderAddr = root?.addr ?? pair?.blocking ?? '';
+    const holder = root
+      ? clientOf(owners, root.addr, root.app)
+      : pair
+        ? clientOf(owners, pair.blocking)
+        : null;
+    const longest = Math.max(
+      tree.filter((t) => t.blockedBy.length).reduce((m, t) => Math.max(m, t.seconds), 0),
+      pair?.seconds ?? 0,
+    );
     const table =
       (await instant(ctx, `topk(1, max by (table) (watchlog_postgres_locked_relation{${s}}))`))[0]
         ?.labels.table ?? null;
@@ -742,10 +789,18 @@ async function reasons(ctx: PageContext): Promise<Reason[]> {
       severity: longest > 60 ? 'critical' : 'warning',
       code: 'lock_waits',
       facts: {
-        n: Math.max(valueOf(waits) ?? 0, blockedN),
+        n: Math.max(valueOf(waits) ?? 0, blockedN, pairs.length),
         who: holder?.name ?? 'another session',
-        holder: holder && owners.has(root!.addr) ? holder.name : null,
-        idle: root ? (/idle/.test(root.state) ? 1 : 0) : null,
+        holder: holder && owners.has(holderAddr) ? holder.name : null,
+        idle: root
+          ? /idle/.test(root.state)
+            ? 1
+            : 0
+          : pair
+            ? /idle/.test(pair.blocking_state)
+              ? 1
+              : 0
+            : null,
         held: root?.xact ? duration(root.xact) : null,
         longest: duration(longest),
         table,

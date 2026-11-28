@@ -817,3 +817,79 @@ export async function resourcePanels(ctx: PageContext, e: Engine): Promise<Panel
     },
   ];
 }
+
+// ------------------------------------------------------------------------- capacity
+
+/**
+ * Capacity (1.2, item 9): the data volume and the connections against their limits, each
+ * with the days left at its last 7 days' growth (once a day of history exists).
+ */
+export async function capacityPanel(
+  ctx: PageContext,
+  e: Engine,
+  volume: { used: number; capacity: number; perDay: number | null; name: string } | null,
+): Promise<Panel> {
+  const s = one(ctx.row.id);
+  const conns =
+    e.type === 'postgres'
+      ? `(sum(watchlog_postgres_backends{${s}, db=""}) or 0 * max(watchlog_postgres_setting{${s}, name="max_connections"}))`
+      : `sum(watchlog_mysql_threads_connected{${s}})`;
+  const [c, m, growth] = await Promise.all([
+    instant(ctx, conns),
+    instant(ctx, `max(${e.m}_setting{${s}, name="max_connections"})`),
+    instant(
+      ctx,
+      `(deriv((${conns})[7d:1h]) and last_over_time((${conns})[1h:5m] offset 1d)) * 86400`,
+    ),
+  ]);
+  const cv = valueOf(c);
+  const mv = valueOf(m);
+  const g = valueOf(growth);
+  const connDays = cv !== null && mv && g && g > 0 ? Math.floor((mv - cv) / g) : null;
+  const volDays =
+    volume && volume.perDay && volume.perDay > 0
+      ? Math.floor((volume.capacity - volume.used) / volume.perDay)
+      : null;
+  return {
+    id: 'capacity',
+    title: `${e.P}.capacity.title`,
+    kind: 'gauge',
+    span: 2,
+    state: mv || volume ? 'ok' : 'empty',
+    note: volume ? undefined : { key: `${e.P}.capacity.noVolume` },
+    items: [
+      ...(volume
+        ? [
+            {
+              label: volume.name,
+              value: volume.used,
+              max: volume.capacity,
+              unit: 'bytes' as const,
+              warnAt: 0.85,
+              note:
+                volDays !== null
+                  ? { key: `${e.P}.capacity.daysLeft`, values: { days: volDays } }
+                  : volume.perDay === null
+                    ? { key: `${e.P}.capacity.growthUnknown` }
+                    : { key: `${e.P}.capacity.notGrowing` },
+            },
+          ]
+        : []),
+      ...(mv
+        ? [
+            {
+              labelKey: `${e.P}.capacity.connections`,
+              value: cv ?? 0,
+              max: mv,
+              unit: 'count' as const,
+              warnAt: 0.9,
+              note:
+                connDays !== null
+                  ? { key: `${e.P}.capacity.daysLeft`, values: { days: connDays } }
+                  : { key: `${e.P}.capacity.notGrowing` },
+            },
+          ]
+        : []),
+    ],
+  };
+}

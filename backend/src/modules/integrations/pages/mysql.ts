@@ -9,6 +9,7 @@ import { instant, one, pointsOf, range, some, SPARK_RANGE, valueOf } from './que
 import * as deep from './mysql-deep.js';
 import { volumeOf } from './postgres.js';
 import {
+  capacityPanel,
   clientOf,
   dominantWait,
   longTxn,
@@ -771,7 +772,14 @@ export const mysqlPage: IntegrationPage = {
       count: async (ctx) => treeSessions(ctx).filter((t) => t.blockedBy.length).length || null,
     },
     { id: 'replication', title: 'integrations.mysql.tabs.replication', panels: replication },
-    { id: 'tables', title: 'integrations.db.tabs.tables', panels: deep.tablesTab },
+    {
+      id: 'tables',
+      title: 'integrations.db.tabs.tables',
+      panels: async (ctx) => [
+        ...(await deep.tablesTab(ctx)),
+        await capacityPanel(ctx, MY, await volumeOf(ctx)),
+      ],
+    },
     { id: 'storage', title: 'integrations.mysql.tabs.storage', panels: storage },
     { id: 'alerts', title: 'integrations.db.tabs.alerts', panels: async () => [], view: 'alerts' },
     {

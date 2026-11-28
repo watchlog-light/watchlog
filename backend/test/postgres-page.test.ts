@@ -312,14 +312,17 @@ describe('the PostgreSQL page', () => {
 
     const d = (await api('GET', `/applications/${id}`)).json();
     expect(d.page.id).toBe('postgres');
+    // 1.2: the design's tabs (the statement and table pages are hidden ones).
     expect(d.page.tabs.map((t: { id: string }) => t.id)).toEqual([
       'overview',
-      'connections',
       'queries',
+      'waits',
+      'connections',
       'locks',
       'replication',
       'tables',
       'vacuum',
+      'alerts',
       'connection',
     ]);
     const reasons = d.reasons as {
@@ -369,33 +372,52 @@ describe('the PostgreSQL page', () => {
       sub?: { values?: Record<string, unknown> };
       severity?: string;
     }[];
+    // 1.2's six tiles (the design): connections as a share of the limit, transactions with
+    // the rollbacks' share, lock waits, lag, cache hit, the disk's days left.
+    expect(tiles.map((t) => t.id)).toEqual([
+      'connections',
+      'transactions',
+      'lock_waits',
+      'lag',
+      'cache',
+      'disk',
+    ]);
     expect(tiles.find((t) => t.id === 'connections')).toMatchObject({
-      value: 92,
-      sub: { values: { max: 100 } },
+      value: 0.92,
+      sub: { values: { n: 92, max: 100 } },
       severity: 'warning',
     });
-    expect(tiles.find((t) => t.id === 'tps')!.value).toBeCloseTo(202, 0);
-    expect(tiles.find((t) => t.id === 'tps')!.sub!.values!.pct).toBe(99);
+    expect(tiles.find((t) => t.id === 'transactions')!.value).toBeCloseTo(202, 0);
+    expect(tiles.find((t) => t.id === 'transactions')!.sub!.values!.pct).toBeCloseTo(1, 0);
     expect(tiles.find((t) => t.id === 'cache')!.value).toBeCloseTo(0.8, 2);
     expect(tiles.find((t) => t.id === 'lag')).toMatchObject({ value: 45, severity: 'warning' });
-    expect(tiles.find((t) => t.id === 'longest')!.severity).toBe('critical');
+    // The flow's longest query is red over 5 minutes; the queries column carries it.
+    const flow = panel(ov, 'flow') as unknown as {
+      columns: { id: string; rows: { nameKey?: string; severity?: string }[] }[];
+    };
+    expect(flow.columns.map((c) => c.id)).toEqual(['clients', 'sessions', 'queries', 'storage']);
+    expect(flow.columns[2]!.rows.find((r) => r.nameKey?.endsWith('flow.longest'))!.severity).toBe(
+      'critical',
+    );
     expect(panel(ov, 'slowest').state).toBe('needs_permission');
     expect(panel(ov, 'slowest').missing).toEqual({
       key: 'integrations.postgres.missing.overview.slowest',
       values: { missing: 'pg_stat_statements' },
     });
-    const cap = panel(ov, 'capacity').items as {
+    // Capacity (1.2: on the Tables tab): the PVC, 8 GB of 10 GB, growing 1 GiB a day: about 2
+    // days left; the connections against max_connections.
+    const cap = panel(await tab('tables'), 'capacity').items as {
       label?: string;
+      labelKey?: string;
       value: number;
       max: number;
       note?: { key: string; values?: Record<string, unknown> };
     }[];
-    expect(cap[0]).toMatchObject({ value: 92, max: 100, note: { values: { n: 3 } } });
-    // The PVC: 8 GB of 10 GB, growing 1 GiB a day: about 2 days left.
-    expect(cap[1]).toMatchObject({ label: 'data-postgres-0', max: 10 * GB });
-    expect(cap[1]!.note).toMatchObject({ key: 'integrations.postgres.panels.daysLeft' });
-    expect(cap[1]!.note!.values!.days).toBeGreaterThanOrEqual(1);
-    expect(cap[1]!.note!.values!.days).toBeLessThanOrEqual(2);
+    expect(cap[0]).toMatchObject({ label: 'data-postgres-0', max: 10 * GB });
+    expect(cap[0]!.note).toMatchObject({ key: 'integrations.db.panels.capacity.daysLeft' });
+    expect(cap[0]!.note!.values!.days).toBeGreaterThanOrEqual(1);
+    expect(cap[0]!.note!.values!.days).toBeLessThanOrEqual(2);
+    expect(cap[1]).toMatchObject({ value: 92, max: 100 });
 
     const conns = await tab('connections');
     expect(panel(conns, 'by-client').items).toEqual([
@@ -465,10 +487,15 @@ describe('the PostgreSQL page', () => {
     }[];
     const mine = rules.filter((r) => r.defaultKey?.startsWith('postgres_'));
     expect(mine.map((r) => r.defaultKey).sort()).toEqual([
+      'postgres_blocking',
       'postgres_connections_high',
       'postgres_deadlocks',
       'postgres_long_query',
+      'postgres_long_transaction',
       'postgres_replication_lag',
+      'postgres_sequence_high',
+      'postgres_slot_fills_disk',
+      'postgres_statement_slower',
       'postgres_xid_age',
     ]);
     const high = mine.find((r) => r.defaultKey === 'postgres_connections_high')!;
@@ -542,21 +569,21 @@ describe('the PostgreSQL page', () => {
       ),
     ]);
     await fetch(`${TEST_VM_URL}/internal/force_flush`);
-    const ov = (await api('GET', `/applications/${id}/panels?tab=overview`)).json()
-      .panels as Panel[];
+    // Capacity is on the Tables tab since 1.2.
+    const ov = (await api('GET', `/applications/${id}/panels?tab=tables`)).json().panels as Panel[];
     const cap = ov.find((p) => p.id === 'capacity')!.items as {
       label?: string;
       value: number;
       max: number;
     }[];
-    expect(cap[1]).toMatchObject({
+    expect(cap[0]).toMatchObject({
       label: 'docker-01:/var/lib/docker',
       value: 400 * GB,
       max: 500 * GB,
     });
     // Half an hour of history: no days left yet, and the page says why.
-    expect((cap[1] as { note?: { key: string } }).note?.key).toBe(
-      'integrations.postgres.panels.growthUnknown',
+    expect((cap[0] as { note?: { key: string } }).note?.key).toBe(
+      'integrations.db.panels.capacity.growthUnknown',
     );
 
     await status(fleet.token, 'docker-01', [

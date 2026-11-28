@@ -80,6 +80,7 @@ export async function overview(
     longest,
     blksRead,
     hit,
+    read15,
     size,
     growth,
     lag,
@@ -112,6 +113,7 @@ export async function overview(
     instant(ctx, `max(watchlog_postgres_backend_max_seconds{${s}, kind="active"})`),
     instant(ctx, `sum(rate(watchlog_postgres_blks_read_total{${s}}[${RATE}]))`),
     instant(ctx, `sum(rate(watchlog_postgres_blks_hit_total{${s}}[15m]))`),
+    instant(ctx, `sum(rate(watchlog_postgres_blks_read_total{${s}}[15m]))`),
     instant(ctx, `sum(max by (db) (watchlog_postgres_database_size_bytes{${s}}))`),
     instant(
       ctx,
@@ -145,9 +147,11 @@ export async function overview(
   const longBlock = valueOf(longestBlock) ?? 0;
   const tps = (valueOf(commits) ?? 0) + (valueOf(rollbacks) ?? 0);
   const rbShare = tps > 0 ? (valueOf(rollbacks) ?? 0) / tps : null;
+  // The cache hit over 15 minutes (hits and reads alike); the flow's read rate is now (2 min).
   const h = valueOf(hit) ?? 0;
   const rd = valueOf(blksRead) ?? 0;
-  const cache = h + rd > 0 ? h / (h + rd) : null;
+  const r15 = valueOf(read15) ?? 0;
+  const cache = h + r15 > 0 ? h / (h + r15) : null;
   const lagS = valueOf(lag) ?? valueOf(replay);
   const nReplicas = valueOf(replicas) ?? 0;
   const days =
