@@ -88,6 +88,8 @@ func run(args []string, stdout io.Writer) int {
 		// One collector per cluster: it reports with an empty host.
 		*host = ""
 	case "docker", "server":
+		// The Redis it monitors runs on this host: its THP and overcommit are this host's.
+		redis.HostChecks = true
 		if *host == "" {
 			*host, _ = os.Hostname()
 		}

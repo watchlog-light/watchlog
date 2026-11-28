@@ -8,7 +8,6 @@ package redis
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"sort"
 	"strconv"
@@ -26,17 +25,15 @@ const (
 	TopCommands  = 20
 	SlowEntries  = 20
 	TopClients   = 50
-	TopPrefixes  = 20
-	SampleKeys   = 2000
-	SampleEvery  = 10 * time.Minute
+	TopPrefixes  = 30
 	CallTimeout  = integrations.DialTimeout
 	maxSlowField = 120
 )
 
 // Redis is the integration; it keeps the last key-prefix sample per member.
 type Redis struct {
-	mu      sync.Mutex
-	samples map[string]sample // by target id and member
+	mu       sync.Mutex
+	samplers map[string]*sampler // by target id and member
 	// heavyPerms are the heavy scrape's permission notes per target, repeated by the
 	// light scrapes in between so a panel's note doesn't come and go.
 	heavyPerms map[string]map[string]string
@@ -44,20 +41,9 @@ type Redis struct {
 	Now func() time.Time
 }
 
-type sample struct {
-	at       time.Time
-	prefixes []prefixSize
-}
-
-type prefixSize struct {
-	prefix string
-	bytes  float64
-	keys   float64
-}
-
 // New returns the integration.
 func New() *Redis {
-	return &Redis{samples: map[string]sample{}, heavyPerms: map[string]map[string]string{}, Now: time.Now}
+	return &Redis{samplers: map[string]*sampler{}, heavyPerms: map[string]map[string]string{}, Now: time.Now}
 }
 
 // Scrape implements integrations.Integration.
@@ -65,6 +51,7 @@ func (r *Redis) Scrape(ctx context.Context, t integrations.Target, heavy bool) i
 	res := integrations.Result{State: integrations.StateOK}
 	var slow []map[string]any
 	var clients []map[string]any
+	lists := map[string][]map[string]any{}
 	perms := map[string]string{}
 	up, authFailed := 0, 0
 	for _, m := range t.Members {
@@ -83,6 +70,9 @@ func (r *Redis) Scrape(ctx context.Context, t integrations.Target, heavy bool) i
 		}
 		slow = append(slow, out.slow...)
 		clients = append(clients, out.clients...)
+		for k, rows := range out.lists {
+			lists[k] = append(lists[k], rows...)
+		}
 		for k, v := range out.perms {
 			perms[k] = v
 		}
@@ -111,6 +101,12 @@ func (r *Redis) Scrape(ctx context.Context, t integrations.Target, heavy bool) i
 			clients = clients[:TopClients]
 		}
 		res.Extra = map[string]any{"slowlog": slow, "clients": clients}
+		for k, rows := range lists {
+			if len(rows) > 100 {
+				rows = rows[:100]
+			}
+			res.Extra[k] = rows
+		}
 	}
 	switch {
 	case len(t.Members) == 0:
@@ -134,6 +130,8 @@ type memberOut struct {
 	// authFailed: the user or password was refused.
 	authFailed bool
 	product    string
+	// lists are 1.4's other rows (prefixes, largest keys, streams, settings…), by name.
+	lists map[string][]map[string]any
 }
 
 // login connects to a member and authenticates with the target's user, if any.
@@ -166,7 +164,7 @@ func short(err error) string {
 }
 
 func (r *Redis) member(ctx context.Context, t integrations.Target, m integrations.Member, heavy bool) (integrations.MemberStatus, memberOut) {
-	out := memberOut{perms: map[string]string{}}
+	out := memberOut{perms: map[string]string{}, lists: map[string][]map[string]any{}}
 	ms := integrations.MemberStatus{Name: m.Name}
 	c, connect, err := login(ctx, m, t.Auth)
 	if err != nil {
@@ -196,13 +194,37 @@ func (r *Redis) member(ctx context.Context, t integrations.Target, m integration
 	out.version = info.Version()
 	out.product = info.Product()
 	out.samples = append(out.samples, InfoSamples(info, m.Name)...)
+	if noPassword(t.Auth) {
+		lbl("watchlog_redis_no_password", 1)
+	}
+	if info["redis_mode"] == "sentinel" {
+		// A Sentinel answers INFO with its masters; the data commands don't apply.
+		for _, mm := range SentinelMasters(info) {
+			ok := 0.0
+			if mm["status"] == "ok" {
+				ok = 1
+			}
+			name := trimTo(mm["name"], 64)
+			lbl("watchlog_redis_sentinel_master_ok", ok, "master", name)
+			lbl("watchlog_redis_sentinel_master_replicas", num(mm["slaves"]), "master", name)
+			lbl("watchlog_redis_sentinel_master_sentinels", num(mm["sentinels"]), "master", name)
+			if heavy {
+				out.lists["sentinel_masters"] = append(out.lists["sentinel_masters"], map[string]any{"master": name,
+					"status": trimTo(mm["status"], 16), "address": trimTo(mm["address"], 64), "replicas": num(mm["slaves"]),
+					"sentinels": num(mm["sentinels"]), "member": m.Name})
+			}
+		}
+		return ms, out
+	}
 
 	// CONFIG GET: the limits (memory, clients).
 	if cfg, err := c.Do(ctx, "CONFIG", "GET", "max*"); err == nil {
 		kv := pairs(cfg)
-		lbl("watchlog_redis_memory_max_bytes", num(kv["maxmemory"]))
+		if _, inInfo := info["maxmemory"]; !inInfo {
+			lbl("watchlog_redis_memory_max_bytes", num(kv["maxmemory"]))
+		}
 		lbl("watchlog_redis_maxclients", num(kv["maxclients"]))
-		if p := kv["maxmemory-policy"]; p != "" {
+		if p := kv["maxmemory-policy"]; p != "" && info["maxmemory_policy"] == "" {
 			lbl("watchlog_redis_maxmemory_policy_info", 1, "policy", p)
 		}
 	} else if resp.IsCode(err, "NOPERM") {
@@ -234,40 +256,180 @@ func (r *Redis) member(ctx context.Context, t integrations.Target, m integration
 	} else if resp.IsCode(err, "NOPERM") {
 		out.perms["commands/latency"] = "+latency"
 	}
-	// CLIENT LIST: connections per client address; the backend maps them to workloads.
+	// Settings read by name, one per call (6.2 takes one pattern): never a pattern that
+	// could match requirepass or masterauth.
+	cfg := map[string]string{}
+	for _, name := range []string{"client-output-buffer-limit", "save", "appendonly", "bind", "protected-mode", "latency-monitor-threshold"} {
+		if v, err := c.Do(ctx, "CONFIG", "GET", name); err == nil {
+			cfg[name] = pairs(v)[name]
+		}
+	}
+	for _, name := range []string{"save", "appendonly", "bind", "protected-mode", "latency-monitor-threshold"} {
+		if v, ok := cfg[name]; ok {
+			out.lists["settings"] = append(out.lists["settings"], map[string]any{"name": name, "value": trimTo(v, 120), "member": m.Name})
+		}
+	}
+	if v, ok := cfg["latency-monitor-threshold"]; ok {
+		lbl("watchlog_redis_latency_monitor_threshold_ms", num(v))
+	}
+	limits := BufferLimits(cfg["client-output-buffer-limit"])
+	// CLIENT LIST: per client address, with its output buffer against its class's limit.
 	if s, err := c.String(ctx, "CLIENT", "LIST"); err == nil {
 		out.clients = Clients(s, m.Name)
+		// Opened since the last heavy scrape (every second light one): the churn.
+		young := 2 * integrations.DefaultInterval.Seconds()
+		for i, cr := range ClientsDetail(s, young) {
+			if i >= TopClients {
+				break
+			}
+			out.lists["client_detail"] = append(out.lists["client_detail"], map[string]any{"addr": cr.Addr,
+				"connections": cr.Connections, "blocked": cr.Blocked, "subscribed": cr.Subscribed, "young": cr.Young,
+				"idle": max(cr.IdleMin, 0), "omem": cr.OutputMax, "limit": limits[cr.Class], "class": cr.Class,
+				"cmd": cr.Command, "name": cr.Name, "member": m.Name})
+		}
 	} else if resp.IsCode(err, "NOPERM") {
 		out.perms["clients/by-workload"] = "+client|list"
 	}
-	// The biggest key prefixes, every 10 minutes from a sample of key names (db0, the
-	// one SCAN reads; its size from INFO keyspace, so no DBSIZE privilege is needed).
-	r.prefixes(ctx, c, t.ID+"/"+m.Name, num(fields(info["db0"])["keys"]), out.perms, lbl)
+	// LATENCY LATEST: the latency monitor's events, when it is on.
+	if v, err := c.Do(ctx, "LATENCY", "LATEST"); err == nil {
+		list, _ := v.([]any)
+		for _, e := range list {
+			ev, _ := e.([]any)
+			if len(ev) < 4 {
+				continue
+			}
+			name, _ := ev[0].(string)
+			at, _ := ev[1].(int64)
+			name = trimTo(name, 48)
+			lbl("watchlog_redis_latency_event_timestamp_seconds", float64(at), "event", name)
+			lbl("watchlog_redis_latency_event_ms", toFloat(ev[2]), "event", name)
+			out.lists["latency_events"] = append(out.lists["latency_events"], map[string]any{"event": name, "at": at,
+				"latest_ms": toFloat(ev[2]), "max_ms": toFloat(ev[3]), "member": m.Name})
+		}
+	}
+	// A cluster: its state and slots; each shard's nodes on 7.0+.
+	if info["redis_mode"] == "cluster" {
+		if s, err := c.String(ctx, "CLUSTER", "INFO"); err == nil {
+			ci := ParseInfo(s)
+			okState := 0.0
+			if ci["cluster_state"] == "ok" {
+				okState = 1
+			}
+			lbl("watchlog_redis_cluster_ok", okState)
+			for _, k := range []string{"slots_assigned", "slots_ok", "slots_pfail", "slots_fail", "known_nodes", "size"} {
+				lbl("watchlog_redis_cluster_"+k, num(ci["cluster_"+k]))
+			}
+		} else if resp.IsCode(err, "NOPERM") {
+			out.perms["replication/cluster"] = "+cluster|info"
+		}
+		if v, err := c.Do(ctx, "CLUSTER", "SHARDS"); err == nil {
+			for _, row := range Shards(v) {
+				row["member"] = m.Name
+				out.lists["cluster_nodes"] = append(out.lists["cluster_nodes"], row)
+			}
+		}
+	}
+	if HostChecks {
+		if thp, oc, ok := hostSettings(readFile); ok {
+			always := 0.0
+			if thp == "always" {
+				always = 1
+			}
+			lbl("watchlog_redis_host_thp_always", always)
+			if oc >= 0 {
+				lbl("watchlog_redis_host_overcommit_memory", oc)
+			}
+		}
+	}
+	// The key sampler (db0, the one SCAN reads; its size from INFO keyspace).
+	r.sample(ctx, c, t, m.Name, num(fields(info["db0"])["keys"]), &out, lbl)
 	return ms, out
 }
 
-func (r *Redis) prefixes(ctx context.Context, c *resp.Conn, key string, total float64, perms map[string]string, lbl func(string, float64, ...string)) {
+// sample advances the member's sampling pass and sends the last finished one: per prefix its
+// memory, keys and share with a TTL as series (top 30), its type as a row; the largest keys
+// (names only with the names switch on); and the streams' groups and consumers.
+func (r *Redis) sample(ctx context.Context, c *resp.Conn, t integrations.Target, member string, total float64, out *memberOut, lbl func(string, float64, ...string)) {
+	key := t.ID + "/" + member
 	r.mu.Lock()
-	s, ok := r.samples[key]
+	sm := r.samplers[key]
+	if sm == nil {
+		sm = &sampler{}
+		r.samplers[key] = sm
+	}
 	r.mu.Unlock()
-	now := r.Now()
-	if !ok || now.Sub(s.at) >= SampleEvery {
-		p, err := SamplePrefixes(ctx, c, SampleKeys, total)
-		if err != nil {
-			if resp.IsCode(err, "NOPERM") {
-				perms["memory/prefixes"] = "+scan +memory|usage ~*"
-			}
-			return
+	if err := sm.step(ctx, c, r.Now(), total); err != nil {
+		if resp.IsCode(err, "NOPERM") {
+			out.perms["memory/prefixes"] = "+scan +memory|usage +type +pttl ~*"
 		}
-		s = sample{at: now, prefixes: p}
-		r.mu.Lock()
-		r.samples[key] = s
-		r.mu.Unlock()
 	}
-	for _, p := range s.prefixes {
-		lbl("watchlog_redis_prefix_memory_bytes", p.bytes, "prefix", p.prefix)
-		lbl("watchlog_redis_prefix_keys", p.keys, "prefix", p.prefix)
+	p := sm.last
+	if p == nil {
+		return
 	}
+	for _, row := range p.Rows(TopPrefixes) {
+		lbl("watchlog_redis_prefix_memory_bytes", row.Bytes, "prefix", row.Prefix)
+		lbl("watchlog_redis_prefix_keys", row.Keys, "prefix", row.Prefix)
+		lbl("watchlog_redis_prefix_ttl_keys", row.Keys*row.TTLShare, "prefix", row.Prefix)
+		out.lists["prefixes"] = append(out.lists["prefixes"], map[string]any{"prefix": row.Prefix, "type": row.Type,
+			"ttl_share": row.TTLShare, "member": member})
+	}
+	stopped := 0.0
+	if p.stopped {
+		stopped = 1
+	}
+	lbl("watchlog_redis_sampler_keys", p.sampled)
+	lbl("watchlog_redis_sampler_stopped", stopped)
+	lbl("watchlog_redis_sampler_timestamp_seconds", float64(p.at.Unix()))
+	for _, k := range p.Largest(t.Settings.KeyNames) {
+		name := k.prefix + "…"
+		if t.Settings.KeyNames {
+			name = trimTo(k.name, 128)
+		}
+		out.lists["largest_keys"] = append(out.lists["largest_keys"], map[string]any{"key": name, "prefix": k.prefix,
+			"type": k.typ, "bytes": k.bytes, "elements": k.elements, "member": member})
+	}
+	names := make([]string, 0, len(sm.streams))
+	for s := range sm.streams {
+		names = append(names, s)
+	}
+	sort.Strings(names)
+	lengths, groups, consumers, err := streams(ctx, c, names, r.Now())
+	for _, s := range names {
+		if n, ok := lengths[s]; ok && n == 0 && !hasGroups(groups, s) {
+			r.mu.Lock()
+			delete(sm.streams, s) // gone (XLEN of a missing key is 0)
+			r.mu.Unlock()
+		}
+	}
+	if err != nil && resp.IsCode(err, "NOPERM") {
+		out.perms["streams/groups"] = "+xlen +xinfo|groups +xinfo|consumers +xpending"
+	}
+	for s, n := range lengths {
+		lbl("watchlog_redis_stream_length", n, "stream", trimTo(s, 128))
+	}
+	for _, g := range groups {
+		ls := []string{"stream", trimTo(g.Stream, 128), "group", g.Group}
+		lbl("watchlog_redis_stream_group_pending", g.Pending, ls...)
+		lbl("watchlog_redis_stream_group_consumers", g.Consumers, ls...)
+		lbl("watchlog_redis_stream_group_oldest_pending_seconds", g.OldestPending, ls...)
+		if g.Lag >= 0 {
+			lbl("watchlog_redis_stream_group_lag", g.Lag, ls...)
+		}
+	}
+	for _, cr := range consumers {
+		out.lists["stream_consumers"] = append(out.lists["stream_consumers"], map[string]any{"stream": trimTo(cr.Stream, 128),
+			"group": cr.Group, "consumer": cr.Name, "pending": cr.Pending, "idle": cr.Idle, "inactive": cr.Inactive, "member": member})
+	}
+}
+
+func hasGroups(gs []GroupRow, stream string) bool {
+	for _, g := range gs {
+		if g.Stream == stream {
+			return true
+		}
+	}
+	return false
 }
 
 // ---------------------------------------------------------------- probe
@@ -310,6 +472,14 @@ func (r *Redis) Probe(ctx context.Context, t integrations.Target) integrations.P
 			{"+client|list", []string{"CLIENT", "LIST", "ID", "0"}},
 			{"+memory|stats", []string{"MEMORY", "STATS"}},
 			{"+scan", []string{"SCAN", "0", "COUNT", "1"}},
+			// 1.4: the key sampler's metadata and the streams (never a value).
+			{"+memory|usage", []string{"MEMORY", "USAGE", "watchlog:probe"}},
+			{"+type", []string{"TYPE", "watchlog:probe"}},
+			{"+pttl", []string{"PTTL", "watchlog:probe"}},
+			{"+xinfo|groups", []string{"XINFO", "GROUPS", "watchlog:probe"}},
+			{"+xinfo|consumers", []string{"XINFO", "CONSUMERS", "watchlog:probe", "g"}},
+			{"+xpending", []string{"XPENDING", "watchlog:probe", "g"}},
+			{"+xlen", []string{"XLEN", "watchlog:probe"}},
 		}
 		for _, ch := range checks {
 			if _, err := c.Do(ctx, ch.args...); resp.IsCode(err, "NOPERM") {
@@ -435,6 +605,18 @@ func InfoSamples(info Info, member string) []metrics.Sample {
 		"connected_slaves":            "watchlog_redis_connected_replicas",
 		"master_repl_offset":          "watchlog_redis_replication_offset",
 		"uptime_in_seconds":           "watchlog_redis_uptime_seconds",
+		// 1.4 (ADR-247): limits from INFO, which managed services show when CONFIG is refused.
+		"maxmemory":                      "watchlog_redis_memory_max_bytes",
+		"rdb_last_bgsave_time_sec":       "watchlog_redis_rdb_last_save_duration_seconds",
+		"rdb_last_cow_size":              "watchlog_redis_rdb_cow_bytes",
+		"aof_last_cow_size":              "watchlog_redis_aof_cow_bytes",
+		"aof_current_size":               "watchlog_redis_aof_bytes",
+		"rdb_bgsave_in_progress":         "watchlog_redis_rdb_saving",
+		"aof_rewrite_in_progress":        "watchlog_redis_aof_rewriting",
+		"repl_backlog_size":              "watchlog_redis_repl_backlog_bytes",
+		"master_link_down_since_seconds": "watchlog_redis_master_link_down_seconds",
+		"io_threads_active":              "watchlog_redis_io_threads_active",
+		"used_memory_peak":               "watchlog_redis_memory_peak_bytes",
 	}
 	counters := map[string]string{
 		"keyspace_hits":              "watchlog_redis_keyspace_hits_total",
@@ -444,6 +626,10 @@ func InfoSamples(info Info, member string) []metrics.Sample {
 		"total_commands_processed":   "watchlog_redis_commands_processed_total",
 		"rejected_connections":       "watchlog_redis_rejected_connections_total",
 		"total_connections_received": "watchlog_redis_connections_received_total",
+		"aof_rewrites":               "watchlog_redis_aof_rewrites_total",
+		"aof_delayed_fsync":          "watchlog_redis_aof_delayed_fsync_total",
+		"rdb_saves":                  "watchlog_redis_rdb_saves_total",
+		"total_error_replies":        "watchlog_redis_error_replies_total",
 	}
 	for k, name := range gauges {
 		if v, ok := info[k]; ok {
@@ -454,6 +640,23 @@ func InfoSamples(info Info, member string) []metrics.Sample {
 		if v, ok := info[k]; ok {
 			add(name, num(v))
 		}
+	}
+	// The main thread's CPU (6.2+, Valkey): Redis's own counter, so it works where the agent
+	// can't see the process (a managed service). The whole process's beside it.
+	if u, has := info["used_cpu_user_main_thread"]; has {
+		add("watchlog_redis_main_thread_cpu_seconds_total", num(u)+num(info["used_cpu_sys_main_thread"]))
+	}
+	if u, has := info["used_cpu_user"]; has {
+		add("watchlog_redis_cpu_seconds_total", num(u)+num(info["used_cpu_sys"]))
+	}
+	if f, has := info["latest_fork_usec"]; has {
+		add("watchlog_redis_fork_seconds", num(f)/1e6)
+	}
+	if p := info["maxmemory_policy"]; p != "" {
+		add("watchlog_redis_maxmemory_policy_info", 1, "policy", p)
+	}
+	if m := info["redis_mode"]; m != "" {
+		add("watchlog_redis_mode_info", 1, "mode", m)
 	}
 	ok := func(k string) float64 {
 		if info[k] == "ok" {
@@ -507,8 +710,8 @@ func InfoSamples(info Info, member string) []metrics.Sample {
 	}
 	// Commands: the top 20 by calls; the rest summed as "other" (ADR-136).
 	type cmd struct {
-		name        string
-		calls, usec float64
+		name                          string
+		calls, usec, failed, rejected float64
 	}
 	var cmds []cmd
 	for k, v := range info {
@@ -517,7 +720,7 @@ func InfoSamples(info Info, member string) []metrics.Sample {
 			continue
 		}
 		f := fields(v)
-		cmds = append(cmds, cmd{strings.ToLower(name), num(f["calls"]), num(f["usec"])})
+		cmds = append(cmds, cmd{strings.ToLower(name), num(f["calls"]), num(f["usec"]), num(f["failed_calls"]), num(f["rejected_calls"])})
 	}
 	sort.Slice(cmds, func(i, j int) bool {
 		if cmds[i].calls != cmds[j].calls {
@@ -534,6 +737,15 @@ func InfoSamples(info Info, member string) []metrics.Sample {
 		}
 		add("watchlog_redis_command_calls_total", c.calls, "command", c.name)
 		add("watchlog_redis_command_usec_total", c.usec, "command", c.name)
+		add("watchlog_redis_command_failed_total", c.failed+c.rejected, "command", c.name)
+		// Latency percentiles (7.0+): INFO latencystats, per command.
+		if lp, has := info["latency_percentiles_usec_"+strings.ReplaceAll(c.name, "|", "|")]; has {
+			for q, v := range fields(lp) {
+				if quantile, known := map[string]string{"p50": "0.5", "p99": "0.99", "p99.9": "0.999"}[q]; known {
+					add("watchlog_redis_command_latency_seconds", num(v)/1e6, "command", c.name, "quantile", quantile)
+				}
+			}
+		}
 	}
 	if other.calls > 0 {
 		add("watchlog_redis_command_calls_total", other.calls, "command", "other")
@@ -592,6 +804,11 @@ func Slowlog(v any, member string, queryText bool) []map[string]any {
 			if addr, ok := entry[4].(string); ok {
 				host, _, _ := strings.Cut(addr, ":")
 				row["client"] = host
+			}
+		}
+		if len(entry) >= 6 {
+			if name, ok := entry[5].(string); ok && name != "" {
+				row["name"] = trimTo(name, 64)
 			}
 		}
 		out = append(out, row)
@@ -692,74 +909,6 @@ func Clients(list, member string) []map[string]any {
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i]["connections"].(int) > out[j]["connections"].(int) })
 	return out
-}
-
-// SamplePrefixes scans up to limit key names and sizes them with MEMORY USAGE, grouped
-// by prefix and extrapolated to the database size. Values are never read.
-func SamplePrefixes(ctx context.Context, c *resp.Conn, limit int, total float64) ([]prefixSize, error) {
-	cursor := "0"
-	var keys []string
-	for range 200 {
-		v, err := c.Do(ctx, "SCAN", cursor, "COUNT", "500")
-		if err != nil {
-			return nil, err
-		}
-		arr, _ := v.([]any)
-		if len(arr) != 2 {
-			return nil, errors.New("SCAN: unexpected reply")
-		}
-		cursor, _ = arr[0].(string)
-		names, _ := arr[1].([]any)
-		for _, k := range names {
-			if s, ok := k.(string); ok && len(keys) < limit {
-				keys = append(keys, s)
-			}
-		}
-		if cursor == "0" || len(keys) >= limit {
-			break
-		}
-	}
-	if len(keys) == 0 {
-		return nil, nil
-	}
-	by := map[string]*prefixSize{}
-	for _, k := range keys {
-		v, err := c.Do(ctx, "MEMORY", "USAGE", k, "SAMPLES", "0")
-		if err != nil {
-			if resp.IsCode(err, "NOPERM") {
-				return nil, err
-			}
-			continue
-		}
-		size, _ := v.(int64)
-		p := Prefix(k)
-		if p == "" {
-			p = "(no prefix)"
-		}
-		if by[p] == nil {
-			by[p] = &prefixSize{prefix: p}
-		}
-		by[p].bytes += float64(size)
-		by[p].keys++
-	}
-	scale := 1.0
-	if total > float64(len(keys)) {
-		scale = total / float64(len(keys))
-	}
-	out := make([]prefixSize, 0, len(by))
-	for _, p := range by {
-		out = append(out, prefixSize{prefix: p.prefix, bytes: p.bytes * scale, keys: p.keys * scale})
-	}
-	sort.Slice(out, func(i, j int) bool { return out[i].bytes > out[j].bytes })
-	if len(out) > TopPrefixes {
-		rest := prefixSize{prefix: "other"}
-		for _, p := range out[TopPrefixes:] {
-			rest.bytes += p.bytes
-			rest.keys += p.keys
-		}
-		out = append(out[:TopPrefixes], rest)
-	}
-	return out, nil
 }
 
 func trimTo(s string, n int) string {

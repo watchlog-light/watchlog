@@ -79,6 +79,41 @@ func (c *Conn) Do(ctx context.Context, args ...string) (any, error) {
 	return c.read(&budget, 0)
 }
 
+// Pipeline sends several commands at once and reads their replies in order: one round trip
+// for a batch (the key sampler's MEMORY USAGE, TYPE and PTTL per name). A reply that is an
+// error is returned in errs at its place; a broken connection fails the whole batch.
+func (c *Conn) Pipeline(ctx context.Context, cmds [][]string) ([]any, []error, error) {
+	deadline := time.Now().Add(c.timeout)
+	if d, ok := ctx.Deadline(); ok && d.Before(deadline) {
+		deadline = d
+	}
+	if err := c.c.SetDeadline(deadline); err != nil {
+		return nil, nil, err
+	}
+	var b strings.Builder
+	for _, args := range cmds {
+		fmt.Fprintf(&b, "*%d\r\n", len(args))
+		for _, a := range args {
+			fmt.Fprintf(&b, "$%d\r\n%s\r\n", len(a), a)
+		}
+	}
+	if _, err := io.WriteString(c.c, b.String()); err != nil {
+		return nil, nil, err
+	}
+	out := make([]any, len(cmds))
+	errs := make([]error, len(cmds))
+	budget := MaxReply
+	for i := range cmds {
+		v, err := c.read(&budget, 0)
+		var re *Error
+		if err != nil && !errors.As(err, &re) {
+			return nil, nil, err
+		}
+		out[i], errs[i] = v, err
+	}
+	return out, errs, nil
+}
+
 // String runs a command whose reply is a string.
 func (c *Conn) String(ctx context.Context, args ...string) (string, error) {
 	v, err := c.Do(ctx, args...)

@@ -137,6 +137,9 @@ type Member struct {
 // Settings are the per-service switches (ADR-138).
 type Settings struct {
 	QueryText bool `json:"query_text"`
+	// KeyNames shows the largest sampled Redis keys by name (1.4, ADR-247); off by default,
+	// when only their prefixes leave the agent.
+	KeyNames bool `json:"key_names"`
 }
 
 // Status is posted to /ingest/v1/integrations/status every scrape; it is also the
