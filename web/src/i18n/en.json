@@ -299,7 +299,7 @@
       "invoices": {
         "title": "A service that fails since its last change",
         "why": "WatchLog saw a new invoices build on the server just before it started failing. You didn't open a log or ssh in.",
-        "proof": "The new build is marked on the alert's own chart, right before the failures. It was there before you asked."
+        "proof": "The new build is marked on the alert's own chart, and the service is still failing after it. It was there before you asked."
       },
       "report-builder": {
         "title": "A job that fails quietly",
