@@ -1132,7 +1132,7 @@ func (s *scrape) top(ctx context.Context) {
 
 func systemNS(ns string) bool {
 	db, coll, _ := strings.Cut(ns, ".")
-	return db == "admin" || db == "local" || db == "config" || strings.HasPrefix(coll, "system.") || ns == ""
+	return db == "admin" || db == "local" || db == "config" || strings.HasPrefix(coll, "system.") || strings.HasPrefix(coll, "$cmd") || ns == ""
 }
 
 // databases: listDatabases, then dbStats for up to 50 (by size): data and storage size,
