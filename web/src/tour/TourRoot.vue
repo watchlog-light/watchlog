@@ -175,6 +175,8 @@ function find(n: Step): HTMLElement[] {
   if (n === 3) {
     const chart = document.querySelector<HTMLElement>('[data-testid="alert-chart"]');
     const changed = document.querySelector<HTMLElement>('[data-testid="wc-card"]');
+    // A phone's sheet leaves room for one: the chart, which the card's words name.
+    if (narrow.value && chart) return [chart];
     return [changed, chart].filter((e): e is HTMLElement => !!e);
   }
   return [];
