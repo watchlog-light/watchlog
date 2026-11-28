@@ -723,8 +723,9 @@ func (s *scrape) statements(ctx context.Context) {
 		row := map[string]any{
 			"digest": id, "db": trimText(v[1], 64), "calls": int64(f(v[3])), "total": f(v[4]), "mean": f(v[5]),
 			"max": f(v[6]), "rows_examined": int64(f(v[7])), "rows_sent": int64(f(v[8])),
-			"no_index": int64(f(v[9])), "tmp_disk": int64(f(v[10])), "errors": int64(f(v[11])), "warnings": int64(f(v[12])),
+			"no_index": int64(f(v[9])), "tmp_disk": int64(f(v[10])),
 		}
+		// Errors and warnings travel as series only: a stored row keeps at most 12 fields.
 		if s.queryText {
 			row["query"] = Normalise(v[2])
 		}

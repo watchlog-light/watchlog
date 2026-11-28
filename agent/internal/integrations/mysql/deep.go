@@ -246,13 +246,9 @@ func (s *scrape) tree(pairs [][2]string) {
 			blocked++
 			longest = max(longest, p.time)
 		}
-		blockers := by[id]
-		if blockers == nil {
-			blockers = []string{}
-		}
 		nodes = append(nodes, map[string]any{
 			"thread": id, "addr": trimText(hostOf(p.host), 64), "user": trimText(p.user, 64), "command": p.command,
-			"state": trimText(p.state, 64), "seconds": int(p.time), "blocked_by": blockers, "member": s.member,
+			"state": trimText(p.state, 64), "seconds": int(p.time), "blocked_by": strings.Join(by[id], ","), "member": s.member,
 		})
 	}
 	s.add("watchlog_mysql_blocked_sessions", blocked)
@@ -350,10 +346,13 @@ func (s *scrape) deadlock(ctx context.Context) {
 	if d.At == 0 || len(d.Txns) == 0 {
 		return
 	}
+	// A status row holds only strings, numbers and booleans: one row per transaction.
 	for _, t := range d.Txns {
 		t["member"] = s.member
+		t["at"] = d.At
+		t["victim"] = t["n"] == d.Victim
+		s.extra["deadlock"] = append(asRows(s.extra["deadlock"]), t)
 	}
-	s.extra["deadlock"] = append(asRows(s.extra["deadlock"]), map[string]any{"at": d.At, "victim": d.Victim, "txns": d.Txns, "member": s.member})
 }
 
 // channels: replication per channel and per worker (MySQL's performance_schema): each

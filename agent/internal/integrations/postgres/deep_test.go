@@ -87,6 +87,20 @@ func TestLabScrape(t *testing.T) {
 		}
 		sort.Strings(keys)
 		for _, k := range keys {
+			// The backend takes only flat rows of strings, numbers and booleans (ingest.ts).
+			rows, ok := r.Extra[k].([]map[string]any)
+			if !ok && r.Extra[k] != nil {
+				t.Errorf("extra %s is %T, not a list of rows", k, r.Extra[k])
+			}
+			for _, row := range rows {
+				for f, v := range row {
+					switch v.(type) {
+					case string, bool, int, int64, float64:
+					default:
+						t.Errorf("extra %s.%s is %T", k, f, v)
+					}
+				}
+			}
 			b, _ := json.Marshal(r.Extra[k])
 			if len(b) > 400 {
 				b = append(b[:400], []byte("…")...)

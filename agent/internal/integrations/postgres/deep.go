@@ -156,15 +156,20 @@ func (s *scrape) lockTree(ctx context.Context) []map[string]any {
 				by = append(by, n)
 			}
 		}
+		// A status row holds only strings, numbers and booleans: the blockers as "75,80".
+		ids := make([]string, len(by))
+		for i, b := range by {
+			ids[i] = strconv.Itoa(b)
+		}
 		nodes = append(nodes, map[string]any{
 			"pid": int(f(v[0])), "addr": str(v[1]), "app": trimText(str(v[2]), 64), "state": str(v[3]),
-			"wait": trimText(str(v[4]), 64), "seconds": int(f(v[5])), "xact": int(f(v[6])), "blocked_by": by,
+			"wait": trimText(str(v[4]), 64), "seconds": int(f(v[5])), "xact": int(f(v[6])), "blocked_by": strings.Join(ids, ","),
 			"queryid": str(v[8]), "member": s.member,
 		})
 	})
 	blocked, longest := 0.0, 0.0
 	for _, n := range nodes {
-		if len(n["blocked_by"].([]int)) > 0 {
+		if n["blocked_by"] != "" {
 			blocked++
 			longest = max(longest, float64(n["seconds"].(int)))
 		}
@@ -188,8 +193,10 @@ func nonEmpty(v any) any {
 func (s *scrape) transactions(ctx context.Context, tree []map[string]any) {
 	blocks := map[int]int{}
 	for _, n := range tree {
-		for _, b := range n["blocked_by"].([]int) {
-			blocks[b]++
+		for _, b := range strings.Split(n["blocked_by"].(string), ",") {
+			if id, err := strconv.Atoi(b); err == nil {
+				blocks[id]++
+			}
 		}
 	}
 	rows := []map[string]any{}
@@ -402,7 +409,7 @@ func (s *scrape) settings(ctx context.Context) {
 	sort.Strings(pending)
 	s.add("watchlog_postgres_pending_restart", float64(len(pending)))
 	if len(pending) > 0 {
-		s.extra["pending_restart"] = strings.Join(pending, ", ")
+		s.extra["pending_restart"] = append(asRows(s.extra["pending_restart"]), map[string]any{"names": trimText(strings.Join(pending, ", "), textLen), "member": s.member})
 	}
 }
 
