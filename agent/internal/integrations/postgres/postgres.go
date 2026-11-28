@@ -50,10 +50,20 @@ type Postgres struct {
 	// heavyPerms are the heavy scrape's permission notes per target, repeated by the
 	// light scrapes in between so a panel's note doesn't come and go.
 	heavyPerms map[string]map[string]string
+	// catalogs are each target's last catalog scan (1.2: every 10 minutes, re-sent between).
+	catalogs map[string]*catalog
+	// tops are each target's top statements by id, from its last heavy scrape: the wait
+	// samples keep these by id and fold the rest into "other".
+	tops map[string]map[string]bool
+	// now is the clock (tests set it).
+	now func() time.Time
 }
 
 // New returns the integration.
-func New() *Postgres { return &Postgres{heavyPerms: map[string]map[string]string{}} }
+func New() *Postgres {
+	return &Postgres{heavyPerms: map[string]map[string]string{}, catalogs: map[string]*catalog{},
+		tops: map[string]map[string]bool{}, now: time.Now}
+}
 
 // connect opens a read-only session with short timeouts on one database of a member.
 func connect(ctx context.Context, m integrations.Member, auth *integrations.Auth, db string) (*pgx.Conn, time.Duration, error) {
@@ -77,7 +87,8 @@ func connect(ctx context.Context, m integrations.Member, auth *integrations.Auth
 	}
 	cfg.Password = pass
 	cfg.RuntimeParams["default_transaction_read_only"] = "on"
-	cfg.RuntimeParams["statement_timeout"] = "5000"
+	// 1.2: every collector query stops after 2 s (ADR-245).
+	cfg.RuntimeParams["statement_timeout"] = "2000"
 	cfg.RuntimeParams["lock_timeout"] = "1000"
 	cfg.RuntimeParams["idle_in_transaction_session_timeout"] = "10000"
 	// The simple protocol: no prepared statements left behind on the server.
@@ -141,7 +152,10 @@ func (p *Postgres) Scrape(ctx context.Context, t integrations.Target, heavy bool
 		ms.Up = true
 		up++
 		res.Members = append(res.Members, ms)
-		s := &scrape{c: c, member: m.Name, queryText: t.Settings.QueryText, perms: perms, extra: extra}
+		p.mu.Lock()
+		top := p.tops[t.ID]
+		p.mu.Unlock()
+		s := &scrape{c: c, member: m.Name, queryText: t.Settings.QueryText, perms: perms, extra: extra, top: top}
 		s.add("watchlog_integration_connect_seconds", connectTime.Seconds())
 		version := s.light(ctx)
 		if res.ServiceVersion == "" {
@@ -149,6 +163,12 @@ func (p *Postgres) Scrape(ctx context.Context, t integrations.Target, heavy bool
 		}
 		if heavy {
 			s.heavy(ctx, m, t.Auth)
+			s.catalogOf(ctx, p, t.ID+"/"+m.Name, m, t.Auth)
+			if s.newTop != nil {
+				p.mu.Lock()
+				p.tops[t.ID] = s.newTop
+				p.mu.Unlock()
+			}
 		}
 		res.Samples = append(res.Samples, s.out...)
 		_ = c.Close(ctx)
@@ -192,6 +212,8 @@ type scrape struct {
 	extra     map[string]any
 	major     int
 	stmts     bool
+	// top are the top statements' ids from the last heavy scrape; newTop this scrape's.
+	top, newTop map[string]bool
 }
 
 func (s *scrape) add(name string, v float64, pairs ...string) {
@@ -346,6 +368,7 @@ func (s *scrape) light(ctx context.Context) string {
 			s.add("watchlog_postgres_wal_bytes_total", wal)
 		}
 	}
+	s.waits(ctx)
 	return version
 }
 
@@ -420,7 +443,48 @@ func (s *scrape) heavy(ctx context.Context, m integrations.Member, auth *integra
 		s.add("watchlog_postgres_locked_relation", f(v[1]), "table", trimText(str(v[0]), 63))
 	})
 
-	// Tables, indexes and vacuum: per database, the 10 largest databases.
+	// 1.2 (ADR-245): statement → client, sessions per database and role, the blocking tree,
+	// the oldest transactions, checkpoints and I/O, archiving, slots, xmin holders, settings.
+	s.statementClients(ctx)
+	s.sessionsByRole(ctx)
+	tree := s.lockTree(ctx)
+	s.extra["lock_tree"] = append(asRows(s.extra["lock_tree"]), tree...)
+	s.transactions(ctx, tree)
+	s.checkpoints(ctx)
+	s.archiving(ctx)
+	s.slots(ctx)
+	s.xminHolders(ctx)
+	s.settings(ctx)
+}
+
+// catalogOf sends the member's catalog scan: a new one when the last is older than
+// CatalogEvery, else the cached one again (the series stay fresh, the server is read once
+// every 10 minutes).
+func (s *scrape) catalogOf(ctx context.Context, p *Postgres, key string, m integrations.Member, auth *integrations.Auth) {
+	p.mu.Lock()
+	c := p.catalogs[key]
+	p.mu.Unlock()
+	if c == nil || p.now().Sub(c.at) >= CatalogEvery {
+		c = s.catalogScan(ctx, m, auth)
+		c.at = p.now()
+		p.mu.Lock()
+		p.catalogs[key] = c
+		p.mu.Unlock()
+	}
+	s.out = append(s.out, c.samples...)
+	for k, v := range c.extra {
+		if rows, ok := v.([]map[string]any); ok {
+			s.extra[k] = append(asRows(s.extra[k]), rows...)
+		}
+	}
+	for k, v := range c.perms {
+		s.perms[k] = v
+	}
+}
+
+// catalogScan: tables, indexes, vacuum and schema findings over the 10 largest databases.
+func (s *scrape) catalogScan(ctx context.Context, m integrations.Member, auth *integrations.Auth) *catalog {
+	cat := &scrape{c: s.c, member: s.member, perms: map[string]string{}, extra: map[string]any{}}
 	var dbs []string
 	_ = s.rows(ctx, `select datname from pg_database where not datistemplate and datallowconn
 		order by pg_database_size(datname) desc limit `+strconv.Itoa(TableDBs), func(v []any) {
@@ -428,6 +492,8 @@ func (s *scrape) heavy(ctx context.Context, m integrations.Member, auth *integra
 	})
 	var tables []tableRow
 	unused := []map[string]any{}
+	schema := map[string][]map[string]any{}
+	unreadable := 0
 	for _, db := range dbs {
 		c := s.c
 		if db != s.c.Config().Database {
@@ -440,6 +506,15 @@ func (s *scrape) heavy(ctx context.Context, m integrations.Member, auth *integra
 		t := &scrape{c: c, member: s.member}
 		tables = append(tables, t.tables(ctx, db)...)
 		unused = append(unused, t.unusedIndexes(ctx, db)...)
+		for k, rows := range t.schema(ctx, db) {
+			for _, r := range rows {
+				if k == "sequences" && r["readable"] == false {
+					unreadable++
+					continue
+				}
+				schema[k] = append(schema[k], r)
+			}
+		}
 		if c != s.c {
 			_ = c.Close(ctx)
 		}
@@ -451,13 +526,17 @@ func (s *scrape) heavy(ctx context.Context, m integrations.Member, auth *integra
 	}
 	vacuum := []map[string]any{}
 	for _, t := range tables {
-		s.add("watchlog_postgres_table_size_bytes", t.size, "db", t.db, "table", t.table)
-		s.add("watchlog_postgres_table_dead_rows", t.dead, "db", t.db, "table", t.table)
-		s.add("watchlog_postgres_table_autovacuum_total", t.autovacuums, "db", t.db, "table", t.table)
+		cat.add("watchlog_postgres_table_size_bytes", t.size, "db", t.db, "table", t.table)
+		cat.add("watchlog_postgres_table_dead_rows", t.dead, "db", t.db, "table", t.table)
+		cat.add("watchlog_postgres_table_live_rows", t.live, "db", t.db, "table", t.table)
+		cat.add("watchlog_postgres_table_autovacuum_total", t.autovacuums, "db", t.db, "table", t.table)
+		cat.add("watchlog_postgres_table_seq_scans_total", t.seqScans, "db", t.db, "table", t.table)
+		cat.add("watchlog_postgres_table_seq_rows_read_total", t.seqRows, "db", t.db, "table", t.table)
+		cat.add("watchlog_postgres_table_index_scans_total", t.idxScans, "db", t.db, "table", t.table)
 		// An estimate from the statistics (exact bloat needs pgstattuple, which reads every
 		// page): the dead rows' share of the table's size.
 		if t.live+t.dead > 0 {
-			s.add("watchlog_postgres_table_bloat_bytes_estimate", t.size*t.dead/(t.live+t.dead), "db", t.db, "table", t.table)
+			cat.add("watchlog_postgres_table_bloat_bytes_estimate", t.size*t.dead/(t.live+t.dead), "db", t.db, "table", t.table)
 		}
 		vacuum = append(vacuum, map[string]any{
 			"db": t.db, "table": t.table, "dead": int64(t.dead), "live": int64(t.live),
@@ -472,8 +551,36 @@ func (s *scrape) heavy(ctx context.Context, m integrations.Member, auth *integra
 	if len(unused) > TopIndexes {
 		unused = unused[:TopIndexes]
 	}
-	s.extra["vacuum"] = append(asRows(s.extra["vacuum"]), vacuum...)
-	s.extra["unused_indexes"] = append(asRows(s.extra["unused_indexes"]), unused...)
+	cat.extra["vacuum"] = vacuum
+	cat.extra["unused_indexes"] = unused
+	// Sequences: the fullest 20 readable ones, as series too (for the 90 % rule).
+	seqs := schema["sequences"]
+	sort.SliceStable(seqs, func(i, j int) bool { return asFloat(seqs[i]["used"]) > asFloat(seqs[j]["used"]) })
+	if len(seqs) > TopFindings {
+		seqs = seqs[:TopFindings]
+	}
+	for _, q := range seqs {
+		if u, ok := q["used"].(float64); ok {
+			cat.add("watchlog_postgres_sequence_used_ratio", u, "db", q["db"].(string), "sequence", q["sequence"].(string))
+		}
+	}
+	schema["sequences"] = seqs
+	for k, rows := range schema {
+		if len(rows) > TopFindings {
+			rows = rows[:TopFindings]
+		}
+		cat.extra[k] = rows
+	}
+	cat.add("watchlog_postgres_sequences_unreadable", float64(unreadable))
+	if unreadable > 0 {
+		cat.perms["tables/sequences"] = "SELECT on the sequences"
+	}
+	return &catalog{samples: cat.out, extra: cat.extra, perms: cat.perms}
+}
+
+func asFloat(v any) float64 {
+	x, _ := v.(float64)
+	return x
 }
 
 func asRows(v any) []map[string]any {
@@ -552,14 +659,21 @@ func (s *scrape) statements(ctx context.Context) {
 		exec, mean = "total_time", "mean_time"
 	}
 	rows := []map[string]any{}
-	err := s.rows(ctx, `select queryid::text, calls, `+exec+`/1000, `+mean+`/1000, rows, query
+	s.newTop = map[string]bool{}
+	err := s.rows(ctx, `select queryid::text, calls, `+exec+`/1000, `+mean+`/1000, rows, query,
+		  shared_blks_hit, shared_blks_read, temp_blks_written
 		from pg_stat_statements where queryid is not null
 		order by `+exec+` desc limit `+strconv.Itoa(TopStatements), func(v []any) {
 		id := str(v[0])
+		s.newTop[id] = true
 		s.add("watchlog_postgres_statement_calls_total", f(v[1]), "queryid", id)
 		s.add("watchlog_postgres_statement_seconds_total", f(v[2]), "queryid", id)
 		s.add("watchlog_postgres_statement_rows_total", f(v[4]), "queryid", id)
-		row := map[string]any{"queryid": id, "calls": int64(f(v[1])), "total": f(v[2]), "mean": f(v[3]), "rows": int64(f(v[4]))}
+		s.add("watchlog_postgres_statement_blocks_total", f(v[6]), "queryid", id, "kind", "hit")
+		s.add("watchlog_postgres_statement_blocks_total", f(v[7]), "queryid", id, "kind", "read")
+		s.add("watchlog_postgres_statement_temp_blocks_total", f(v[8]), "queryid", id)
+		row := map[string]any{"queryid": id, "calls": int64(f(v[1])), "total": f(v[2]), "mean": f(v[3]), "rows": int64(f(v[4])),
+			"blocks": int64(f(v[6]) + f(v[7])), "temp_blocks": int64(f(v[8]))}
 		if s.queryText {
 			row["query"] = normalise(str(v[5]))
 		}
@@ -574,15 +688,17 @@ func (s *scrape) statements(ctx context.Context) {
 type tableRow struct {
 	db, table                                     string
 	size, live, dead, lastAutovacuum, autovacuums float64
+	seqScans, seqRows, idxScans                   float64
 }
 
 func (s *scrape) tables(ctx context.Context, db string) []tableRow {
 	var out []tableRow
 	_ = s.rows(ctx, `select schemaname || '.' || relname, pg_total_relation_size(relid), n_live_tup, n_dead_tup,
-		  coalesce(extract(epoch from last_autovacuum), 0)::float8, autovacuum_count
+		  coalesce(extract(epoch from last_autovacuum), 0)::float8, autovacuum_count,
+		  coalesce(seq_scan, 0), coalesce(seq_tup_read, 0), coalesce(idx_scan, 0)
 		from pg_stat_user_tables order by pg_total_relation_size(relid) desc limit `+strconv.Itoa(TopTables), func(v []any) {
 		out = append(out, tableRow{db: db, table: trimText(str(v[0]), 128), size: f(v[1]), live: f(v[2]), dead: f(v[3]),
-			lastAutovacuum: f(v[4]), autovacuums: f(v[5])})
+			lastAutovacuum: f(v[4]), autovacuums: f(v[5]), seqScans: f(v[6]), seqRows: f(v[7]), idxScans: f(v[8])})
 	})
 	return out
 }
