@@ -3300,7 +3300,9 @@
           "prefix": "A key prefix",
           "command": "A command",
           "group": "A stream group"
-        }
+        },
+        "openPrefix": "See the key prefix {name}",
+        "openGroup": "Open the group {name}"
       },
       "missing": {
         "overview": {
@@ -3840,7 +3842,8 @@
         "item": {
           "shape": "An operation shape",
           "collection": "A collection"
-        }
+        },
+        "openShape": "Open the operation"
       },
       "missing": {
         "overview": {

@@ -30,7 +30,13 @@ import {
 } from '@/lib/applications';
 import { formatDateTime } from '@/lib/format';
 import { PAGE_RANGES, panelSlots, rangeOf, SEVERITY_TOKEN } from '@/lib/panels';
-import { linkRoute, queueRoute, type PanelLink } from '@/lib/service-links';
+import {
+  itemRoute,
+  linkRoute,
+  queueRoute,
+  statementRoute,
+  type PanelLink,
+} from '@/lib/service-links';
 import { SERVICE_PAGE } from '@/lib/service-page';
 import { formatDuration } from '@/lib/units';
 import { offeredRanges } from '@/lib/ranges';
@@ -170,6 +176,25 @@ const reasons = computed(() =>
         to: queueRoute(id.value, typeof f.vhost === 'string' ? f.vhost : '/', f.queueRaw),
         key: 'integrations.rabbitmq.panels.openQueue',
         name: String(f.queue ?? f.queueRaw),
+      });
+    // 1.4: the operation shape, the key prefix or the stream group a finding names, first.
+    if (typeof f.shape === 'string' && f.shape)
+      links.push({
+        to: statementRoute(id.value, f.shape),
+        key: 'integrations.mongodb.panels.openShape',
+        name: '',
+      });
+    if (typeof f.prefix === 'string' && f.prefix && app.value?.type === 'redis')
+      links.push({
+        to: itemRoute(id.value, 'prefix', f.prefix.replace(/\*$/, '')),
+        key: 'integrations.redis.panels.openPrefix',
+        name: f.prefix,
+      });
+    if (typeof f.stream === 'string' && typeof f.group === 'string')
+      links.push({
+        to: itemRoute(id.value, 'group', `${f.stream}\u0000${f.group}`),
+        key: 'integrations.redis.panels.openGroup',
+        name: f.group,
       });
     for (const l of r.links ?? []) {
       if (l.kind !== 'workload' && l.kind !== 'container') continue;
