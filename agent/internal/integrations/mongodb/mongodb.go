@@ -147,6 +147,17 @@ func isAuth(err error) bool {
 // denied: the user lacks the action (Unauthorized, 13).
 func denied(err error) bool { return code(err) == 13 }
 
+// unsupported: the server has no such command or stage (CommandNotFound 59,
+// CommandNotSupported 115, an unknown aggregation stage 40324): a managed service such as
+// DocumentDB. The panel says "not available on this server" (1.4).
+func unsupported(err error) bool {
+	switch code(err) {
+	case 59, 115, 40324:
+		return true
+	}
+	return false
+}
+
 func short(err error) string {
 	s := err.Error()
 	var ce mongo.CommandError
@@ -335,6 +346,8 @@ func (s *scrape) light(ctx context.Context) {
 	if err != nil {
 		if denied(err) {
 			s.perms["overview/summary"] = "clusterMonitor"
+		} else if unsupported(err) {
+			s.perms["overview/summary"] = "unsupported"
 		}
 		return
 	}
@@ -508,6 +521,8 @@ func (s *scrape) replication(ctx context.Context) {
 	if err != nil {
 		if denied(err) {
 			s.perms["replica/members"] = "clusterMonitor"
+		} else if unsupported(err) {
+			s.perms["replica/members"] = "unsupported"
 		}
 		return
 	}
@@ -593,6 +608,8 @@ func (s *scrape) oplog(ctx context.Context) {
 	if err != nil {
 		if denied(err) {
 			s.perms["replica/oplog"] = "clusterMonitor"
+		} else if unsupported(err) {
+			s.perms["replica/oplog"] = "unsupported"
 		}
 		return
 	}
@@ -848,6 +865,8 @@ func (s *scrape) slowLog(ctx context.Context) {
 	if err != nil {
 		if denied(err) {
 			s.perms["operations/top"] = "clusterMonitor"
+		} else if unsupported(err) {
+			s.perms["operations/top"] = "unsupported"
 		}
 		return
 	}
@@ -1026,6 +1045,8 @@ func (s *scrape) clients(ctx context.Context) {
 	if err != nil {
 		if denied(err) {
 			s.perms["clients/clients"] = "clusterMonitor"
+		} else if unsupported(err) {
+			s.perms["clients/clients"] = "unsupported"
 		}
 		return
 	}
@@ -1078,6 +1099,8 @@ func (s *scrape) top(ctx context.Context) {
 	if err != nil {
 		if denied(err) {
 			s.perms["operations/busiest"] = "clusterMonitor"
+		} else if unsupported(err) {
+			s.perms["operations/busiest"] = "unsupported"
 		}
 		return
 	}
@@ -1119,6 +1142,8 @@ func (s *scrape) databases(ctx context.Context) []string {
 	if err != nil {
 		if denied(err) {
 			s.perms["collections/collections"] = "clusterMonitor"
+		} else if unsupported(err) {
+			s.perms["collections/collections"] = "unsupported"
 		}
 		return nil
 	}
@@ -1176,6 +1201,8 @@ func (s *scrape) databases(ctx context.Context) []string {
 		if err != nil {
 			if denied(err) {
 				s.perms["collections/collections"] = "clusterMonitor"
+			} else if unsupported(err) {
+				s.perms["collections/collections"] = "unsupported"
 			}
 			continue
 		}
@@ -1250,6 +1277,8 @@ func (s *scrape) collections(ctx context.Context, colls []string) {
 		if err != nil {
 			if denied(err) {
 				s.perms["collections/unused"] = "clusterMonitor"
+			} else if unsupported(err) {
+				s.perms["collections/unused"] = "unsupported"
 			}
 			continue
 		}

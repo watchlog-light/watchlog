@@ -141,6 +141,8 @@ func (s *scrape) waits(ctx context.Context) {
 	if err != nil {
 		if denied(err) {
 			s.perms["waits/waits"] = "clusterMonitor"
+		} else if unsupported(err) {
+			s.perms["waits/waits"] = "unsupported"
 		}
 		return
 	}

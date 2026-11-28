@@ -138,7 +138,7 @@ func admin(t *testing.T, addr string, args ...string) any {
 }
 
 // The generated user's ACL, as the backend's command writes it (connectCommand).
-var generatedACL = []string{"reset", "on", ">wl_mon_EXAMPLExEXAMPLExEXAMPLEx", "~*", "+info", "+ping", "+slowlog", "+latency", "+config|get", "+client|list", "+memory|stats", "+memory|usage", "+scan"}
+var generatedACL = []string{"reset", "on", ">wl_mon_EXAMPLExEXAMPLExEXAMPLEx", "~*", "+info", "+ping", "+slowlog|get", "+slowlog|len", "+latency|latest", "+latency|histogram", "+config|get", "+client|list", "+memory|stats", "+memory|usage", "+scan", "+type", "+pttl", "+hlen", "+llen", "+scard", "+zcard", "+xlen", "+xinfo|groups", "+xinfo|consumers", "+xpending", "+cluster|info", "+cluster|shards", "+acl|whoami"}
 
 func TestAgainstRealServers(t *testing.T) {
 	for name, addr := range servers(t) {

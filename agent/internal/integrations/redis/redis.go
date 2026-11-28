@@ -229,6 +229,8 @@ func (r *Redis) member(ctx context.Context, t integrations.Target, m integration
 		}
 	} else if resp.IsCode(err, "NOPERM") {
 		out.perms["memory/capacity"] = "+config|get"
+	} else if unknownCommand(err) {
+		out.perms["memory/capacity"] = "unsupported"
 	}
 
 	if !heavy {
@@ -241,12 +243,16 @@ func (r *Redis) member(ctx context.Context, t integrations.Target, m integration
 		lbl("watchlog_redis_memory_overhead_bytes", toFloat(kv["overhead.total"]))
 	} else if resp.IsCode(err, "NOPERM") {
 		out.perms["memory/breakdown"] = "+memory|stats"
+	} else if unknownCommand(err) {
+		out.perms["memory/breakdown"] = "unsupported"
 	}
 	// SLOWLOG GET: the slowest recent commands, normalised (ADR-138).
 	if v, err := c.Do(ctx, "SLOWLOG", "GET", strconv.Itoa(SlowEntries)); err == nil {
 		out.slow = Slowlog(v, m.Name, t.Settings.QueryText)
 	} else if resp.IsCode(err, "NOPERM") {
-		out.perms["commands/slowlog"] = "+slowlog"
+		out.perms["commands/slowlog"] = "+slowlog|get"
+	} else if unknownCommand(err) {
+		out.perms["commands/slowlog"] = "unsupported"
 	}
 	// LATENCY HISTOGRAM (Redis 7+): every command's latency, merged.
 	if v, err := c.Do(ctx, "LATENCY", "HISTOGRAM"); err == nil {
@@ -254,7 +260,9 @@ func (r *Redis) member(ctx context.Context, t integrations.Target, m integration
 			lbl("watchlog_redis_command_latency_bucket", n, "le", le)
 		}
 	} else if resp.IsCode(err, "NOPERM") {
-		out.perms["commands/latency"] = "+latency"
+		out.perms["commands/latency"] = "+latency|histogram"
+	} else if unknownCommand(err) {
+		out.perms["commands/latency"] = "unsupported"
 	}
 	// Settings read by name, one per call (6.2 takes one pattern): never a pattern that
 	// could match requirepass or masterauth.
@@ -296,6 +304,8 @@ func (r *Redis) member(ctx context.Context, t integrations.Target, m integration
 		}
 	} else if resp.IsCode(err, "NOPERM") {
 		out.perms["clients/by-workload"] = "+client|list"
+	} else if unknownCommand(err) {
+		out.perms["clients/by-workload"] = "unsupported"
 	}
 	// LATENCY LATEST: the latency monitor's events, when it is on.
 	if v, err := c.Do(ctx, "LATENCY", "LATEST"); err == nil {
@@ -328,6 +338,8 @@ func (r *Redis) member(ctx context.Context, t integrations.Target, m integration
 			}
 		} else if resp.IsCode(err, "NOPERM") {
 			out.perms["replication/cluster"] = "+cluster|info"
+		} else if unknownCommand(err) {
+			out.perms["replication/cluster"] = "unsupported"
 		}
 		if v, err := c.Do(ctx, "CLUSTER", "SHARDS"); err == nil {
 			for _, row := range Shards(v) {
@@ -371,6 +383,13 @@ func (r *Redis) sample(ctx context.Context, c *resp.Conn, t integrations.Target,
 		}
 	}
 	p := sm.last
+	if p == nil && sm.cur != nil && sm.cur.sampled > 0 {
+		// Until the first pass finishes (up to 10 minutes on a large instance), the pass in
+		// progress: its names so far are a sample of the keyspace as fair as a finished one.
+		cur := *sm.cur
+		cur.total, cur.at = total, r.Now()
+		p = &cur
+	}
 	if p == nil {
 		return
 	}
@@ -490,8 +509,9 @@ func (r *Redis) Probe(ctx context.Context, t integrations.Target) integrations.P
 			args []string
 		}{
 			{"+config|get", []string{"CONFIG", "GET", "maxmemory"}},
-			{"+slowlog", []string{"SLOWLOG", "LEN"}},
-			{"+latency", []string{"LATENCY", "LATEST"}},
+			{"+slowlog|get", []string{"SLOWLOG", "GET", "1"}},
+			{"+latency|latest", []string{"LATENCY", "LATEST"}},
+			{"+latency|histogram", []string{"LATENCY", "HISTOGRAM", "info"}},
 			{"+client|list", []string{"CLIENT", "LIST", "ID", "0"}},
 			{"+memory|stats", []string{"MEMORY", "STATS"}},
 			{"+scan", []string{"SCAN", "0", "COUNT", "1"}},
@@ -503,6 +523,7 @@ func (r *Redis) Probe(ctx context.Context, t integrations.Target) integrations.P
 			{"+xinfo|consumers", []string{"XINFO", "CONSUMERS", "watchlog:probe", "g"}},
 			{"+xpending", []string{"XPENDING", "watchlog:probe", "g"}},
 			{"+xlen", []string{"XLEN", "watchlog:probe"}},
+			{"+hlen", []string{"HLEN", "watchlog:probe"}},
 		}
 		for _, ch := range checks {
 			if _, err := c.Do(ctx, ch.args...); resp.IsCode(err, "NOPERM") {
@@ -540,6 +561,16 @@ func aclUser(a *integrations.Auth) string {
 		return "default"
 	}
 	return a.Username
+}
+
+// unknownCommand: the server has no such command (a managed service that renames or drops
+// it, such as CONFIG on ElastiCache): the panel says "not available on this server" (1.4).
+func unknownCommand(err error) bool {
+	if err == nil || !resp.IsCode(err, "ERR") {
+		return false
+	}
+	m := strings.ToLower(err.Error())
+	return strings.Contains(m, "unknown command") || strings.Contains(m, "unknown subcommand")
 }
 
 func isAuth(err error) bool {
