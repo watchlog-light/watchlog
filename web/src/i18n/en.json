@@ -1673,7 +1673,22 @@
     "rabbitmq_queue_ready": "RabbitMQ queue ready messages",
     "rabbitmq_queue_consumers": "RabbitMQ queue consumers",
     "rabbitmq_queue_in_rate": "RabbitMQ messages into a queue/s",
-    "rabbitmq_queue_watermark_eta": "RabbitMQ time until the memory watermark (growing queue)"
+    "rabbitmq_queue_watermark_eta": "RabbitMQ time until the memory watermark (growing queue)",
+    "postgres_blocked_longest": "PostgreSQL longest lock wait",
+    "postgres_xact_oldest": "PostgreSQL oldest open transaction",
+    "postgres_statement_mean": "PostgreSQL statement mean time",
+    "postgres_statement_slower": "PostgreSQL statement slower than usual (×)",
+    "postgres_slot_fill_eta": "PostgreSQL slot fills the disk in",
+    "postgres_sequence_used": "PostgreSQL sequence used",
+    "postgres_table_dead_rows": "PostgreSQL table dead rows",
+    "postgres_table_size": "PostgreSQL table size",
+    "mysql_blocked_longest": "MySQL longest lock wait",
+    "mysql_xact_oldest": "MySQL oldest open transaction",
+    "mysql_statement_mean": "MySQL statement mean time",
+    "mysql_statement_slower": "MySQL statement slower than usual (×)",
+    "mysql_binlog_fill_eta": "MySQL binary logs fill the disk in",
+    "mysql_history_list": "MySQL history list length",
+    "mysql_table_size": "MySQL table size"
   },
   "combobox": {
     "noMatches": "No matches",
@@ -2485,7 +2500,16 @@
         "phpfpm_max_children_reached": "When every worker is busy (pm.max_children reached)",
         "phpfpm_listen_queue": "When requests wait for a free worker for 5 minutes",
         "phpfpm_busy": "When more than 90% of the workers are busy for 10 minutes",
-        "rabbitmq_watermark_soon": "When a growing queue takes memory to the high watermark within an hour"
+        "rabbitmq_watermark_soon": "When a growing queue takes memory to the high watermark within an hour",
+        "postgres_blocking": "When a session waits on a lock over 1 minute (critical)",
+        "postgres_long_transaction": "When a transaction stays open over 30 minutes",
+        "postgres_statement_slower": "When a top statement runs far slower than its usual for 10 minutes",
+        "postgres_slot_fills_disk": "When a replication slot fills the disk within a day (critical)",
+        "postgres_sequence_high": "When a sequence passes 90% of its maximum",
+        "mysql_blocking": "When a session waits on a lock over 1 minute (critical)",
+        "mysql_long_transaction": "When a transaction stays open over 30 minutes",
+        "mysql_statement_slower": "When a top statement runs far slower than its usual for 10 minutes",
+        "mysql_binlog_fills_disk": "When the binary logs fill the disk within a day (critical)"
       }
     },
     "metricsError": "Key metrics couldn't be loaded.",
@@ -2730,7 +2754,20 @@
       "phpfpm_max_children": "Every worker was busy {times} times in the last 10 minutes (pm.max_children reached); {queue} requests are waiting. Raise pm.max_children if the server has memory to spare, or find what makes requests slow.",
       "phpfpm_queue": "{queue} requests are waiting for a free worker.",
       "phpfpm_busy": "{busy}% of the workers are busy: close to pm.max_children.",
-      "phpfpm_slow": "{slow} requests took longer than request_slowlog_timeout in the last 10 minutes."
+      "phpfpm_slow": "{slow} requests took longer than request_slowlog_timeout in the last 10 minutes.",
+      "statement_slower": "A statement became {x}× slower than usual (now {mean} on average), with no rise in calls: {query}",
+      "long_transaction": "A transaction of {who} has been open for {age} and blocks {blocks} sessions.",
+      "slot_fills_disk": "The replication slot {slot} keeps WAL that fills the data volume in {eta} at its last hour's growth.",
+      "waits_mostly": "Over the last 15 minutes {pct}% of the active sessions waited on {wait}.",
+      "sequence_near_max": "Sequence {sequence} is at {pct}% of its maximum: inserts fail when it runs out.",
+      "setting_risky": "{name} is set in a way that risks your data or slows the server.",
+      "pending_restart": "{n} changed settings wait for a restart to take effect.",
+      "connections_vs_memory": "max_connections ({max}) could need {need} of memory with work_mem, more than twice the {mem} the server may use.",
+      "connection_leak": "{who} keeps {n} connections that have all been idle for {idle} or more: probably a connection leak. Connections are at {pct}% of the limit.",
+      "history_list_long": "InnoDB's history list is long ({n}): an old transaction keeps purge from cleaning up.",
+      "binlog_fills_disk": "The binary logs fill the data volume in {eta} at their last hour's growth.",
+      "buffer_pool_vs_memory": "innodb_buffer_pool_size ({pool}) is close to the memory the server may use ({mem}).",
+      "redo_nearly_full": "The redo log is {pct}% full: writes stall when the checkpoint can't keep up."
     },
     "page": {
       "since": "monitored since {at}",
@@ -3029,6 +3066,9 @@
         },
         "replication": {
           "wal": "Grant {missing} to WatchLog's user to read the WAL directory's size."
+        },
+        "tables": {
+          "sequences": "Sequences' values need {missing}: GRANT SELECT ON ALL SEQUENCES IN SCHEMA <schema> TO watchlog (it reads only their counters, never a row)."
         }
       }
     },
@@ -3133,7 +3173,8 @@
           "slowest": "Turn performance_schema on to see statements: performance_schema=ON in the server's configuration, then restart it."
         },
         "queries": {
-          "top": "Turn performance_schema on to see statements: performance_schema=ON in the server's configuration, then restart it."
+          "top": "Turn performance_schema on to see statements: performance_schema=ON in the server's configuration, then restart it.",
+          "clients": "MariaDB keeps no statement history by default: --performance-schema-consumer-events-statements-history=ON (a restart) shows who sends each statement."
         },
         "locks": {
           "blocking": "WatchLog's user needs {missing} to see who blocks whom."
@@ -3143,6 +3184,9 @@
         },
         "replication": {
           "status": "Grant {missing} to WatchLog's user to read the replica's status."
+        },
+        "tables": {
+          "indexes": "Index statistics need {missing}."
         }
       }
     },
@@ -3719,6 +3763,463 @@
       },
       "missing": {
         "overview": "The pool's status page is off. Add pm.status_path = /status to the pool's configuration (and pm.status_listen = 127.0.0.1:9001 when the pool listens on a socket), then reload PHP-FPM."
+      }
+    },
+    "db": {
+      "tabs": {
+        "waits": "Waits",
+        "alerts": "Alerts",
+        "statement": "Statement",
+        "table": "Table",
+        "tables": "Tables"
+      },
+      "panels": {
+        "waits": "Active sessions by what they wait on",
+        "waitsNote": "sampled every 15 s; drag a period on the chart to see its statements and clients",
+        "wait": {
+          "cpu": "running",
+          "io": "I/O",
+          "lock": "a lock",
+          "client": "the client",
+          "other": "other"
+        },
+        "waitsSummary": {
+          "title": "In this period",
+          "period": "the statements and clients below are of this period",
+          "periodMysql": "from the threads' states; the statements and clients below are of this period",
+          "average": "Active sessions on average",
+          "mostly": "Mostly",
+          "mostlyText": "{pct}% of the time waiting on {wait}"
+        },
+        "waitsStatements": {
+          "title": "Statements by active sessions",
+          "pg13": "PostgreSQL 13 has no statement id per session: by statement from 14"
+        },
+        "waitsClients": {
+          "title": "Clients by active sessions",
+          "note": "the average number of sessions each client had running, and on what they waited most"
+        },
+        "period": {
+          "hint": "Drag on the chart to look at a period:",
+          "chosen": "Showing {period}.",
+          "label": "Period",
+          "last15": "Last 15 min",
+          "lastHour": "Last hour",
+          "whole": "The whole range"
+        },
+        "flow": {
+          "title": "Query flow, now",
+          "note": "who connects, what the sessions do, what it costs",
+          "noteMysql": "who connects, what the threads do, what it costs",
+          "clients": "Clients · {n} services",
+          "connections": "connections",
+          "holdsLock": "{n} · holds a lock",
+          "sleeping": "{n} · sleeping",
+          "ofMax": "{n} of {max}",
+          "sessions": "Sessions",
+          "active": "active",
+          "waitingLock": "waiting on a lock",
+          "idleInTx": "idle in transaction",
+          "idle": "idle",
+          "queries": "Queries",
+          "txPerSecond": "tx/s",
+          "statementMean": "statement mean",
+          "longest": "longest running",
+          "rollbacks": "rollbacks",
+          "readPerSecond": "{size}/s read",
+          "storage": "Storage",
+          "grows": "grows",
+          "perDay": "{size} a day",
+          "fullIn": "volume full in",
+          "days": "{n} days",
+          "cacheHit": "cache hit",
+          "threads": "Threads",
+          "running": "running",
+          "sleepingThreads": "sleeping",
+          "statements": "Statements",
+          "qPerSecond": "q/s",
+          "selects": "selects",
+          "slowQueries": "slow queries",
+          "fullScans": "full scans",
+          "innodb": "InnoDB",
+          "bufferPoolHit": "buffer pool hit",
+          "dirtyPages": "dirty pages",
+          "redoWritten": "redo written",
+          "largestTable": "largest table",
+          "tableSize": "{table} · {size}"
+        },
+        "tiles": {
+          "title": "At a glance",
+          "connections": "Connections",
+          "ofMax": "{n} of max_connections {max}",
+          "transactions": "Transactions",
+          "rollbacks": "{pct}% rolled back",
+          "lockWaits": "Lock waits",
+          "longest": "longest {d}",
+          "none": "none",
+          "lag": "Replication lag",
+          "noReplicas": "no replicas",
+          "streaming": "{n} replicas streaming",
+          "cacheHit": "Cache hit",
+          "healthyAbove": "healthy above {pct}%",
+          "disk": "Disk",
+          "daysLeft": "days left at this week's growth",
+          "notGrowing": "not growing",
+          "queries": "Queries",
+          "aSecond": "a second",
+          "slow": "Slow queries",
+          "slowerThanLongQuery": "slower than long_query_time",
+          "bufferPool": "Buffer pool hit",
+          "replicaRunning": "replica running",
+          "replicaStopped": "replication stopped",
+          "notReplica": "not a replica",
+          "refused": "Refused",
+          "sinceStart": "since the server started"
+        },
+        "charts": {
+          "transactions": "Transactions a second",
+          "sessions": "Sessions by state",
+          "connections": "Connections against the limit",
+          "byType": "Statements by type"
+        },
+        "series": {
+          "commits": "commits",
+          "rollbacks": "rollbacks",
+          "waitingLock": "waiting on a lock",
+          "active": "active",
+          "idleInTx": "idle in transaction",
+          "connected": "connected",
+          "running": "running",
+          "maxConnections": "max_connections",
+          "select": "select",
+          "insert": "insert",
+          "update": "update",
+          "mean": "mean time",
+          "usual": "usual",
+          "calls": "calls",
+          "rows": "rows",
+          "rowsSent": "rows sent",
+          "rowsExamined": "rows examined",
+          "blocks": {
+            "hit": "blocks from cache",
+            "read": "blocks read"
+          },
+          "tempBlocks": "temporary blocks",
+          "noIndex": "no index used",
+          "tmpDisk": "temporary tables on disk",
+          "errors": "errors",
+          "size": "size",
+          "deadRows": "dead rows",
+          "seqScans": "sequential scans",
+          "indexScans": "index scans",
+          "fullScanRows": "rows read by full scans",
+          "historyList": "history list length"
+        },
+        "marker": {
+          "lockTaken": "{at} {name} took the lock",
+          "slower": "{at} {x}× slower"
+        },
+        "checks": {
+          "title": "Health checks",
+          "lockWaits": "No session waits on a lock over 30 s",
+          "sessions": "{n} sessions",
+          "idleTx": "No transaction idle over 5 min",
+          "idleTxWho": "{n} · {who}",
+          "none": "none",
+          "connections": "Connections under 80% of the limit",
+          "pct": "{pct}%",
+          "replicas": "Replicas within 30 s",
+          "noReplicas": "no replicas",
+          "lag": "{lag}",
+          "slots": "No inactive replication slot",
+          "ofActive": "{n} of {of} active",
+          "noSlots": "no slots",
+          "xid": "Transaction ID age far from wraparound",
+          "xidOf": "{n} M of 2,000 M",
+          "settings": "No setting that risks data, none waiting for a restart",
+          "settingOff": "{names} off",
+          "pendingRestart": "{n} wait for a restart",
+          "settingsOk": "all good",
+          "statementsOn": "pg_stat_statements is on",
+          "yes": "yes",
+          "no": "no",
+          "refused": "No connection refused at the limit (1 h)",
+          "count": "{n}",
+          "longQuery": "No query running over 5 min",
+          "longestIs": "longest {d}",
+          "deadlocks": "No deadlock in the last hour",
+          "replication": "Replication running and within 30 s",
+          "notReplica": "not a replica",
+          "bufferPool": "Buffer pool hit above 99%",
+          "perfSchema": "performance_schema is on"
+        },
+        "costly": {
+          "title": "Queries that cost the most"
+        },
+        "statements": {
+          "title": "Statements by their share of the time",
+          "note": "the top 50 from pg_stat_statements, normalised; the share is of the time they took in 15 minutes",
+          "noteMysql": "the top 50 from the digest summary, normalised; the share is of the time they took in 15 minutes"
+        },
+        "cols": {
+          "statement": "Statement",
+          "callsPerSecond": "Calls /s",
+          "mean": "Mean",
+          "shareOfTime": "Share of time",
+          "shareOfWaits": "Share of sessions",
+          "rowsPerCall": "Rows",
+          "sentBy": "Sent mostly by",
+          "client": "Client",
+          "open": "Open for",
+          "state": "State",
+          "blocks": "Blocks",
+          "holdsXmin": "Holds back vacuum",
+          "query": "Statement",
+          "connections": "Connections",
+          "idle": "Idle",
+          "idleInTx": "Idle in transaction",
+          "oldestIdle": "Idle for at least",
+          "running": "Running",
+          "sleeping": "Sleeping",
+          "noStatementFor": "No statement for",
+          "outcome": "Outcome",
+          "slot": "Slot",
+          "active": "State",
+          "retained": "WAL kept",
+          "walStatus": "WAL status",
+          "safe": "Before it is invalidated",
+          "fillsDiskIn": "Fills the disk in",
+          "channel": "Channel",
+          "worker": "Worker",
+          "receiver": "Receiver",
+          "applier": "Applier",
+          "heartbeat": "Last heartbeat",
+          "error": "Last error",
+          "holder": "Holder",
+          "kind": "Kind",
+          "xminAge": "Transactions old",
+          "table": "Table",
+          "db": "Database",
+          "perDay": "A day",
+          "size": "Size",
+          "index": "Index",
+          "indexes": "Indexes",
+          "finding": "Finding",
+          "rows6h": "Rows (6 h)"
+        },
+        "hint": {
+          "slower": "{x}× slower than usual",
+          "index": "probably missing an index on {table}"
+        },
+        "statement": {
+          "facts": "This statement",
+          "text": "Text",
+          "calls": "Calls a second",
+          "mean": "Mean time",
+          "usual": "Usual mean (6 h before)",
+          "share": "Share of the database's time",
+          "changed": "What changed",
+          "slower": "{x}× slower than usual",
+          "slowerSince": "{x}× slower than usual since {at}",
+          "hint": "Hint",
+          "examinedPerRow": "Rows examined for each row sent",
+          "meanOverTime": "Mean time",
+          "callsOverTime": "Calls and rows a second",
+          "reads": "What it reads",
+          "blocksNote": "8 kB blocks a second, from cache or read",
+          "examined": "Rows examined against rows sent",
+          "problems": "No index, temporary tables on disk, errors",
+          "waits": "What it waits on",
+          "senders": "Who sends it",
+          "sendersNote": "the clients whose sessions ran it last, in the last hour",
+          "sendersNoteMysql": "each client thread's last ten statements, in the last hour",
+          "tables": "Tables it names",
+          "table": "Table",
+          "fullScans": "{n} rows read by sequential scans in 6 h",
+          "fullScanRows": "{n} rows read by full scans in 6 h"
+        },
+        "table": {
+          "facts": "This table",
+          "name": "Table",
+          "size": "Size",
+          "growth": "Growth",
+          "live": "Live rows",
+          "dead": "Dead rows",
+          "rows": "Rows (estimate)",
+          "lastAutovacuum": "Last autovacuum",
+          "primaryKey": "Primary key",
+          "noPrimaryKey": "none: updates and deletes by row are slow, and logical replication can't send them",
+          "estimate": "InnoDB's persistent statistics: estimates",
+          "sizeOverTime": "Size",
+          "deadOverTime": "Dead rows",
+          "scans": "Sequential against index scans",
+          "scansNote": "read every 10 minutes",
+          "fullScans": "Rows read by full scans",
+          "fullScansNote": "since the server started, read every 10 minutes",
+          "indexes": "Index findings",
+          "indexesNote": "unused since the statistics were reset, duplicates, invalid",
+          "indexesNoteMysql": "never used since the server started"
+        },
+        "tables": {
+          "growing": "Fastest-growing tables",
+          "sequences": "Sequences against their maximum",
+          "sequencesNote": "only the sequences WatchLog may read",
+          "duplicates": "Duplicate indexes",
+          "noPrimaryKey": "Tables without a primary key",
+          "noPrimaryKeyNote": "the largest first",
+          "invalid": "Invalid indexes",
+          "largest": "The largest tables",
+          "fullScans": "Tables read by full scans",
+          "fullScansNote": "rows read in 6 hours",
+          "unused": "Indexes never used",
+          "unusedNoteMysql": "since the server started; primary keys left out"
+        },
+        "capacity": {
+          "title": "Capacity",
+          "connections": "Connections against max_connections",
+          "daysLeft": "{days} days left at the last 7 days' growth",
+          "growthUnknown": "needs a day of history for its growth",
+          "notGrowing": "not growing",
+          "noVolume": "no data volume WatchLog can see"
+        },
+        "tree": {
+          "title": "Who blocks whom",
+          "note": "the root blocker first; each session under the one it waits on",
+          "waits": "waits on a lock",
+          "holds": "holds the lock",
+          "idleHolds": "idle in a transaction, holds the lock",
+          "for": "for {d}",
+          "xact": "transaction open {d}"
+        },
+        "transactions": {
+          "title": "The oldest open transactions",
+          "note": "an idle one still holds its locks and keeps vacuum from removing newer dead rows",
+          "noteMysql": "a sleeping one still holds its locks and keeps purge from cleaning up"
+        },
+        "connections": {
+          "byRole": "Sessions by database and role",
+          "clients": "Clients",
+          "pgbouncer": "a connection pool in front is shown as one client"
+        },
+        "clients": {
+          "title": "Connections by client"
+        },
+        "users": {
+          "title": "Connections by user",
+          "limit": "against max_user_connections {n}",
+          "noLimit": "no per-user limit set",
+          "errors": "Handshake errors by client",
+          "errorsNote": "from performance_schema.host_cache, when it has any"
+        },
+        "history": {
+          "title": "History list length",
+          "note": "undo kept for transactions still open",
+          "now": "Purge",
+          "length": "History list length"
+        },
+        "deadlock": {
+          "title": "The latest deadlock",
+          "at": "at {at}",
+          "none": "none reported since the server started"
+        },
+        "slots": {
+          "title": "Replication slots",
+          "note": "WAL each slot keeps, and when it fills the data volume at its last hour's growth"
+        },
+        "archiving": {
+          "title": "Archiving",
+          "mode": "archive_mode",
+          "off": "off",
+          "archived": "Archived in the last hour",
+          "failed": "Failures in the last hour",
+          "last": "Last archived",
+          "lastFailure": "Last failure"
+        },
+        "checkpoints": {
+          "title": "Checkpoints an hour",
+          "note": "requested ones mean max_wal_size is too small for the write load",
+          "timed": "timed",
+          "requested": "requested",
+          "time": "Checkpoint time a second",
+          "write": "write",
+          "sync": "sync",
+          "written": "Buffers written a second, by whom",
+          "writtenNote": "backends writing their own buffers is a sign shared_buffers is too small",
+          "by": {
+            "checkpointer": "checkpointer",
+            "bgwriter": "background writer",
+            "backend": "backends"
+          }
+        },
+        "channels": {
+          "title": "Replication channels",
+          "note": "each channel's receiver and applier, workers with an error, the last heartbeat"
+        },
+        "binlog": {
+          "title": "Binary logs",
+          "off": "binary logging is off",
+          "size": "On disk",
+          "growth": "Growth",
+          "perHour": "{size} an hour",
+          "expire": "Kept for",
+          "fillsIn": "Fill the disk in"
+        },
+        "redoUse": {
+          "title": "Redo log in use",
+          "label": "in use",
+          "note": "writes stall when it fills before the checkpoint moves",
+          "unavailable": "MySQL 8.0.30 and later, and MariaDB"
+        },
+        "xmin": {
+          "title": "What holds back vacuum",
+          "note": "vacuum can't remove rows newer than the oldest of these"
+        },
+        "prepared": {
+          "title": "Prepared transactions",
+          "open": "Open",
+          "oldest": "Oldest"
+        },
+        "process": {
+          "cpu": "CPU of the database process",
+          "memory": "Memory of the database process",
+          "disk": "Disk I/O of the database process",
+          "latency": "I/O latency",
+          "used": "used",
+          "limit": "limit",
+          "read": "read",
+          "write": "write",
+          "byAddress": "a service known only by its address: its process isn't visible",
+          "noIo": "process groups have no I/O counters",
+          "latencyNote": {
+            "postgres": "time a block read or write takes, from PostgreSQL (needs track_io_timing)",
+            "mysql": "time a read or write on InnoDB's data files takes, from performance_schema"
+          }
+        },
+        "alerts": {
+          "statement": "Alerts on this statement",
+          "table": "Alerts on this table",
+          "none": "No alert on it yet.",
+          "addOne": "Add an alert",
+          "added": "Added: {name}",
+          "statementName": "statement {id}",
+          "state": {
+            "firing": "firing",
+            "quiet": "quiet",
+            "off": "off"
+          }
+        },
+        "presets": {
+          "slower": "Far slower than usual, 10 min",
+          "mean": "Mean above 1 s, 5 min",
+          "deadRows": "Dead rows above 1 M, 1 h",
+          "tableSize": "Larger than 100 GiB"
+        },
+        "allStatements": "All {n} statements →",
+        "usualMean": "usual: {mean}",
+        "backToQueries": "{name} · queries",
+        "backToTables": "{name} · tables",
+        "aStatement": "statement {id}",
+        "aTable": "a table"
       }
     }
   },

@@ -66,11 +66,39 @@ const tab = computed(() => {
   const asked = typeof route.query.tab === 'string' ? route.query.tab : '';
   return tabs.value.find((x) => x.id === asked)?.id ?? tabs.value[0]?.id ?? 'overview';
 });
+// The period chosen on a database's Waits chart (1.2): ?from=&to= in unix seconds.
+const period = computed(() => {
+  const from = Number(route.query.from);
+  const to = Number(route.query.to);
+  return tab.value === 'waits' && Number.isFinite(from) && Number.isFinite(to) && to > from
+    ? { from: Math.floor(from), to: Math.floor(to) }
+    : null;
+});
 const panels = useLoader(() =>
   api<ApplicationPanels>(
-    `/applications/${id.value}/panels?tab=${encodeURIComponent(tab.value)}&range=${range.value}`,
+    `/applications/${id.value}/panels?tab=${encodeURIComponent(tab.value)}&range=${range.value}${
+      period.value ? `&from=${period.value.from}&to=${period.value.to}` : ''
+    }`,
   ),
 );
+function choosePeriod(from: number, to: number) {
+  setQuery({ from: String(from), to: String(to) });
+}
+/** The last N minutes, or the whole range (null): the buttons beside the Waits chart. */
+function lastMinutes(m: number | null) {
+  if (m === null) return setQuery({ from: undefined, to: undefined });
+  const to = Math.floor(Date.now() / 1000);
+  choosePeriod(to - m * 60, to);
+}
+const periodText = computed(() =>
+  period.value ? `${formatClock(period.value.from)}–${formatClock(period.value.to)}` : '',
+);
+function formatClock(unix: number) {
+  return new Date(unix * 1000).toLocaleTimeString(undefined, {
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
 // The page's window, for the charts' x axis: the same alignment as the server's.
 const window = computed<[number, number]>(() => {
   const end = Math.floor(Date.now() / 1000);
@@ -90,6 +118,7 @@ watch(range, () => {
   void panels.load();
 });
 watch(tab, () => void panels.load());
+watch(period, () => void panels.load());
 watch(id, async () => {
   await page.load();
   void panels.load();
@@ -480,6 +509,36 @@ async function resume() {
         :aria-busy="panels.loading.value ? 'true' : undefined"
         data-testid="panels"
       >
+        <div
+          v-if="tab === 'waits'"
+          class="flex flex-wrap items-center gap-2 text-13 md:col-span-2"
+          data-testid="waits-period"
+        >
+          <span class="text-text-muted">{{
+            period
+              ? $t('integrations.db.panels.period.chosen', { period: periodText })
+              : $t('integrations.db.panels.period.hint')
+          }}</span>
+          <div
+            role="group"
+            :aria-label="$t('integrations.db.panels.period.label')"
+            class="flex gap-1"
+          >
+            <BaseButton variant="secondary" data-testid="period-15" @click="lastMinutes(15)">{{
+              $t('integrations.db.panels.period.last15')
+            }}</BaseButton>
+            <BaseButton variant="secondary" data-testid="period-60" @click="lastMinutes(60)">{{
+              $t('integrations.db.panels.period.lastHour')
+            }}</BaseButton>
+            <BaseButton
+              v-if="period"
+              variant="ghost"
+              data-testid="period-clear"
+              @click="lastMinutes(null)"
+              >{{ $t('integrations.db.panels.period.whole') }}</BaseButton
+            >
+          </div>
+        </div>
         <template
           v-for="sl in slots"
           :key="`${panels.data.value.tab}-${sl.kind === 'one' ? sl.panel.id : sl.side.id}`"
@@ -493,6 +552,7 @@ async function resume() {
             :class="['min-w-0', sl.panel.span === 2 ? 'md:col-span-2' : '']"
             @retry="panels.load"
             @changed="panels.load"
+            @select="choosePeriod"
           />
           <!-- A 380 px column beside the rest, one row (the design's checks and queues). -->
           <div

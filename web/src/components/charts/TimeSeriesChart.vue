@@ -4,6 +4,7 @@
 // tokens at runtime so a light theme needs no change here.
 import { LineChart } from 'echarts/charts';
 import {
+  BrushComponent,
   GridComponent,
   LegendComponent,
   MarkAreaComponent,
@@ -26,6 +27,7 @@ import { useUiStore } from '@/stores/ui';
 
 use([
   LineChart,
+  BrushComponent,
   GridComponent,
   TooltipComponent,
   LegendComponent,
@@ -105,8 +107,10 @@ const props = defineProps<{
    * words without Retry.
    */
   noRetry?: boolean;
+  /** A period can be dragged out on it (1.2, a database's Waits): emits select [from, to]. */
+  selectable?: boolean;
 }>();
-defineEmits<{ retry: [] }>();
+const emit = defineEmits<{ retry: []; select: [from: number, to: number] }>();
 
 const ui = useUiStore();
 const router = useRouter();
@@ -284,6 +288,18 @@ function render() {
     {
       color: palette,
       animation: false,
+      ...(props.selectable
+        ? {
+            brush: {
+              xAxisIndex: 0,
+              brushType: 'lineX',
+              brushMode: 'single',
+              transformable: false,
+              brushStyle: { color: token('--primary-soft'), borderColor: token('--primary') },
+              outOfBrush: { colorAlpha: 0.35 },
+            },
+          }
+        : {}),
       // A labelled marker writes above the plot: room for it under the legend.
       grid: {
         left: 8,
@@ -355,6 +371,12 @@ function render() {
     },
     { notMerge: true },
   );
+  if (props.selectable)
+    chart.value?.dispatchAction?.({
+      type: 'takeGlobalCursor',
+      key: 'brush',
+      brushOption: { brushType: 'lineX', brushMode: 'single' },
+    });
 }
 
 onMounted(() => {
@@ -365,6 +387,12 @@ onMounted(() => {
     if (p.componentType !== 'markLine') return;
     const m = shownMarkers.value[p.dataIndex];
     if (m?.link) void router.push(m.link);
+  });
+  // A dragged-out period (selectable): its ends in unix seconds.
+  chart.value.on?.('brushEnd', (p: unknown) => {
+    const area = (p as { areas?: { coordRange?: [number, number] }[] }).areas?.[0];
+    const r = area?.coordRange;
+    if (r && r[1] > r[0]) emit('select', Math.floor(r[0] / 1000), Math.ceil(r[1] / 1000));
   });
   render();
   resize = new ResizeObserver(() => chart.value?.resize());

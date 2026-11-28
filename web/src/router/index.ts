@@ -412,6 +412,19 @@ export const routes: RouteRecordRaw[] = [
         component: () => import('@/views/ApplicationQueuePage.vue'),
         meta: { titleKey: 'nav.applications', charts: true },
       },
+      // A database's statement and table (1.2, ADR-245), each at its own address.
+      {
+        name: 'application-statement',
+        path: 'applications/:id/statements/:statement',
+        component: () => import('@/views/ApplicationDbItemPage.vue'),
+        meta: { titleKey: 'nav.applications', charts: true },
+      },
+      {
+        name: 'application-table',
+        path: 'applications/:id/tables/:db/:table',
+        component: () => import('@/views/ApplicationDbItemPage.vue'),
+        meta: { titleKey: 'nav.applications', charts: true },
+      },
       // A monitored service (SPEC §4.12); it has its own time range (ADR-135).
       {
         name: 'application',

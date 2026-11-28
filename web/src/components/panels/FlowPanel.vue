@@ -99,7 +99,10 @@ const title = (c: Column) =>
         class="flex shrink-0 items-center justify-center gap-1.5 text-12 text-text-subtle lg:w-20 lg:flex-col lg:gap-0.5"
         aria-hidden="true"
       >
-        <span v-if="c.next !== undefined && c.next !== null" class="tabular-nums">{{
+        <span v-if="c.nextText" class="tabular-nums">{{
+          $t(c.nextText.key, c.nextText.values ?? {})
+        }}</span>
+        <span v-else-if="c.next !== undefined && c.next !== null" class="tabular-nums">{{
           formatRate(c.next)
         }}</span>
         <ArrowRight class="hidden size-4 lg:block" />

@@ -2217,6 +2217,14 @@ export interface paths {
               | 'postgres.deadlocks.rate'
               | 'postgres.database.size'
               | 'postgres.lock_waits'
+              | 'postgres.blocked.longest'
+              | 'postgres.xact.oldest'
+              | 'postgres.statement.mean'
+              | 'postgres.statement.slower'
+              | 'postgres.slot.fill_eta'
+              | 'postgres.sequence.used'
+              | 'postgres.table.dead_rows'
+              | 'postgres.table.size'
               | 'mysql.connections'
               | 'mysql.connections.ratio'
               | 'mysql.queries.rate'
@@ -2226,6 +2234,13 @@ export interface paths {
               | 'mysql.replication.lag'
               | 'mysql.replication.stopped'
               | 'mysql.deadlocks.rate'
+              | 'mysql.blocked.longest'
+              | 'mysql.xact.oldest'
+              | 'mysql.statement.mean'
+              | 'mysql.statement.slower'
+              | 'mysql.binlog.fill_eta'
+              | 'mysql.history_list'
+              | 'mysql.table.size'
               | 'mysql.lock_waits'
               | 'mongodb.ops.rate'
               | 'mongodb.connections'
@@ -8962,6 +8977,8 @@ export interface paths {
                     vhost?: string;
                     name: string;
                   };
+                  statement?: string;
+                  table?: string;
                   labels?: {
                     [key: string]: string;
                   };
@@ -9102,6 +9119,8 @@ export interface paths {
                 vhost?: string;
                 name: string;
               };
+              statement?: string;
+              table?: string;
               labels?: {
                 [key: string]: string;
               };
@@ -9157,6 +9176,8 @@ export interface paths {
                   vhost?: string;
                   name: string;
                 };
+                statement?: string;
+                table?: string;
                 labels?: {
                   [key: string]: string;
                 };
@@ -9435,6 +9456,8 @@ export interface paths {
                 vhost?: string;
                 name: string;
               };
+              statement?: string;
+              table?: string;
               labels?: {
                 [key: string]: string;
               };
@@ -9480,6 +9503,8 @@ export interface paths {
                   vhost?: string;
                   name: string;
                 };
+                statement?: string;
+                table?: string;
                 labels?: {
                   [key: string]: string;
                 };
@@ -9648,6 +9673,8 @@ export interface paths {
                     vhost?: string;
                     name: string;
                   };
+                  statement?: string;
+                  table?: string;
                   labels?: {
                     [key: string]: string;
                   };
@@ -9818,6 +9845,8 @@ export interface paths {
                   vhost?: string;
                   name: string;
                 };
+                statement?: string;
+                table?: string;
                 labels?: {
                   [key: string]: string;
                 };
@@ -9990,6 +10019,8 @@ export interface paths {
                 vhost?: string;
                 name: string;
               };
+              statement?: string;
+              table?: string;
               labels?: {
                 [key: string]: string;
               };
@@ -13429,6 +13460,10 @@ export interface paths {
           range?: number;
           queue?: string;
           vhost?: string;
+          statement?: string;
+          table?: string;
+          from?: number;
+          to?: number;
         };
         header?: never;
         path: {
@@ -13496,6 +13531,8 @@ export interface paths {
                     };
                     /** @description A line said instead of the chart when every point is zero */
                     zeroKey?: string;
+                    /** @description A period can be chosen on it; the lists below follow it */
+                    select?: boolean;
                     series: {
                       name?: string;
                       nameKey?: string;
@@ -13670,6 +13707,37 @@ export interface paths {
                     rows: {
                       cells: (string | number | null)[];
                       severity?: 'ok' | 'info' | 'warning' | 'critical';
+                      link?:
+                        | {
+                            kind: 'workload' | 'container';
+                            id: string;
+                            name: string;
+                          }
+                        | {
+                            /** @enum {string} */
+                            kind: 'queue';
+                            vhost: string;
+                            queue: string;
+                            name: string;
+                          }
+                        | {
+                            /** @enum {string} */
+                            kind: 'tab';
+                            tab: string;
+                            filter?: string;
+                            name: string;
+                          }
+                        | {
+                            /** @enum {string} */
+                            kind: 'docs';
+                            href: string;
+                            name: string;
+                          }
+                        | {
+                            kind: 'statement' | 'table';
+                            id: string;
+                            name: string;
+                          };
                     }[];
                   }
                 | {
@@ -13804,9 +13872,20 @@ export interface paths {
                               kind: 'docs';
                               href: string;
                               name: string;
+                            }
+                          | {
+                              kind: 'statement' | 'table';
+                              id: string;
+                              name: string;
                             };
                       }[];
                       next?: number | null;
+                      nextText?: {
+                        key: string;
+                        values?: {
+                          [key: string]: string | number | null;
+                        };
+                      };
                     }[];
                   }
                 | {
@@ -13864,6 +13943,11 @@ export interface paths {
                             /** @enum {string} */
                             kind: 'docs';
                             href: string;
+                            name: string;
+                          }
+                        | {
+                            kind: 'statement' | 'table';
+                            id: string;
                             name: string;
                           };
                     }[];
@@ -13961,6 +14045,11 @@ export interface paths {
                             /** @enum {string} */
                             kind: 'docs';
                             href: string;
+                            name: string;
+                          }
+                        | {
+                            kind: 'statement' | 'table';
+                            id: string;
                             name: string;
                           };
                       where: {
@@ -14085,6 +14174,11 @@ export interface paths {
                             kind: 'docs';
                             href: string;
                             name: string;
+                          }
+                        | {
+                            kind: 'statement' | 'table';
+                            id: string;
+                            name: string;
                           };
                     }[];
                   }
@@ -14189,6 +14283,11 @@ export interface paths {
                           href: string;
                           name: string;
                         }
+                      | {
+                          kind: 'statement' | 'table';
+                          id: string;
+                          name: string;
+                        }
                     )[];
                   }
                 | {
@@ -14214,6 +14313,190 @@ export interface paths {
                     kind: 'queue_alerts';
                     vhost: string;
                     queue: string;
+                    rules: {
+                      id: string;
+                      name: string;
+                      state: 'firing' | 'quiet' | 'off';
+                    }[];
+                    presets: {
+                      key: string;
+                      nameKey: string;
+                      metric: string;
+                      op: '>' | '<';
+                      value: number;
+                      forSeconds: number;
+                      severity: 'warning' | 'critical';
+                    }[];
+                  }
+                | {
+                    id: string;
+                    /** @description An i18n key */
+                    title: string;
+                    span: 1 | 2;
+                    state: 'ok' | 'empty' | 'needs_permission' | 'error';
+                    missing?: {
+                      key: string;
+                      values?: {
+                        [key: string]: string | number | null;
+                      };
+                    };
+                    note?: {
+                      key: string;
+                      values?: {
+                        [key: string]: string | number | null;
+                      };
+                    };
+                    layout?: 'side' | 'main';
+                    /** @enum {string} */
+                    kind: 'statements';
+                    rows: {
+                      id: string;
+                      text: string;
+                      calls: number | null;
+                      mean: number | null;
+                      usual: number | null;
+                      rows: number | null;
+                      share: number | null;
+                      sentBy: {
+                        name: string;
+                        share: number;
+                        link?:
+                          | {
+                              kind: 'workload' | 'container';
+                              id: string;
+                              name: string;
+                            }
+                          | {
+                              /** @enum {string} */
+                              kind: 'queue';
+                              vhost: string;
+                              queue: string;
+                              name: string;
+                            }
+                          | {
+                              /** @enum {string} */
+                              kind: 'tab';
+                              tab: string;
+                              filter?: string;
+                              name: string;
+                            }
+                          | {
+                              /** @enum {string} */
+                              kind: 'docs';
+                              href: string;
+                              name: string;
+                            }
+                          | {
+                              kind: 'statement' | 'table';
+                              id: string;
+                              name: string;
+                            };
+                      } | null;
+                      hint?: {
+                        key: string;
+                        values?: {
+                          [key: string]: string | number | null;
+                        };
+                      };
+                      severity?: 'ok' | 'info' | 'warning' | 'critical';
+                    }[];
+                    shareOf: 'time' | 'waits';
+                    full: boolean;
+                    total: number;
+                  }
+                | {
+                    id: string;
+                    /** @description An i18n key */
+                    title: string;
+                    span: 1 | 2;
+                    state: 'ok' | 'empty' | 'needs_permission' | 'error';
+                    missing?: {
+                      key: string;
+                      values?: {
+                        [key: string]: string | number | null;
+                      };
+                    };
+                    note?: {
+                      key: string;
+                      values?: {
+                        [key: string]: string | number | null;
+                      };
+                    };
+                    layout?: 'side' | 'main';
+                    /** @enum {string} */
+                    kind: 'tree';
+                    nodes: {
+                      id: string;
+                      depth: number;
+                      name: string;
+                      link?:
+                        | {
+                            kind: 'workload' | 'container';
+                            id: string;
+                            name: string;
+                          }
+                        | {
+                            /** @enum {string} */
+                            kind: 'queue';
+                            vhost: string;
+                            queue: string;
+                            name: string;
+                          }
+                        | {
+                            /** @enum {string} */
+                            kind: 'tab';
+                            tab: string;
+                            filter?: string;
+                            name: string;
+                          }
+                        | {
+                            /** @enum {string} */
+                            kind: 'docs';
+                            href: string;
+                            name: string;
+                          }
+                        | {
+                            kind: 'statement' | 'table';
+                            id: string;
+                            name: string;
+                          };
+                      state: {
+                        key: string;
+                        values?: {
+                          [key: string]: string | number | null;
+                        };
+                      };
+                      seconds: number;
+                      xact: number | null;
+                      query: string | null;
+                      severity?: 'ok' | 'info' | 'warning' | 'critical';
+                    }[];
+                  }
+                | {
+                    id: string;
+                    /** @description An i18n key */
+                    title: string;
+                    span: 1 | 2;
+                    state: 'ok' | 'empty' | 'needs_permission' | 'error';
+                    missing?: {
+                      key: string;
+                      values?: {
+                        [key: string]: string | number | null;
+                      };
+                    };
+                    note?: {
+                      key: string;
+                      values?: {
+                        [key: string]: string | number | null;
+                      };
+                    };
+                    layout?: 'side' | 'main';
+                    /** @enum {string} */
+                    kind: 'scoped_alerts';
+                    scope: {
+                      statement?: string;
+                      table?: string;
+                    };
                     rules: {
                       id: string;
                       name: string;

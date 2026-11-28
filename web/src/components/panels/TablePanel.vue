@@ -1,6 +1,7 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-only -->
 <script setup lang="ts">
 import { SEVERITY_TEXT, type PanelOf } from '@/lib/panels';
+import PanelLink from './PanelLink.vue';
 
 // Rows from the service (slow queries, queues, upstreams): text from the service is data,
 // shown in mono and truncated with its full value on hover; a row with a severity is
@@ -40,7 +41,8 @@ defineProps<{ panel: PanelOf<'table'> }>();
             <span v-if="j === 0 && r.severity && r.severity !== 'ok'" class="sr-only"
               >{{ $t(`integrations.severity.${r.severity}`) }}:
             </span>
-            {{ cell ?? '–' }}
+            <PanelLink v-if="j === 0 && r.link" :link="r.link">{{ cell ?? '–' }}</PanelLink>
+            <template v-else>{{ cell ?? '–' }}</template>
           </td>
         </tr>
       </tbody>

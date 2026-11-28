@@ -7,7 +7,9 @@ export type PanelLink =
   | { kind: 'workload' | 'container'; id: string; name: string }
   | { kind: 'queue'; vhost: string; queue: string; name: string }
   | { kind: 'tab'; tab: string; filter?: string; name: string }
-  | { kind: 'docs'; href: string; name: string };
+  | { kind: 'docs'; href: string; name: string }
+  /** A database's statement or table page (1.2). */
+  | { kind: 'statement' | 'table'; id: string; name: string };
 
 /** A RabbitMQ queue's page: /applications/:id/queues/:queue, ?vhost= outside the default. */
 export function queueRoute(appId: string, vhost: string, queue: string): RouteLocationRaw {
@@ -15,6 +17,20 @@ export function queueRoute(appId: string, vhost: string, queue: string): RouteLo
     name: 'application-queue',
     params: { id: appId, queue },
     query: vhost && vhost !== '/' ? { vhost } : {},
+  };
+}
+
+/** A database statement's page (1.2): /applications/:id/statements/:statement. */
+export function statementRoute(appId: string, statement: string): RouteLocationRaw {
+  return { name: 'application-statement', params: { id: appId, statement } };
+}
+
+/** A database table's page (1.2): /applications/:id/tables/:db/:table. */
+export function tableRoute(appId: string, id: string): RouteLocationRaw {
+  const slash = id.indexOf('/');
+  return {
+    name: 'application-table',
+    params: { id: appId, db: id.slice(0, slash), table: id.slice(slash + 1) },
   };
 }
 
@@ -51,6 +67,10 @@ export function linkRoute(l: PanelLink, appId: string, clusterId: string): Route
           }
         : { name: 'containers', query: { ...cluster, q: l.id } };
     }
+    case 'statement':
+      return statementRoute(appId, l.id);
+    case 'table':
+      return l.id.includes('/') ? tableRoute(appId, l.id) : null;
     case 'docs':
       return null;
   }

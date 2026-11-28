@@ -42,6 +42,14 @@ export const SEVERITY_TEXT: Record<Severity, string> = {
   critical: 'text-critical-text',
 };
 
+/** A status dot's fill (1.2: a statement's row, the blocking tree). */
+export const SEVERITY_DOT: Record<Severity, string> = {
+  ok: 'bg-ok',
+  info: 'bg-info',
+  warning: 'bg-warning',
+  critical: 'bg-critical',
+};
+
 /** Categorical identity, in the fixed token order (never cycled past 8). */
 export const chartToken = (i: number) => `--chart-${(i % 8) + 1}`;
 

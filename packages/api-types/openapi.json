@@ -5324,6 +5324,38 @@
                       },
                       {
                         "type": "string",
+                        "enum": ["postgres.blocked.longest"]
+                      },
+                      {
+                        "type": "string",
+                        "enum": ["postgres.xact.oldest"]
+                      },
+                      {
+                        "type": "string",
+                        "enum": ["postgres.statement.mean"]
+                      },
+                      {
+                        "type": "string",
+                        "enum": ["postgres.statement.slower"]
+                      },
+                      {
+                        "type": "string",
+                        "enum": ["postgres.slot.fill_eta"]
+                      },
+                      {
+                        "type": "string",
+                        "enum": ["postgres.sequence.used"]
+                      },
+                      {
+                        "type": "string",
+                        "enum": ["postgres.table.dead_rows"]
+                      },
+                      {
+                        "type": "string",
+                        "enum": ["postgres.table.size"]
+                      },
+                      {
+                        "type": "string",
                         "enum": ["mysql.connections"]
                       },
                       {
@@ -5357,6 +5389,34 @@
                       {
                         "type": "string",
                         "enum": ["mysql.deadlocks.rate"]
+                      },
+                      {
+                        "type": "string",
+                        "enum": ["mysql.blocked.longest"]
+                      },
+                      {
+                        "type": "string",
+                        "enum": ["mysql.xact.oldest"]
+                      },
+                      {
+                        "type": "string",
+                        "enum": ["mysql.statement.mean"]
+                      },
+                      {
+                        "type": "string",
+                        "enum": ["mysql.statement.slower"]
+                      },
+                      {
+                        "type": "string",
+                        "enum": ["mysql.binlog.fill_eta"]
+                      },
+                      {
+                        "type": "string",
+                        "enum": ["mysql.history_list"]
+                      },
+                      {
+                        "type": "string",
+                        "enum": ["mysql.table.size"]
                       },
                       {
                         "type": "string",
@@ -25868,6 +25928,17 @@
                                 },
                                 "additionalProperties": false
                               },
+                              "statement": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 64,
+                                "pattern": "^[-0-9a-zA-Z]+$"
+                              },
+                              "table": {
+                                "type": "string",
+                                "minLength": 3,
+                                "maxLength": 300
+                              },
                               "labels": {
                                 "type": "object",
                                 "maxProperties": 10,
@@ -26290,6 +26361,17 @@
                         },
                         "additionalProperties": false
                       },
+                      "statement": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 64,
+                        "pattern": "^[-0-9a-zA-Z]+$"
+                      },
+                      "table": {
+                        "type": "string",
+                        "minLength": 3,
+                        "maxLength": 300
+                      },
                       "labels": {
                         "type": "object",
                         "maxProperties": 10,
@@ -26555,6 +26637,17 @@
                             }
                           },
                           "additionalProperties": false
+                        },
+                        "statement": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 64,
+                          "pattern": "^[-0-9a-zA-Z]+$"
+                        },
+                        "table": {
+                          "type": "string",
+                          "minLength": 3,
+                          "maxLength": 300
                         },
                         "labels": {
                           "type": "object",
@@ -27020,6 +27113,17 @@
                         },
                         "additionalProperties": false
                       },
+                      "statement": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 64,
+                        "pattern": "^[-0-9a-zA-Z]+$"
+                      },
+                      "table": {
+                        "type": "string",
+                        "minLength": 3,
+                        "maxLength": 300
+                      },
                       "labels": {
                         "type": "object",
                         "maxProperties": 10,
@@ -27238,6 +27342,17 @@
                             }
                           },
                           "additionalProperties": false
+                        },
+                        "statement": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 64,
+                          "pattern": "^[-0-9a-zA-Z]+$"
+                        },
+                        "table": {
+                          "type": "string",
+                          "minLength": 3,
+                          "maxLength": 300
                         },
                         "labels": {
                           "type": "object",
@@ -27961,6 +28076,17 @@
                                 },
                                 "additionalProperties": false
                               },
+                              "statement": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 64,
+                                "pattern": "^[-0-9a-zA-Z]+$"
+                              },
+                              "table": {
+                                "type": "string",
+                                "minLength": 3,
+                                "maxLength": 300
+                              },
                               "labels": {
                                 "type": "object",
                                 "maxProperties": 10,
@@ -28464,6 +28590,17 @@
                           },
                           "additionalProperties": false
                         },
+                        "statement": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 64,
+                          "pattern": "^[-0-9a-zA-Z]+$"
+                        },
+                        "table": {
+                          "type": "string",
+                          "minLength": 3,
+                          "maxLength": 300
+                        },
                         "labels": {
                           "type": "object",
                           "maxProperties": 10,
@@ -28909,6 +29046,17 @@
                           }
                         },
                         "additionalProperties": false
+                      },
+                      "statement": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 64,
+                        "pattern": "^[-0-9a-zA-Z]+$"
+                      },
+                      "table": {
+                        "type": "string",
+                        "minLength": 3,
+                        "maxLength": 300
                       },
                       "labels": {
                         "type": "object",
@@ -37309,6 +37457,45 @@
           {
             "schema": {
               "type": "string",
+              "minLength": 1,
+              "maxLength": 64,
+              "pattern": "^[-0-9a-zA-Z]+$"
+            },
+            "in": "query",
+            "name": "statement",
+            "required": false
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 300
+            },
+            "in": "query",
+            "name": "table",
+            "required": false
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "in": "query",
+            "name": "from",
+            "required": false
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "in": "query",
+            "name": "to",
+            "required": false
+          },
+          {
+            "schema": {
+              "type": "string",
               "format": "uuid"
             },
             "in": "path",
@@ -37593,6 +37780,10 @@
                               "zeroKey": {
                                 "type": "string",
                                 "description": "A line said instead of the chart when every point is zero"
+                              },
+                              "select": {
+                                "type": "boolean",
+                                "description": "A period can be chosen on it; the lists below follow it"
                               },
                               "series": {
                                 "type": "array",
@@ -38480,6 +38671,112 @@
                                           "enum": ["critical"]
                                         }
                                       ]
+                                    },
+                                    "link": {
+                                      "anyOf": [
+                                        {
+                                          "type": "object",
+                                          "required": ["kind", "id", "name"],
+                                          "properties": {
+                                            "kind": {
+                                              "anyOf": [
+                                                {
+                                                  "type": "string",
+                                                  "enum": ["workload"]
+                                                },
+                                                {
+                                                  "type": "string",
+                                                  "enum": ["container"]
+                                                }
+                                              ]
+                                            },
+                                            "id": {
+                                              "type": "string"
+                                            },
+                                            "name": {
+                                              "type": "string"
+                                            }
+                                          }
+                                        },
+                                        {
+                                          "type": "object",
+                                          "required": ["kind", "vhost", "queue", "name"],
+                                          "properties": {
+                                            "kind": {
+                                              "type": "string",
+                                              "enum": ["queue"]
+                                            },
+                                            "vhost": {
+                                              "type": "string"
+                                            },
+                                            "queue": {
+                                              "type": "string"
+                                            },
+                                            "name": {
+                                              "type": "string"
+                                            }
+                                          }
+                                        },
+                                        {
+                                          "type": "object",
+                                          "required": ["kind", "tab", "name"],
+                                          "properties": {
+                                            "kind": {
+                                              "type": "string",
+                                              "enum": ["tab"]
+                                            },
+                                            "tab": {
+                                              "type": "string"
+                                            },
+                                            "filter": {
+                                              "type": "string"
+                                            },
+                                            "name": {
+                                              "type": "string"
+                                            }
+                                          }
+                                        },
+                                        {
+                                          "type": "object",
+                                          "required": ["kind", "href", "name"],
+                                          "properties": {
+                                            "kind": {
+                                              "type": "string",
+                                              "enum": ["docs"]
+                                            },
+                                            "href": {
+                                              "type": "string"
+                                            },
+                                            "name": {
+                                              "type": "string"
+                                            }
+                                          }
+                                        },
+                                        {
+                                          "type": "object",
+                                          "required": ["kind", "id", "name"],
+                                          "properties": {
+                                            "kind": {
+                                              "anyOf": [
+                                                {
+                                                  "type": "string",
+                                                  "enum": ["statement"]
+                                                },
+                                                {
+                                                  "type": "string",
+                                                  "enum": ["table"]
+                                                }
+                                              ]
+                                            },
+                                            "id": {
+                                              "type": "string"
+                                            },
+                                            "name": {
+                                              "type": "string"
+                                            }
+                                          }
+                                        }
+                                      ]
                                     }
                                   }
                                 }
@@ -39103,6 +39400,30 @@
                                                     "type": "string"
                                                   }
                                                 }
+                                              },
+                                              {
+                                                "type": "object",
+                                                "required": ["kind", "id", "name"],
+                                                "properties": {
+                                                  "kind": {
+                                                    "anyOf": [
+                                                      {
+                                                        "type": "string",
+                                                        "enum": ["statement"]
+                                                      },
+                                                      {
+                                                        "type": "string",
+                                                        "enum": ["table"]
+                                                      }
+                                                    ]
+                                                  },
+                                                  "id": {
+                                                    "type": "string"
+                                                  },
+                                                  "name": {
+                                                    "type": "string"
+                                                  }
+                                                }
                                               }
                                             ]
                                           }
@@ -39118,6 +39439,31 @@
                                           "type": "null"
                                         }
                                       ]
+                                    },
+                                    "nextText": {
+                                      "type": "object",
+                                      "required": ["key"],
+                                      "properties": {
+                                        "key": {
+                                          "type": "string"
+                                        },
+                                        "values": {
+                                          "type": "object",
+                                          "additionalProperties": {
+                                            "anyOf": [
+                                              {
+                                                "type": "string"
+                                              },
+                                              {
+                                                "type": "number"
+                                              },
+                                              {
+                                                "type": "null"
+                                              }
+                                            ]
+                                          }
+                                        }
+                                      }
                                     }
                                   }
                                 }
@@ -39359,6 +39705,30 @@
                                               "enum": ["docs"]
                                             },
                                             "href": {
+                                              "type": "string"
+                                            },
+                                            "name": {
+                                              "type": "string"
+                                            }
+                                          }
+                                        },
+                                        {
+                                          "type": "object",
+                                          "required": ["kind", "id", "name"],
+                                          "properties": {
+                                            "kind": {
+                                              "anyOf": [
+                                                {
+                                                  "type": "string",
+                                                  "enum": ["statement"]
+                                                },
+                                                {
+                                                  "type": "string",
+                                                  "enum": ["table"]
+                                                }
+                                              ]
+                                            },
+                                            "id": {
                                               "type": "string"
                                             },
                                             "name": {
@@ -39860,6 +40230,30 @@
                                               "enum": ["docs"]
                                             },
                                             "href": {
+                                              "type": "string"
+                                            },
+                                            "name": {
+                                              "type": "string"
+                                            }
+                                          }
+                                        },
+                                        {
+                                          "type": "object",
+                                          "required": ["kind", "id", "name"],
+                                          "properties": {
+                                            "kind": {
+                                              "anyOf": [
+                                                {
+                                                  "type": "string",
+                                                  "enum": ["statement"]
+                                                },
+                                                {
+                                                  "type": "string",
+                                                  "enum": ["table"]
+                                                }
+                                              ]
+                                            },
+                                            "id": {
                                               "type": "string"
                                             },
                                             "name": {
@@ -40482,6 +40876,30 @@
                                               "type": "string"
                                             }
                                           }
+                                        },
+                                        {
+                                          "type": "object",
+                                          "required": ["kind", "id", "name"],
+                                          "properties": {
+                                            "kind": {
+                                              "anyOf": [
+                                                {
+                                                  "type": "string",
+                                                  "enum": ["statement"]
+                                                },
+                                                {
+                                                  "type": "string",
+                                                  "enum": ["table"]
+                                                }
+                                              ]
+                                            },
+                                            "id": {
+                                              "type": "string"
+                                            },
+                                            "name": {
+                                              "type": "string"
+                                            }
+                                          }
                                         }
                                       ]
                                     }
@@ -40944,6 +41362,30 @@
                                           "type": "string"
                                         }
                                       }
+                                    },
+                                    {
+                                      "type": "object",
+                                      "required": ["kind", "id", "name"],
+                                      "properties": {
+                                        "kind": {
+                                          "anyOf": [
+                                            {
+                                              "type": "string",
+                                              "enum": ["statement"]
+                                            },
+                                            {
+                                              "type": "string",
+                                              "enum": ["table"]
+                                            }
+                                          ]
+                                        },
+                                        "id": {
+                                          "type": "string"
+                                        },
+                                        "name": {
+                                          "type": "string"
+                                        }
+                                      }
                                     }
                                   ]
                                 }
@@ -41074,6 +41516,918 @@
                               },
                               "queue": {
                                 "type": "string"
+                              },
+                              "rules": {
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "required": ["id", "name", "state"],
+                                  "properties": {
+                                    "id": {
+                                      "type": "string"
+                                    },
+                                    "name": {
+                                      "type": "string"
+                                    },
+                                    "state": {
+                                      "anyOf": [
+                                        {
+                                          "type": "string",
+                                          "enum": ["firing"]
+                                        },
+                                        {
+                                          "type": "string",
+                                          "enum": ["quiet"]
+                                        },
+                                        {
+                                          "type": "string",
+                                          "enum": ["off"]
+                                        }
+                                      ]
+                                    }
+                                  }
+                                }
+                              },
+                              "presets": {
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "required": [
+                                    "key",
+                                    "nameKey",
+                                    "metric",
+                                    "op",
+                                    "value",
+                                    "forSeconds",
+                                    "severity"
+                                  ],
+                                  "properties": {
+                                    "key": {
+                                      "type": "string"
+                                    },
+                                    "nameKey": {
+                                      "type": "string"
+                                    },
+                                    "metric": {
+                                      "type": "string"
+                                    },
+                                    "op": {
+                                      "anyOf": [
+                                        {
+                                          "type": "string",
+                                          "enum": [">"]
+                                        },
+                                        {
+                                          "type": "string",
+                                          "enum": ["<"]
+                                        }
+                                      ]
+                                    },
+                                    "value": {
+                                      "type": "number"
+                                    },
+                                    "forSeconds": {
+                                      "type": "integer"
+                                    },
+                                    "severity": {
+                                      "anyOf": [
+                                        {
+                                          "type": "string",
+                                          "enum": ["warning"]
+                                        },
+                                        {
+                                          "type": "string",
+                                          "enum": ["critical"]
+                                        }
+                                      ]
+                                    }
+                                  }
+                                }
+                              }
+                            }
+                          },
+                          {
+                            "type": "object",
+                            "required": [
+                              "id",
+                              "title",
+                              "span",
+                              "state",
+                              "kind",
+                              "rows",
+                              "shareOf",
+                              "full",
+                              "total"
+                            ],
+                            "properties": {
+                              "id": {
+                                "type": "string"
+                              },
+                              "title": {
+                                "type": "string",
+                                "description": "An i18n key"
+                              },
+                              "span": {
+                                "anyOf": [
+                                  {
+                                    "type": "number",
+                                    "enum": [1]
+                                  },
+                                  {
+                                    "type": "number",
+                                    "enum": [2]
+                                  }
+                                ]
+                              },
+                              "state": {
+                                "anyOf": [
+                                  {
+                                    "type": "string",
+                                    "enum": ["ok"]
+                                  },
+                                  {
+                                    "type": "string",
+                                    "enum": ["empty"]
+                                  },
+                                  {
+                                    "type": "string",
+                                    "enum": ["needs_permission"]
+                                  },
+                                  {
+                                    "type": "string",
+                                    "enum": ["error"]
+                                  }
+                                ]
+                              },
+                              "missing": {
+                                "type": "object",
+                                "required": ["key"],
+                                "properties": {
+                                  "key": {
+                                    "type": "string"
+                                  },
+                                  "values": {
+                                    "type": "object",
+                                    "additionalProperties": {
+                                      "anyOf": [
+                                        {
+                                          "type": "string"
+                                        },
+                                        {
+                                          "type": "number"
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
+                                    }
+                                  }
+                                }
+                              },
+                              "note": {
+                                "type": "object",
+                                "required": ["key"],
+                                "properties": {
+                                  "key": {
+                                    "type": "string"
+                                  },
+                                  "values": {
+                                    "type": "object",
+                                    "additionalProperties": {
+                                      "anyOf": [
+                                        {
+                                          "type": "string"
+                                        },
+                                        {
+                                          "type": "number"
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
+                                    }
+                                  }
+                                }
+                              },
+                              "layout": {
+                                "anyOf": [
+                                  {
+                                    "type": "string",
+                                    "enum": ["side"]
+                                  },
+                                  {
+                                    "type": "string",
+                                    "enum": ["main"]
+                                  }
+                                ]
+                              },
+                              "kind": {
+                                "type": "string",
+                                "enum": ["statements"]
+                              },
+                              "rows": {
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "required": [
+                                    "id",
+                                    "text",
+                                    "calls",
+                                    "mean",
+                                    "usual",
+                                    "rows",
+                                    "share",
+                                    "sentBy"
+                                  ],
+                                  "properties": {
+                                    "id": {
+                                      "type": "string"
+                                    },
+                                    "text": {
+                                      "type": "string"
+                                    },
+                                    "calls": {
+                                      "anyOf": [
+                                        {
+                                          "type": "number"
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
+                                    },
+                                    "mean": {
+                                      "anyOf": [
+                                        {
+                                          "type": "number"
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
+                                    },
+                                    "usual": {
+                                      "anyOf": [
+                                        {
+                                          "type": "number"
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
+                                    },
+                                    "rows": {
+                                      "anyOf": [
+                                        {
+                                          "type": "number"
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
+                                    },
+                                    "share": {
+                                      "anyOf": [
+                                        {
+                                          "type": "number"
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
+                                    },
+                                    "sentBy": {
+                                      "anyOf": [
+                                        {
+                                          "type": "object",
+                                          "required": ["name", "share"],
+                                          "properties": {
+                                            "name": {
+                                              "type": "string"
+                                            },
+                                            "share": {
+                                              "type": "number"
+                                            },
+                                            "link": {
+                                              "anyOf": [
+                                                {
+                                                  "type": "object",
+                                                  "required": ["kind", "id", "name"],
+                                                  "properties": {
+                                                    "kind": {
+                                                      "anyOf": [
+                                                        {
+                                                          "type": "string",
+                                                          "enum": ["workload"]
+                                                        },
+                                                        {
+                                                          "type": "string",
+                                                          "enum": ["container"]
+                                                        }
+                                                      ]
+                                                    },
+                                                    "id": {
+                                                      "type": "string"
+                                                    },
+                                                    "name": {
+                                                      "type": "string"
+                                                    }
+                                                  }
+                                                },
+                                                {
+                                                  "type": "object",
+                                                  "required": ["kind", "vhost", "queue", "name"],
+                                                  "properties": {
+                                                    "kind": {
+                                                      "type": "string",
+                                                      "enum": ["queue"]
+                                                    },
+                                                    "vhost": {
+                                                      "type": "string"
+                                                    },
+                                                    "queue": {
+                                                      "type": "string"
+                                                    },
+                                                    "name": {
+                                                      "type": "string"
+                                                    }
+                                                  }
+                                                },
+                                                {
+                                                  "type": "object",
+                                                  "required": ["kind", "tab", "name"],
+                                                  "properties": {
+                                                    "kind": {
+                                                      "type": "string",
+                                                      "enum": ["tab"]
+                                                    },
+                                                    "tab": {
+                                                      "type": "string"
+                                                    },
+                                                    "filter": {
+                                                      "type": "string"
+                                                    },
+                                                    "name": {
+                                                      "type": "string"
+                                                    }
+                                                  }
+                                                },
+                                                {
+                                                  "type": "object",
+                                                  "required": ["kind", "href", "name"],
+                                                  "properties": {
+                                                    "kind": {
+                                                      "type": "string",
+                                                      "enum": ["docs"]
+                                                    },
+                                                    "href": {
+                                                      "type": "string"
+                                                    },
+                                                    "name": {
+                                                      "type": "string"
+                                                    }
+                                                  }
+                                                },
+                                                {
+                                                  "type": "object",
+                                                  "required": ["kind", "id", "name"],
+                                                  "properties": {
+                                                    "kind": {
+                                                      "anyOf": [
+                                                        {
+                                                          "type": "string",
+                                                          "enum": ["statement"]
+                                                        },
+                                                        {
+                                                          "type": "string",
+                                                          "enum": ["table"]
+                                                        }
+                                                      ]
+                                                    },
+                                                    "id": {
+                                                      "type": "string"
+                                                    },
+                                                    "name": {
+                                                      "type": "string"
+                                                    }
+                                                  }
+                                                }
+                                              ]
+                                            }
+                                          }
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
+                                    },
+                                    "hint": {
+                                      "type": "object",
+                                      "required": ["key"],
+                                      "properties": {
+                                        "key": {
+                                          "type": "string"
+                                        },
+                                        "values": {
+                                          "type": "object",
+                                          "additionalProperties": {
+                                            "anyOf": [
+                                              {
+                                                "type": "string"
+                                              },
+                                              {
+                                                "type": "number"
+                                              },
+                                              {
+                                                "type": "null"
+                                              }
+                                            ]
+                                          }
+                                        }
+                                      }
+                                    },
+                                    "severity": {
+                                      "anyOf": [
+                                        {
+                                          "type": "string",
+                                          "enum": ["ok"]
+                                        },
+                                        {
+                                          "type": "string",
+                                          "enum": ["info"]
+                                        },
+                                        {
+                                          "type": "string",
+                                          "enum": ["warning"]
+                                        },
+                                        {
+                                          "type": "string",
+                                          "enum": ["critical"]
+                                        }
+                                      ]
+                                    }
+                                  }
+                                }
+                              },
+                              "shareOf": {
+                                "anyOf": [
+                                  {
+                                    "type": "string",
+                                    "enum": ["time"]
+                                  },
+                                  {
+                                    "type": "string",
+                                    "enum": ["waits"]
+                                  }
+                                ]
+                              },
+                              "full": {
+                                "type": "boolean"
+                              },
+                              "total": {
+                                "type": "integer"
+                              }
+                            }
+                          },
+                          {
+                            "type": "object",
+                            "required": ["id", "title", "span", "state", "kind", "nodes"],
+                            "properties": {
+                              "id": {
+                                "type": "string"
+                              },
+                              "title": {
+                                "type": "string",
+                                "description": "An i18n key"
+                              },
+                              "span": {
+                                "anyOf": [
+                                  {
+                                    "type": "number",
+                                    "enum": [1]
+                                  },
+                                  {
+                                    "type": "number",
+                                    "enum": [2]
+                                  }
+                                ]
+                              },
+                              "state": {
+                                "anyOf": [
+                                  {
+                                    "type": "string",
+                                    "enum": ["ok"]
+                                  },
+                                  {
+                                    "type": "string",
+                                    "enum": ["empty"]
+                                  },
+                                  {
+                                    "type": "string",
+                                    "enum": ["needs_permission"]
+                                  },
+                                  {
+                                    "type": "string",
+                                    "enum": ["error"]
+                                  }
+                                ]
+                              },
+                              "missing": {
+                                "type": "object",
+                                "required": ["key"],
+                                "properties": {
+                                  "key": {
+                                    "type": "string"
+                                  },
+                                  "values": {
+                                    "type": "object",
+                                    "additionalProperties": {
+                                      "anyOf": [
+                                        {
+                                          "type": "string"
+                                        },
+                                        {
+                                          "type": "number"
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
+                                    }
+                                  }
+                                }
+                              },
+                              "note": {
+                                "type": "object",
+                                "required": ["key"],
+                                "properties": {
+                                  "key": {
+                                    "type": "string"
+                                  },
+                                  "values": {
+                                    "type": "object",
+                                    "additionalProperties": {
+                                      "anyOf": [
+                                        {
+                                          "type": "string"
+                                        },
+                                        {
+                                          "type": "number"
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
+                                    }
+                                  }
+                                }
+                              },
+                              "layout": {
+                                "anyOf": [
+                                  {
+                                    "type": "string",
+                                    "enum": ["side"]
+                                  },
+                                  {
+                                    "type": "string",
+                                    "enum": ["main"]
+                                  }
+                                ]
+                              },
+                              "kind": {
+                                "type": "string",
+                                "enum": ["tree"]
+                              },
+                              "nodes": {
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "required": [
+                                    "id",
+                                    "depth",
+                                    "name",
+                                    "state",
+                                    "seconds",
+                                    "xact",
+                                    "query"
+                                  ],
+                                  "properties": {
+                                    "id": {
+                                      "type": "string"
+                                    },
+                                    "depth": {
+                                      "type": "integer"
+                                    },
+                                    "name": {
+                                      "type": "string"
+                                    },
+                                    "link": {
+                                      "anyOf": [
+                                        {
+                                          "type": "object",
+                                          "required": ["kind", "id", "name"],
+                                          "properties": {
+                                            "kind": {
+                                              "anyOf": [
+                                                {
+                                                  "type": "string",
+                                                  "enum": ["workload"]
+                                                },
+                                                {
+                                                  "type": "string",
+                                                  "enum": ["container"]
+                                                }
+                                              ]
+                                            },
+                                            "id": {
+                                              "type": "string"
+                                            },
+                                            "name": {
+                                              "type": "string"
+                                            }
+                                          }
+                                        },
+                                        {
+                                          "type": "object",
+                                          "required": ["kind", "vhost", "queue", "name"],
+                                          "properties": {
+                                            "kind": {
+                                              "type": "string",
+                                              "enum": ["queue"]
+                                            },
+                                            "vhost": {
+                                              "type": "string"
+                                            },
+                                            "queue": {
+                                              "type": "string"
+                                            },
+                                            "name": {
+                                              "type": "string"
+                                            }
+                                          }
+                                        },
+                                        {
+                                          "type": "object",
+                                          "required": ["kind", "tab", "name"],
+                                          "properties": {
+                                            "kind": {
+                                              "type": "string",
+                                              "enum": ["tab"]
+                                            },
+                                            "tab": {
+                                              "type": "string"
+                                            },
+                                            "filter": {
+                                              "type": "string"
+                                            },
+                                            "name": {
+                                              "type": "string"
+                                            }
+                                          }
+                                        },
+                                        {
+                                          "type": "object",
+                                          "required": ["kind", "href", "name"],
+                                          "properties": {
+                                            "kind": {
+                                              "type": "string",
+                                              "enum": ["docs"]
+                                            },
+                                            "href": {
+                                              "type": "string"
+                                            },
+                                            "name": {
+                                              "type": "string"
+                                            }
+                                          }
+                                        },
+                                        {
+                                          "type": "object",
+                                          "required": ["kind", "id", "name"],
+                                          "properties": {
+                                            "kind": {
+                                              "anyOf": [
+                                                {
+                                                  "type": "string",
+                                                  "enum": ["statement"]
+                                                },
+                                                {
+                                                  "type": "string",
+                                                  "enum": ["table"]
+                                                }
+                                              ]
+                                            },
+                                            "id": {
+                                              "type": "string"
+                                            },
+                                            "name": {
+                                              "type": "string"
+                                            }
+                                          }
+                                        }
+                                      ]
+                                    },
+                                    "state": {
+                                      "type": "object",
+                                      "required": ["key"],
+                                      "properties": {
+                                        "key": {
+                                          "type": "string"
+                                        },
+                                        "values": {
+                                          "type": "object",
+                                          "additionalProperties": {
+                                            "anyOf": [
+                                              {
+                                                "type": "string"
+                                              },
+                                              {
+                                                "type": "number"
+                                              },
+                                              {
+                                                "type": "null"
+                                              }
+                                            ]
+                                          }
+                                        }
+                                      }
+                                    },
+                                    "seconds": {
+                                      "type": "number"
+                                    },
+                                    "xact": {
+                                      "anyOf": [
+                                        {
+                                          "type": "number"
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
+                                    },
+                                    "query": {
+                                      "anyOf": [
+                                        {
+                                          "type": "string"
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
+                                    },
+                                    "severity": {
+                                      "anyOf": [
+                                        {
+                                          "type": "string",
+                                          "enum": ["ok"]
+                                        },
+                                        {
+                                          "type": "string",
+                                          "enum": ["info"]
+                                        },
+                                        {
+                                          "type": "string",
+                                          "enum": ["warning"]
+                                        },
+                                        {
+                                          "type": "string",
+                                          "enum": ["critical"]
+                                        }
+                                      ]
+                                    }
+                                  }
+                                }
+                              }
+                            }
+                          },
+                          {
+                            "type": "object",
+                            "required": [
+                              "id",
+                              "title",
+                              "span",
+                              "state",
+                              "kind",
+                              "scope",
+                              "rules",
+                              "presets"
+                            ],
+                            "properties": {
+                              "id": {
+                                "type": "string"
+                              },
+                              "title": {
+                                "type": "string",
+                                "description": "An i18n key"
+                              },
+                              "span": {
+                                "anyOf": [
+                                  {
+                                    "type": "number",
+                                    "enum": [1]
+                                  },
+                                  {
+                                    "type": "number",
+                                    "enum": [2]
+                                  }
+                                ]
+                              },
+                              "state": {
+                                "anyOf": [
+                                  {
+                                    "type": "string",
+                                    "enum": ["ok"]
+                                  },
+                                  {
+                                    "type": "string",
+                                    "enum": ["empty"]
+                                  },
+                                  {
+                                    "type": "string",
+                                    "enum": ["needs_permission"]
+                                  },
+                                  {
+                                    "type": "string",
+                                    "enum": ["error"]
+                                  }
+                                ]
+                              },
+                              "missing": {
+                                "type": "object",
+                                "required": ["key"],
+                                "properties": {
+                                  "key": {
+                                    "type": "string"
+                                  },
+                                  "values": {
+                                    "type": "object",
+                                    "additionalProperties": {
+                                      "anyOf": [
+                                        {
+                                          "type": "string"
+                                        },
+                                        {
+                                          "type": "number"
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
+                                    }
+                                  }
+                                }
+                              },
+                              "note": {
+                                "type": "object",
+                                "required": ["key"],
+                                "properties": {
+                                  "key": {
+                                    "type": "string"
+                                  },
+                                  "values": {
+                                    "type": "object",
+                                    "additionalProperties": {
+                                      "anyOf": [
+                                        {
+                                          "type": "string"
+                                        },
+                                        {
+                                          "type": "number"
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
+                                    }
+                                  }
+                                }
+                              },
+                              "layout": {
+                                "anyOf": [
+                                  {
+                                    "type": "string",
+                                    "enum": ["side"]
+                                  },
+                                  {
+                                    "type": "string",
+                                    "enum": ["main"]
+                                  }
+                                ]
+                              },
+                              "kind": {
+                                "type": "string",
+                                "enum": ["scoped_alerts"]
+                              },
+                              "scope": {
+                                "type": "object",
+                                "properties": {
+                                  "statement": {
+                                    "type": "string"
+                                  },
+                                  "table": {
+                                    "type": "string"
+                                  }
+                                }
                               },
                               "rules": {
                                 "type": "array",

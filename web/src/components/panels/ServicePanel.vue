@@ -15,6 +15,9 @@ import FlowPanel from './FlowPanel.vue';
 import GaugePanel from './GaugePanel.vue';
 import NodesPanel from './NodesPanel.vue';
 import QueueAlertsPanel from './QueueAlertsPanel.vue';
+import ScopedAlertsPanel from './ScopedAlertsPanel.vue';
+import StatementsPanel from './StatementsPanel.vue';
+import TreePanel from './TreePanel.vue';
 import QueuesPanel from './QueuesPanel.vue';
 import TimelinePanel from './TimelinePanel.vue';
 import HeatPanel from './HeatPanel.vue';
@@ -31,7 +34,7 @@ const props = defineProps<{
   loading?: boolean;
   error?: boolean;
 }>();
-defineEmits<{ retry: []; changed: [] }>();
+defineEmits<{ retry: []; changed: []; select: [from: number, to: number] }>();
 const { t } = useI18n();
 
 // What happened, on the chart (1.1.0): a consumer OOM-killed, the last consumer gone.
@@ -104,7 +107,9 @@ const isChart = computed(
     :error-text="$t('integrations.panel.error')"
     :data-panel="panel.id"
     :data-kind="panel.kind"
+    :selectable="(panel as PanelOf<'stack'>).select === true"
     @retry="$emit('retry')"
+    @select="(from: number, to: number) => $emit('select', from, to)"
   />
   <PanelCard v-else :panel="panel" :loading="loading" :error="error" @retry="$emit('retry')">
     <StatPanel v-if="panel.kind === 'stat'" :panel="panel" />
@@ -123,6 +128,13 @@ const isChart = computed(
     <CauseCardPanel v-else-if="panel.kind === 'cause'" :panel="panel" />
     <QueueAlertsPanel
       v-else-if="panel.kind === 'queue_alerts'"
+      :panel="panel"
+      @changed="$emit('changed')"
+    />
+    <StatementsPanel v-else-if="panel.kind === 'statements'" :panel="panel" />
+    <TreePanel v-else-if="panel.kind === 'tree'" :panel="panel" />
+    <ScopedAlertsPanel
+      v-else-if="panel.kind === 'scoped_alerts'"
       :panel="panel"
       @changed="$emit('changed')"
     />
