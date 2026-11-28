@@ -140,6 +140,36 @@ describe('alert rules for services', () => {
       unit: 'seconds',
     });
 
+    // 1.2: defaults the type gained since are added only when asked, the asked ones on.
+    await ctx.db
+      .deleteFrom('alert_rules')
+      .where('default_key', 'in', ['redis_save_failed', 'redis_blocked_clients'])
+      .execute();
+    const add = await api('POST', `/applications/${id}/alert-defaults`, {
+      keys: ['redis_save_failed'],
+    });
+    expect(add.statusCode, add.body).toBe(200);
+    expect(add.json().added).toEqual(['redis_save_failed']);
+    const now = (await api('GET', '/alert-rules'))
+      .json()
+      .rules.filter((r: { service?: unknown }) => r.service) as {
+      defaultKey: string;
+      enabled: boolean;
+    }[];
+    expect(now.find((r) => r.defaultKey === 'redis_save_failed')?.enabled).toBe(true);
+    expect(now.find((r) => r.defaultKey === 'redis_blocked_clients')).toBeUndefined();
+    // Asked again: nothing new.
+    expect(
+      (
+        await api('POST', `/applications/${id}/alert-defaults`, { keys: ['redis_save_failed'] })
+      ).json().added,
+    ).toEqual([]);
+    expect(
+      (await api('GET', '/applications/alert-defaults?type=redis'))
+        .json()
+        .defaults.find((d: { key: string }) => d.key === 'redis_replica_down').severity,
+    ).toBe('critical');
+
     // Removing the service removes its rules.
     expect((await api('DELETE', `/applications/${id}`)).statusCode).toBe(204);
     const left = (await api('GET', '/alert-rules'))

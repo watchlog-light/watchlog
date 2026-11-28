@@ -334,6 +334,7 @@ export const ROUTES: Record<string, RouteClass> = {
   'GET /api/v1/applications/:id/rabbitmq/clients': { kind: 'org', control: RABBIT },
   'POST /api/v1/applications': org,
   'DELETE /api/v1/applications/:id': org,
+  'POST /api/v1/applications/:id/alert-defaults': org,
   'POST /api/v1/applications/probes': org,
   'GET /api/v1/applications/probes/:id': org,
   'POST /api/v1/applications/probes/:id/check': org,

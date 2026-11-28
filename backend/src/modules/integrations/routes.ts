@@ -20,13 +20,22 @@ import { requireRole, requireUser } from '../../plugins/auth.js';
 import { ProblemSchema } from '../auth/schemas.js';
 import { causeReader, wantsCause, type CausesService } from '../causes/likely.js';
 import { LikelyCauseSchema } from '../causes/schemas.js';
-import { INTEGRATION_TYPES, type IntegrationTarget } from './collector-config.js';
+import {
+  INTEGRATION_TYPES,
+  type IntegrationTarget,
+  type IntegrationType,
+} from './collector-config.js';
 import { proFeatures, type ProConfig } from '../license/pro.js';
 import { clientRows } from './pages/rabbitmq-clients.js';
 import { queuePage } from './pages/rabbitmq-queue.js';
 import { queueRows } from './pages/rabbitmq-queues.js';
 import { QueueRowSchema } from './pages/schema.js';
-import { alertDefaultsFor, createServiceRules, deleteServiceRules } from './alert-defaults.js';
+import {
+  addMissingDefaults,
+  alertDefaultsFor,
+  createServiceRules,
+  deleteServiceRules,
+} from './alert-defaults.js';
 import { adoptProbe, placementOf } from './connect.js';
 import { recordEvent } from './credentials.js';
 import { DockerName, Name, TargetSchema } from './schemas.js';
@@ -670,6 +679,9 @@ export const applicationRoutes: FastifyPluginAsyncTypebox<{
                   critical: Type.Optional(Type.Number()),
                 }),
                 forSeconds: Type.Integer(),
+                severity: Type.Optional(
+                  Type.Union([Type.Literal('warning'), Type.Literal('critical')]),
+                ),
               }),
             ),
           }),
@@ -1251,6 +1263,53 @@ export const applicationRoutes: FastifyPluginAsyncTypebox<{
         props: { type: body.type },
       });
       return reply.code(201).send({ application: toView(row!, collectors) });
+    },
+  );
+
+  // The defaults a service's type gained after it was set up (1.2): never added on their own,
+  // so nobody gets alerts they didn't ask for; the Alerts tab offers them, and this adds the
+  // ones asked for, on.
+  app.post(
+    '/applications/:id/alert-defaults',
+    {
+      preHandler: canManage,
+      schema: {
+        summary: "Add default alert rules a service doesn't have yet",
+        tags: ['applications'],
+        params: Type.Object({ id: Type.String({ format: 'uuid' }) }),
+        body: Type.Object({
+          keys: Type.Array(Type.String({ maxLength: 64 }), { minItems: 1, maxItems: 32 }),
+        }),
+        response: {
+          200: Type.Object({ added: Type.Array(Type.String()) }),
+          401: ProblemSchema,
+          403: ProblemSchema,
+          404: ProblemSchema,
+        },
+      },
+    },
+    async (request, reply) => {
+      const row = await db
+        .selectFrom('integrations')
+        .select(['id', 'cluster_id', 'type'])
+        .where('id', '=', request.params.id)
+        .where('org_id', '=', request.user!.org.id)
+        .executeTakeFirst();
+      if (!row) return sendProblem(reply, 404, 'Service not found');
+      const keys = request.body.keys;
+      const others = new Set(
+        alertDefaultsFor(row.type as IntegrationType)
+          .map((d) => d.key)
+          .filter((k) => !keys.includes(k)),
+      );
+      const added = await addMissingDefaults(
+        db,
+        request.user!.org.id,
+        { id: row.id, clusterId: row.cluster_id, type: row.type as IntegrationType },
+        keys,
+        others,
+      );
+      return { added };
     },
   );
 
