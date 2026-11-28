@@ -745,7 +745,7 @@ function prefixTable(rows: PrefixStat[], full: boolean): TablePanel {
 export function compact(n: number): string {
   if (n >= 1e6) return `${(n / 1e6).toFixed(1)} M`;
   if (n >= 1e4) return `${Math.round(n / 1e3)} k`;
-  return String(Math.round(n));
+  return Math.round(n).toLocaleString('en');
 }
 
 // ------------------------------------------------------------------------- Memory
@@ -983,25 +983,28 @@ export async function commandsTab(input: PageContext): Promise<Panel[]> {
         `${P}.cols.p999`,
         `${P}.cols.failures`,
       ],
-      rows: stats.map((x) => ({
-        cells: [
-          x.command.toUpperCase(),
-          x.calls < 10 ? +x.calls.toFixed(2) : Math.round(x.calls),
-          x.mean === null ? '–' : us(x.mean),
-          x.p50 === null ? '–' : us(x.p50),
-          x.p99 === null ? '–' : us(x.p99),
-          x.p999 === null ? '–' : us(x.p999),
-          x.failed > 0 ? +x.failed.toFixed(2) : 0,
-        ],
-        ...(x.command !== 'other'
-          ? { link: itemLink('command', x.command, x.command.toUpperCase()) }
-          : {}),
-        ...(ON_COMMANDS.test(x.command.toUpperCase())
-          ? { severity: 'warning' as Severity }
-          : x.failed > 0
-            ? { severity: 'warning' as Severity }
+      // The commands that ran or failed in the 15 minutes.
+      rows: stats
+        .filter((x) => x.calls > 0 || x.failed > 0)
+        .map((x) => ({
+          cells: [
+            x.command.toUpperCase(),
+            x.calls < 10 ? +x.calls.toFixed(2) : Math.round(x.calls),
+            x.mean === null ? '–' : us(x.mean),
+            x.p50 === null ? '–' : us(x.p50),
+            x.p99 === null ? '–' : us(x.p99),
+            x.p999 === null ? '–' : us(x.p999),
+            x.failed > 0 ? +x.failed.toFixed(2) : 0,
+          ],
+          ...(x.command !== 'other'
+            ? { link: itemLink('command', x.command, x.command.toUpperCase()) }
             : {}),
-      })),
+          ...(ON_COMMANDS.test(x.command.toUpperCase())
+            ? { severity: 'warning' as Severity }
+            : x.failed > 0
+              ? { severity: 'warning' as Severity }
+              : {}),
+        })),
     },
     {
       id: 'calls',

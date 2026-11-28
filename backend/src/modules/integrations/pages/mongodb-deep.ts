@@ -778,7 +778,7 @@ function slowTable(
 export function compact(n: number): string {
   if (n >= 1e6) return `${(n / 1e6).toFixed(1)} M`;
   if (n >= 1e4) return `${Math.round(n / 1e3)} k`;
-  return String(Math.round(n));
+  return Math.round(n).toLocaleString('en');
 }
 
 // ------------------------------------------------------------------------- Operations
@@ -799,9 +799,11 @@ export async function operations(input: PageContext): Promise<Panel[]> {
     ),
   ]);
   const facts = statementFacts(ctx, E);
-  const ids = [...new Set([...stats.keys(), ...facts.keys()])].sort(
-    (a, b) => (stats.get(b)?.share ?? 0) - (stats.get(a)?.share ?? 0),
-  );
+  // A shape the collector no longer describes and that doesn't run now (an old one, still in
+  // the series) says nothing: left out.
+  const ids = [...new Set([...stats.keys(), ...facts.keys()])]
+    .filter((id) => facts.has(id) || (stats.get(id)?.calls ?? 0) > 0)
+    .sort((a, b) => (stats.get(b)?.share ?? 0) - (stats.get(a)?.share ?? 0));
   const none = new Map<string, number>();
   const hinted = [...facts.values()].filter((f) => missingIndex(E, f, none));
   const LE = ['0.001', '0.01', '0.1', '1', '10', '+Inf'];
