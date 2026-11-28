@@ -564,6 +564,15 @@ export function treeSessions(ctx: PageContext): TreeSession[] {
 }
 
 /**
+ * Whether the longest running query is one that waits on a lock (1.2): a blocked session that
+ * has run about as long. "A query has been running for 6 min" would then name the victim, not
+ * the cause; the lock finding names the session holding it.
+ */
+export function longestIsBlocked(ctx: PageContext, longest: number): boolean {
+  return treeSessions(ctx).some((t) => t.blockedBy.length > 0 && t.seconds >= longest - 30);
+}
+
+/**
  * Pre-order: each root blocker (blocks others, waits on nobody) first, then the sessions it
  * blocks, each indented under its blocker. A session blocked by two appears under the first.
  */

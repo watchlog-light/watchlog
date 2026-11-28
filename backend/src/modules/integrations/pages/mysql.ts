@@ -20,6 +20,7 @@ import {
   statementFacts,
   statementStats,
   transactionsOf,
+  longestIsBlocked,
   treeSessions,
   waitsOver,
 } from './db-deep.js';
@@ -543,7 +544,7 @@ async function reasons(ctx: PageContext): Promise<Reason[]> {
       facts: { n: Math.round(r), max: m },
     });
   const long = valueOf(longest);
-  if (long !== null && long > LONG_QUERY)
+  if (long !== null && long > LONG_QUERY && !longestIsBlocked(ctx, long))
     out.push({ severity: 'critical', code: 'long_query', facts: { duration: duration(long) } });
   const blocking = extra(ctx).blocking ?? [];
   if ((valueOf(waits) ?? 0) > 0 || blocking.length) {

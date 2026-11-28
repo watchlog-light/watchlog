@@ -7,6 +7,7 @@ import {
   buildTree,
   clientOf,
   dominantWait,
+  longestIsBlocked,
   missingIndex,
   sparseAvg,
   MY,
@@ -191,5 +192,20 @@ describe('sparseAvg', () => {
     expect(sparseAvg(PG, 'service="s"', 'x{service="s"}', 'addr, wait', '3600s')).toBe(
       'sum by (addr, wait) (sum_over_time(x{service="s"}[3600s])) / scalar(max(count_over_time(watchlog_postgres_active_sessions{service="s", wait="cpu"}[3600s])))',
     );
+  });
+});
+
+describe('longestIsBlocked', () => {
+  const ctx = (tree: Record<string, unknown>[]) =>
+    ({ row: { status_details: { extra: { lock_tree: tree } } } }) as unknown as PageContext;
+  it("is the victim when the longest query waits on a lock, so it isn't the finding", () => {
+    const tree = [
+      { pid: '75', blocked_by: '', state: 'idle in transaction', seconds: 360 },
+      { pid: '72', blocked_by: '75', state: 'active', seconds: 350 },
+    ];
+    expect(longestIsBlocked(ctx(tree), 360)).toBe(true);
+    // A query running 20 minutes on its own while another waits 6: still a long query.
+    expect(longestIsBlocked(ctx(tree), 1200)).toBe(false);
+    expect(longestIsBlocked(ctx([]), 360)).toBe(false);
   });
 });
