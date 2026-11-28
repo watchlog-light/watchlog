@@ -51,11 +51,11 @@ func TestTrimText(t *testing.T) {
 	}
 }
 
-// fitsIngest checks what the backend accepts in a status's extra (ingest.ts): at most 8
-// lists of 100 rows, 12 fields each, values of 256 characters at most.
+// fitsIngest checks what the backend accepts in a status's extra (ingest.ts): at most 24
+// lists (8 before 1.2) of 100 rows, 12 fields each, values of 256 characters at most.
 func fitsIngest(t *testing.T, extra map[string]any) {
 	t.Helper()
-	if len(extra) > 8 {
+	if len(extra) > 24 {
 		t.Errorf("extra has %d lists", len(extra))
 	}
 	for k, v := range extra {
