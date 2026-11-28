@@ -8,7 +8,7 @@ import { ClusterKindInput, normalizeKind } from '../clusters/schemas.js';
 import { Type, type Static } from 'typebox';
 import type { Database } from '../../db/index.js';
 import { newId } from '../../lib/ids.js';
-import { createServiceRules } from '../integrations/alert-defaults.js';
+import { addMissingDefaults, createServiceRules } from '../integrations/alert-defaults.js';
 import type { IntegrationTarget, IntegrationType } from '../integrations/collector-config.js';
 import { INTEGRATION_TYPES } from '../integrations/collector-config.js';
 import { collectorIdentity } from '../integrations/connect.js';
@@ -59,6 +59,8 @@ export type SeedService = Static<typeof SeedServiceSchema>;
 export interface SeedServicesResult {
   monitored: string[];
   accessAdded: string[];
+  /** Defaults a seeded service's type gained since it was seeded (1.2), "name: keys". */
+  defaultsAdded: string[];
   failed: { name: string; reason: string }[];
 }
 
@@ -77,7 +79,12 @@ export async function applySeedServices(
   notifier: ConfigNotifier | undefined,
   log: SeedServicesLogger,
 ): Promise<SeedServicesResult> {
-  const result: SeedServicesResult = { monitored: [], accessAdded: [], failed: [] };
+  const result: SeedServicesResult = {
+    monitored: [],
+    accessAdded: [],
+    defaultsAdded: [],
+    failed: [],
+  };
   if (services.length === 0) return result;
   const org = await db
     .selectFrom('orgs')
@@ -86,11 +93,13 @@ export async function applySeedServices(
     .limit(1)
     .executeTakeFirst();
   if (!org) return result;
-  const applied = new Set(
-    (
-      await db.selectFrom('seed_services').select('seed_key').where('org_id', '=', org.id).execute()
-    ).map((r) => r.seed_key),
-  );
+  const appliedRows = await db
+    .selectFrom('seed_services')
+    .select(['seed_key', 'integration_id'])
+    .where('org_id', '=', org.id)
+    .execute();
+  const applied = new Set(appliedRows.map((r) => r.seed_key));
+  const appliedTo = new Map(appliedRows.map((r) => [r.seed_key, r.integration_id]));
   const found = await discover(db, org.id);
   const monitored = await db
     .selectFrom('integrations as i')
@@ -117,7 +126,25 @@ export async function applySeedServices(
     );
     for (const c of inScope) {
       const key = `${entryKey(s)}@${c.id}`;
-      if (applied.has(key)) continue;
+      if (applied.has(key)) {
+        // Defaults its type gained since (1.2), each once: one the user deleted stays deleted.
+        const id = appliedTo.get(key);
+        if (id && monitored.some((m) => m.id === id)) {
+          const done = new Set(
+            [...applied].filter((k) => k.startsWith(`${key}#`)).map((k) => k.slice(key.length + 1)),
+          );
+          const added = await addMissingDefaults(
+            db,
+            org.id,
+            { id, clusterId: c.id, type },
+            s.defaultAlerts ?? [],
+            done,
+          );
+          for (const k of added) await markApplied(db, org.id, `${key}#${k}`, id);
+          if (added.length) result.defaultsAdded.push(`${s.name}: ${added.join(', ')}`);
+        }
+        continue;
+      }
       // Monitored by hand already: keep it; give it the seeded access only if it has none.
       const mine = monitored.find(
         (m) => m.cluster_id === c.id && m.type === type && m.name === s.name,
@@ -171,6 +198,7 @@ export async function applySeedServices(
   for (const m of result.monitored) log.info({ service: m }, 'seed: service monitored');
   for (const m of result.accessAdded)
     log.info({ service: m }, 'seed: access added to a monitored service');
+  for (const m of result.defaultsAdded) log.info({ service: m }, 'seed: new default alerts added');
   for (const f of result.failed)
     log.warn({ service: f.name, reason: f.reason }, 'seed: service skipped');
   return result;

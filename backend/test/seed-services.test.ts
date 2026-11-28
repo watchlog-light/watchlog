@@ -3,6 +3,7 @@
 // soon as the agents report them, with a password referenced from a Secret or a host file,
 // once per cluster: a service someone stops monitoring stays stopped, and one monitored
 // by hand without access gets the seeded access.
+import { sql } from 'kysely';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { newId } from '../src/lib/ids.js';
 import { loadSeedFile } from '../src/modules/seed/seed.js';
@@ -145,8 +146,37 @@ describe('seeded services', () => {
     // shop/postgres asks for it on; storefront/db gets it off.
     expect(rules.map((x) => x.enabled).sort()).toEqual([false, true]);
 
-    // Applied once: stopping a seeded service keeps it stopped.
+    // 1.2: a seeded service from before a default existed (its rule missing) gets it on the
+    // next start, on when the seed lists it; once: deleted again, it stays deleted.
     const pg = rows.find((x) => x.name === 'shop/postgres')!.id;
+    const blocking = () =>
+      ctx.db
+        .selectFrom('alert_rules')
+        .select(['id', 'enabled'])
+        .where('default_key', '=', 'postgres_blocking')
+        .where(sql<boolean>`scope->>'service' = ${pg}`)
+        .execute();
+    await ctx.db
+      .deleteFrom('alert_rules')
+      .where('default_key', '=', 'postgres_blocking')
+      .where(sql<boolean>`scope->>'service' = ${pg}`)
+      .execute();
+    const listed = SERVICES.map((x) =>
+      x.name === 'shop/postgres'
+        ? { ...x, defaultAlerts: ['postgres_connections_high', 'postgres_blocking'] }
+        : x,
+    );
+    const again = await applySeedServices(ctx.db, listed, undefined, log);
+    expect(again.defaultsAdded).toEqual(['shop/postgres: postgres_blocking']);
+    expect((await blocking()).map((x) => x.enabled)).toEqual([true]);
+    await ctx.db
+      .deleteFrom('alert_rules')
+      .where('id', '=', (await blocking())[0]!.id)
+      .execute();
+    expect((await applySeedServices(ctx.db, listed, undefined, log)).defaultsAdded).toEqual([]);
+    expect(await blocking()).toEqual([]);
+
+    // Applied once: stopping a seeded service keeps it stopped.
     expect((await api('DELETE', `/applications/${pg}`)).statusCode).toBe(204);
     expect((await applySeedServices(ctx.db, SERVICES, undefined, log)).monitored).toEqual([]);
     expect(

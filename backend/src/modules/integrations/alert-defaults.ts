@@ -492,6 +492,54 @@ export async function createServiceRules(
   return defaults.filter((d) => enabled.includes(d.key)).length;
 }
 
+/**
+ * The defaults a type gained after a service's rules were made (1.2: blocking sessions, long
+ * transactions…), for the seed only: a service monitored through the seed gets each one once,
+ * on when the seed lists it. Services added by hand keep the rules they were given (the new
+ * defaults stay one click away on their Alerts tab), so nobody gets alerts they didn't ask for.
+ * Returns the keys added.
+ */
+export async function addMissingDefaults(
+  db: Database,
+  orgId: string,
+  svc: { id: string; clusterId: string; type: IntegrationType },
+  enabled: readonly string[],
+  skip: ReadonlySet<string>,
+): Promise<string[]> {
+  const have = new Set(
+    (
+      await db
+        .selectFrom('alert_rules')
+        .select('default_key')
+        .where('org_id', '=', orgId)
+        .where(sql<boolean>`scope->>'service' = ${svc.id}`)
+        .execute()
+    ).map((r) => r.default_key),
+  );
+  const missing = alertDefaultsFor(svc.type).filter((d) => !have.has(d.key) && !skip.has(d.key));
+  if (!missing.length) return [];
+  const channels = await db
+    .selectFrom('alert_channels')
+    .select('id')
+    .where('org_id', '=', orgId)
+    .execute();
+  for (const d of missing) {
+    await insertThresholdRule(db, orgId, {
+      name: d.name,
+      metric: d.metric,
+      clusterId: svc.clusterId,
+      scope: { service: svc.id },
+      condition: d.condition,
+      forSeconds: d.forSeconds,
+      severity: d.severity ?? 'warning',
+      enabled: enabled.includes(d.key),
+      defaultKey: d.key,
+      channelIds: channels.map((c) => c.id),
+    });
+  }
+  return missing.map((d) => d.key);
+}
+
 /** Removes the rules scoped to a service that is no longer monitored. */
 export async function deleteServiceRules(db: Database, orgId: string, serviceId: string) {
   await db
