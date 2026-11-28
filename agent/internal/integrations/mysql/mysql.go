@@ -609,15 +609,34 @@ func hostOf(h string) string {
 // user, for the sessions that are clients.
 func (s *scrape) clients() {
 	type key struct{ addr, user string }
-	by := map[key]int{}
+	type agg struct {
+		n, sleeping int
+		// idleMin is the shortest sleep of the client's sleeping connections (1.2): "none of
+		// its 37 connections has run a statement for 6 min" when every one sleeps.
+		idleMin float64
+	}
+	by := map[key]*agg{}
 	for _, p := range s.procs {
 		if client(p) {
-			by[key{hostOf(p.host), p.user}]++
+			k := key{hostOf(p.host), p.user}
+			a := by[k]
+			if a == nil {
+				a = &agg{idleMin: -1}
+				by[k] = a
+			}
+			a.n++
+			if p.command == "Sleep" {
+				a.sleeping++
+				if a.idleMin < 0 || p.time < a.idleMin {
+					a.idleMin = p.time
+				}
+			}
 		}
 	}
 	rows := make([]map[string]any, 0, len(by))
-	for k, n := range by {
-		rows = append(rows, map[string]any{"addr": trimText(k.addr, 64), "user": trimText(k.user, 64), "connections": n, "member": s.member})
+	for k, a := range by {
+		rows = append(rows, map[string]any{"addr": trimText(k.addr, 64), "user": trimText(k.user, 64), "connections": a.n,
+			"sleeping": a.sleeping, "idle_min": int(max(a.idleMin, 0)), "member": s.member})
 	}
 	sort.Slice(rows, func(i, j int) bool { return rows[i]["connections"].(int) > rows[j]["connections"].(int) })
 	if len(rows) > MaxClients {

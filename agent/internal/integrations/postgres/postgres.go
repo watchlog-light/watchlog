@@ -396,10 +396,13 @@ func (s *scrape) heavy(ctx context.Context, m integrations.Member, auth *integra
 	// Who is connected: client address (mapped to a workload by the backend), or the
 	// application name for local sessions.
 	clients := []map[string]any{}
-	_ = s.rows(ctx, `select coalesce(host(client_addr), ''), coalesce(application_name, ''), count(*)
+	_ = s.rows(ctx, `select coalesce(host(client_addr), ''), coalesce(application_name, ''), count(*),
+		  count(*) filter (where state = 'idle'), count(*) filter (where state like 'idle in transaction%'),
+		  coalesce(min(extract(epoch from now() - state_change)) filter (where state = 'idle'), 0)::float8
 		from pg_stat_activity where backend_type = 'client backend' and pid <> pg_backend_pid()
 		group by 1, 2 order by 3 desc limit `+strconv.Itoa(MaxClients), func(v []any) {
-		clients = append(clients, map[string]any{"addr": str(v[0]), "app": trimText(str(v[1]), 64), "connections": int(f(v[2])), "member": s.member})
+		clients = append(clients, map[string]any{"addr": str(v[0]), "app": trimText(str(v[1]), 64), "connections": int(f(v[2])),
+			"idle": int(f(v[3])), "idle_in_xact": int(f(v[4])), "idle_min": int(f(v[5])), "member": s.member})
 	})
 	s.extra["clients"] = append(asRows(s.extra["clients"]), clients...)
 
