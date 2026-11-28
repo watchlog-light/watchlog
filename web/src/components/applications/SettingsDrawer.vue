@@ -80,7 +80,7 @@ async function removeAccess() {
   await data.load();
   emit('changed');
 }
-const patch = (body: { paused?: boolean; queryText?: boolean }) =>
+const patch = (body: { paused?: boolean; queryText?: boolean; keyNames?: boolean }) =>
   run(
     () => api(`/applications/${props.app.id}`, { method: 'PATCH', body }),
     t('applications.settings.saved'),
@@ -206,6 +206,26 @@ const settings = computed(() => data.data.value?.settings);
           />
           <span v-else class="text-13 text-text-muted">{{
             settings.queryText ? $t('applications.settings.on') : $t('applications.settings.off')
+          }}</span>
+        </label>
+        <!-- Redis: the largest sampled keys by name (1.4); off, only their prefixes. -->
+        <label v-if="app.type === 'redis'" class="flex items-start justify-between gap-4">
+          <span class="flex flex-col gap-0.5">
+            <span class="text-13 font-medium text-text">{{
+              $t('applications.monitor.keyNames')
+            }}</span>
+            <span class="text-12 text-text-muted">{{
+              $t('applications.monitor.keyNamesHint')
+            }}</span>
+          </span>
+          <ToggleSwitch
+            v-if="auth.canManage"
+            :model-value="settings.keyNames"
+            data-testid="key-names"
+            @update:model-value="(v: boolean) => patch({ keyNames: v })"
+          />
+          <span v-else class="text-13 text-text-muted">{{
+            settings.keyNames ? $t('applications.settings.on') : $t('applications.settings.off')
           }}</span>
         </label>
       </section>

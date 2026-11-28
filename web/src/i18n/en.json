@@ -2621,7 +2621,9 @@
         "redis_evicting_new": "Evicting keys where it evicted none the day before",
         "redis_main_thread_busy": "The main thread saturated for 5 min",
         "redis_stream_orphaned": "A stream group with lag and no consumer"
-      }
+      },
+      "keyNames": "Show key names",
+      "keyNamesHint": "The largest sampled keys by their full name. Off, only their prefixes leave the collector. Values are never read."
     },
     "metricsError": "Key metrics couldn't be loaded.",
     "access": {
@@ -3290,6 +3292,11 @@
         "group": {
           "facts": "This group",
           "consumers": "Consumers active"
+        },
+        "item": {
+          "prefix": "A key prefix",
+          "command": "A command",
+          "group": "A stream group"
         }
       },
       "missing": {
@@ -3824,6 +3831,10 @@
           "documentsOverTime": "Documents",
           "time": "Operations and time a second",
           "shapes": "Shapes on it"
+        },
+        "item": {
+          "shape": "An operation shape",
+          "collection": "A collection"
         }
       },
       "missing": {
@@ -4813,7 +4824,8 @@
         "backToQueries": "{name} · queries",
         "backToTables": "{name} · tables",
         "aStatement": "statement {id}",
-        "aTable": "a table"
+        "aTable": "a table",
+        "backToTab": "{name} · {tab}"
       }
     }
   },

@@ -27,11 +27,21 @@ const router = useRouter();
 const auth = useAuthStore();
 const id = computed(() => String(route.params.id));
 const isTable = computed(() => route.name === 'application-table');
+// 1.4: Redis's prefix, command and stream group pages (tab=prefix|command|group).
+const isItem = computed(() => route.name === 'application-item');
+const itemTab = computed(() => String(route.params.tab ?? ''));
+const item = computed(() => String(route.params.item ?? ''));
 const statement = computed(() => String(route.params.statement ?? ''));
 const table = computed(
   () => `${String(route.params.db ?? '')}/${String(route.params.table ?? '')}`,
 );
-const back = computed(() => (isTable.value ? 'tables' : 'queries'));
+// Back to the tab the item belongs to: MongoDB's are Operations and Collections (1.4).
+const back = computed(() => {
+  if (isItem.value)
+    return { prefix: 'memory', command: 'commands', group: 'streams' }[itemTab.value] ?? 'overview';
+  if (app.value?.type === 'mongodb') return isTable.value ? 'collections' : 'operations';
+  return isTable.value ? 'tables' : 'queries';
+});
 const ranges = computed(() => offeredRanges(PAGE_RANGES, auth.demoMaxRangeS));
 const range = computed(() => {
   const r = rangeOf(route.query.range);
@@ -46,9 +56,11 @@ const page = useLoader(() =>
 const app = computed(() => page.data.value?.application);
 const panels = useLoader(() =>
   api<ApplicationPanels>(
-    isTable.value
-      ? `/applications/${id.value}/panels?tab=table&table=${encodeURIComponent(table.value)}&range=${range.value}`
-      : `/applications/${id.value}/panels?tab=statement&statement=${encodeURIComponent(statement.value)}&range=${range.value}`,
+    isItem.value
+      ? `/applications/${id.value}/panels?tab=${encodeURIComponent(itemTab.value)}&${encodeURIComponent(itemTab.value)}=${encodeURIComponent(item.value)}&range=${range.value}`
+      : isTable.value
+        ? `/applications/${id.value}/panels?tab=table&table=${encodeURIComponent(table.value)}&range=${range.value}`
+        : `/applications/${id.value}/panels?tab=statement&statement=${encodeURIComponent(statement.value)}&range=${range.value}`,
   ),
 );
 const window = computed<[number, number]>(() => {
@@ -60,7 +72,15 @@ const notFound = computed(
 );
 // The heading: a statement's normalised text (from its facts), or the table's name.
 const name = computed(() => {
-  if (isTable.value) return table.value.replace('/', ': ');
+  if (isItem.value) {
+    if (itemTab.value === 'prefix') return `${item.value}*`;
+    if (itemTab.value === 'command') return item.value.toUpperCase();
+    return item.value.replace('\u0000', ' · ');
+  }
+  if (isTable.value)
+    return app.value?.type === 'mongodb'
+      ? table.value.replace('/', '.')
+      : table.value.replace('/', ': ');
   const f = panels.data.value?.panels.find((p) => p.id === 'facts');
   const rows = f?.kind === 'facts' ? f.rows : [];
   const text = rows.find((r) => r.labelKey.endsWith('statement.text'))?.value;
@@ -82,7 +102,7 @@ onMounted(async () => {
   await page.load();
   if (page.data.value) await panels.load();
 });
-watch([range, statement, table], () => {
+watch([range, statement, table, item], () => {
   void page.load();
   void panels.load();
 });
@@ -102,12 +122,17 @@ function setRange(seconds: number) {
     >
       <ArrowLeft class="size-4" aria-hidden="true" />{{
         app
-          ? $t(
-              isTable
-                ? 'integrations.db.panels.backToTables'
-                : 'integrations.db.panels.backToQueries',
-              { name: app.name },
-            )
+          ? isItem || app.type === 'mongodb'
+            ? $t('integrations.db.panels.backToTab', {
+                name: app.name,
+                tab: $t(`integrations.${app.type}.tabs.${back}`),
+              })
+            : $t(
+                isTable
+                  ? 'integrations.db.panels.backToTables'
+                  : 'integrations.db.panels.backToQueries',
+                { name: app.name },
+              )
           : $t('nav.applications')
       }}
     </RouterLink>
@@ -148,7 +173,15 @@ function setRange(seconds: number) {
             <span class="flex flex-wrap items-center gap-1.5 text-13 text-text-muted">
               {{
                 $t(
-                  isTable ? 'integrations.db.panels.aTable' : 'integrations.db.panels.aStatement',
+                  isItem
+                    ? `integrations.redis.panels.item.${itemTab}`
+                    : app.type === 'mongodb'
+                      ? isTable
+                        ? 'integrations.mongodb.panels.item.collection'
+                        : 'integrations.mongodb.panels.item.shape'
+                      : isTable
+                        ? 'integrations.db.panels.aTable'
+                        : 'integrations.db.panels.aStatement',
                   { id: statement },
                 )
               }}

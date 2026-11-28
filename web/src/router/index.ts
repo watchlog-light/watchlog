@@ -425,6 +425,13 @@ export const routes: RouteRecordRaw[] = [
         component: () => import('@/views/ApplicationDbItemPage.vue'),
         meta: { titleKey: 'nav.applications', charts: true },
       },
+      // Redis's key prefix, command and stream group (1.4, ADR-247).
+      {
+        name: 'application-item',
+        path: 'applications/:id/items/:tab/:item',
+        component: () => import('@/views/ApplicationDbItemPage.vue'),
+        meta: { titleKey: 'nav.applications', charts: true },
+      },
       // A monitored service (SPEC §4.12); it has its own time range (ADR-135).
       {
         name: 'application',

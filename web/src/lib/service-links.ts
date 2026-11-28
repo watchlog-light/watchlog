@@ -9,7 +9,9 @@ export type PanelLink =
   | { kind: 'tab'; tab: string; filter?: string; name: string }
   | { kind: 'docs'; href: string; name: string }
   /** A database's statement or table page (1.2). */
-  | { kind: 'statement' | 'table'; id: string; name: string };
+  | { kind: 'statement' | 'table'; id: string; name: string }
+  /** Another item page (1.4: a Redis key prefix, command or stream group). */
+  | { kind: 'item'; tab: string; id: string; name: string };
 
 /** A RabbitMQ queue's page: /applications/:id/queues/:queue, ?vhost= outside the default. */
 export function queueRoute(appId: string, vhost: string, queue: string): RouteLocationRaw {
@@ -32,6 +34,11 @@ export function tableRoute(appId: string, id: string): RouteLocationRaw {
     name: 'application-table',
     params: { id: appId, db: id.slice(0, slash), table: id.slice(slash + 1) },
   };
+}
+
+/** Another item page (1.4): /applications/:id/items/:tab/:item. */
+export function itemRoute(appId: string, tab: string, item: string): RouteLocationRaw {
+  return { name: 'application-item', params: { id: appId, tab, item } };
 }
 
 /** The route of a link, or null for the docs (an external href) and unknowable places. */
@@ -71,6 +78,8 @@ export function linkRoute(l: PanelLink, appId: string, clusterId: string): Route
       return statementRoute(appId, l.id);
     case 'table':
       return l.id.includes('/') ? tableRoute(appId, l.id) : null;
+    case 'item':
+      return itemRoute(appId, l.tab, l.id);
     case 'docs':
       return null;
   }
