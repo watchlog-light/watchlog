@@ -123,7 +123,10 @@ async function reasons(ctx: PageContext): Promise<Reason[]> {
   // The main thread: busy most of a core whatever the memory says; the costly command and its
   // sender from the slow log, when there is one.
   const mt = valueOf(mainThread);
-  const slow = [...(ex.slowlog ?? [])].sort((a, b) => b.at - a.at);
+  // The last hour's entries: the slow log keeps old ones until they rotate out (1.4).
+  const slow = [...(ex.slowlog ?? [])]
+    .filter((x) => x.at * 1000 >= ctx.now - 3_600_000)
+    .sort((a, b) => b.at - a.at);
   const on = slow.filter((x) => deep.ON_COMMANDS.test(x.command));
   if (mt !== null && mt >= 0.9) {
     const worst = on[0] ?? slow[0];
@@ -136,6 +139,17 @@ async function reasons(ctx: PageContext): Promise<Reason[]> {
         client: worst?.client ? clientOf(owners, worst.client, worst.name).name : null,
         holder: worst?.client ? (owners.get(worst.client)?.name ?? null) : null,
       },
+      ...(worst?.client && owners.get(worst.client)?.id
+        ? {
+            links: [
+              {
+                kind: owners.get(worst.client)!.kind as 'workload' | 'container',
+                id: owners.get(worst.client)!.id!,
+                name: owners.get(worst.client)!.name,
+              },
+            ],
+          }
+        : {}),
     });
   }
   if (on.length && !out.some((x) => x.code === 'main_thread_saturated')) {

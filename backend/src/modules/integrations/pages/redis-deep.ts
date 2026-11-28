@@ -317,7 +317,10 @@ export async function overview(input: PageContext): Promise<Panel[]> {
     .sort((a, b) => b.n - a.n)
     .slice(0, 2);
   const slow = [...(ex.slowlog ?? [])].sort((a, b) => b.at - a.at);
-  const onSlow = slow.filter((x) => ON_COMMANDS.test(x.command));
+  // The check reads the last hour: old entries stay in the slow log until they rotate out.
+  const onSlow = slow.filter(
+    (x) => ON_COMMANDS.test(x.command) && x.at * 1000 >= ctx.now - 3_600_000,
+  );
   const isPrimary = valueOf(primary) !== 0;
   const cl = clientRows(ex, owners);
   const top = prefixes.rows.filter((x) => x.prefix !== 'other');
