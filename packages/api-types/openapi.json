@@ -38262,6 +38262,18 @@
                                   }
                                 ]
                               },
+                              "more": {
+                                "type": "object",
+                                "required": ["key", "tab"],
+                                "properties": {
+                                  "key": {
+                                    "type": "string"
+                                  },
+                                  "tab": {
+                                    "type": "string"
+                                  }
+                                }
+                              },
                               "kind": {
                                 "anyOf": [
                                   {
@@ -38582,6 +38594,18 @@
                                   }
                                 ]
                               },
+                              "more": {
+                                "type": "object",
+                                "required": ["key", "tab"],
+                                "properties": {
+                                  "key": {
+                                    "type": "string"
+                                  },
+                                  "tab": {
+                                    "type": "string"
+                                  }
+                                }
+                              },
                               "kind": {
                                 "type": "string",
                                 "enum": ["bars"]
@@ -38765,6 +38789,18 @@
                                   }
                                 ]
                               },
+                              "more": {
+                                "type": "object",
+                                "required": ["key", "tab"],
+                                "properties": {
+                                  "key": {
+                                    "type": "string"
+                                  },
+                                  "tab": {
+                                    "type": "string"
+                                  }
+                                }
+                              },
                               "kind": {
                                 "type": "string",
                                 "enum": ["hist"]
@@ -38890,6 +38926,18 @@
                                     "enum": ["main"]
                                   }
                                 ]
+                              },
+                              "more": {
+                                "type": "object",
+                                "required": ["key", "tab"],
+                                "properties": {
+                                  "key": {
+                                    "type": "string"
+                                  },
+                                  "tab": {
+                                    "type": "string"
+                                  }
+                                }
                               },
                               "kind": {
                                 "type": "string",
@@ -39088,6 +39136,18 @@
                                   }
                                 ]
                               },
+                              "more": {
+                                "type": "object",
+                                "required": ["key", "tab"],
+                                "properties": {
+                                  "key": {
+                                    "type": "string"
+                                  },
+                                  "tab": {
+                                    "type": "string"
+                                  }
+                                }
+                              },
                               "kind": {
                                 "type": "string",
                                 "enum": ["heat"]
@@ -39253,6 +39313,18 @@
                                     "enum": ["main"]
                                   }
                                 ]
+                              },
+                              "more": {
+                                "type": "object",
+                                "required": ["key", "tab"],
+                                "properties": {
+                                  "key": {
+                                    "type": "string"
+                                  },
+                                  "tab": {
+                                    "type": "string"
+                                  }
+                                }
                               },
                               "kind": {
                                 "type": "string",
@@ -39548,6 +39620,18 @@
                                   }
                                 ]
                               },
+                              "more": {
+                                "type": "object",
+                                "required": ["key", "tab"],
+                                "properties": {
+                                  "key": {
+                                    "type": "string"
+                                  },
+                                  "tab": {
+                                    "type": "string"
+                                  }
+                                }
+                              },
                               "kind": {
                                 "type": "string",
                                 "enum": ["stat"]
@@ -39768,6 +39852,18 @@
                                     "enum": ["main"]
                                   }
                                 ]
+                              },
+                              "more": {
+                                "type": "object",
+                                "required": ["key", "tab"],
+                                "properties": {
+                                  "key": {
+                                    "type": "string"
+                                  },
+                                  "tab": {
+                                    "type": "string"
+                                  }
+                                }
                               },
                               "kind": {
                                 "type": "string",
@@ -40254,6 +40350,18 @@
                                   }
                                 ]
                               },
+                              "more": {
+                                "type": "object",
+                                "required": ["key", "tab"],
+                                "properties": {
+                                  "key": {
+                                    "type": "string"
+                                  },
+                                  "tab": {
+                                    "type": "string"
+                                  }
+                                }
+                              },
                               "kind": {
                                 "type": "string",
                                 "enum": ["checks"]
@@ -40555,6 +40663,18 @@
                                   }
                                 ]
                               },
+                              "more": {
+                                "type": "object",
+                                "required": ["key", "tab"],
+                                "properties": {
+                                  "key": {
+                                    "type": "string"
+                                  },
+                                  "tab": {
+                                    "type": "string"
+                                  }
+                                }
+                              },
                               "kind": {
                                 "type": "string",
                                 "enum": ["queues"]
@@ -40833,6 +40953,18 @@
                                     "enum": ["main"]
                                   }
                                 ]
+                              },
+                              "more": {
+                                "type": "object",
+                                "required": ["key", "tab"],
+                                "properties": {
+                                  "key": {
+                                    "type": "string"
+                                  },
+                                  "tab": {
+                                    "type": "string"
+                                  }
+                                }
                               },
                               "kind": {
                                 "type": "string",
@@ -41202,6 +41334,18 @@
                                   }
                                 ]
                               },
+                              "more": {
+                                "type": "object",
+                                "required": ["key", "tab"],
+                                "properties": {
+                                  "key": {
+                                    "type": "string"
+                                  },
+                                  "tab": {
+                                    "type": "string"
+                                  }
+                                }
+                              },
                               "kind": {
                                 "type": "string",
                                 "enum": ["nodes"]
@@ -41452,6 +41596,18 @@
                                     "enum": ["main"]
                                   }
                                 ]
+                              },
+                              "more": {
+                                "type": "object",
+                                "required": ["key", "tab"],
+                                "properties": {
+                                  "key": {
+                                    "type": "string"
+                                  },
+                                  "tab": {
+                                    "type": "string"
+                                  }
+                                }
                               },
                               "kind": {
                                 "type": "string",
@@ -41749,6 +41905,18 @@
                                   }
                                 ]
                               },
+                              "more": {
+                                "type": "object",
+                                "required": ["key", "tab"],
+                                "properties": {
+                                  "key": {
+                                    "type": "string"
+                                  },
+                                  "tab": {
+                                    "type": "string"
+                                  }
+                                }
+                              },
                               "kind": {
                                 "type": "string",
                                 "enum": ["facts"]
@@ -41955,6 +42123,18 @@
                                     "enum": ["main"]
                                   }
                                 ]
+                              },
+                              "more": {
+                                "type": "object",
+                                "required": ["key", "tab"],
+                                "properties": {
+                                  "key": {
+                                    "type": "string"
+                                  },
+                                  "tab": {
+                                    "type": "string"
+                                  }
+                                }
                               },
                               "kind": {
                                 "type": "string",
@@ -42262,6 +42442,18 @@
                                   }
                                 ]
                               },
+                              "more": {
+                                "type": "object",
+                                "required": ["key", "tab"],
+                                "properties": {
+                                  "key": {
+                                    "type": "string"
+                                  },
+                                  "tab": {
+                                    "type": "string"
+                                  }
+                                }
+                              },
                               "kind": {
                                 "type": "string",
                                 "enum": ["queue_alerts"]
@@ -42475,6 +42667,18 @@
                                     "enum": ["main"]
                                   }
                                 ]
+                              },
+                              "more": {
+                                "type": "object",
+                                "required": ["key", "tab"],
+                                "properties": {
+                                  "key": {
+                                    "type": "string"
+                                  },
+                                  "tab": {
+                                    "type": "string"
+                                  }
+                                }
                               },
                               "kind": {
                                 "type": "string",
@@ -42868,6 +43072,18 @@
                                   }
                                 ]
                               },
+                              "more": {
+                                "type": "object",
+                                "required": ["key", "tab"],
+                                "properties": {
+                                  "key": {
+                                    "type": "string"
+                                  },
+                                  "tab": {
+                                    "type": "string"
+                                  }
+                                }
+                              },
                               "kind": {
                                 "type": "string",
                                 "enum": ["tree"]
@@ -43206,6 +43422,18 @@
                                     "enum": ["main"]
                                   }
                                 ]
+                              },
+                              "more": {
+                                "type": "object",
+                                "required": ["key", "tab"],
+                                "properties": {
+                                  "key": {
+                                    "type": "string"
+                                  },
+                                  "tab": {
+                                    "type": "string"
+                                  }
+                                }
                               },
                               "kind": {
                                 "type": "string",

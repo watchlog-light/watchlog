@@ -744,6 +744,7 @@ function slowTable(
     layout: 'main',
     state: ids.length ? 'ok' : 'empty',
     note: { key: `${P}.slowHour.note` },
+    more: { key: `${P}.slowHour.all`, tab: 'operations' },
     columns: [
       `${P}.cols.shape`,
       `${P}.cols.collection`,

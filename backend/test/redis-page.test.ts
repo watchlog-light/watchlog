@@ -340,7 +340,7 @@ describe('the Redis page', () => {
       'flow',
       'summary',
       'memory',
-      'evictions',
+      'hits',
       'checks',
       'prefixes',
     ]);

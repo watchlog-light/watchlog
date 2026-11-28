@@ -136,7 +136,7 @@ describe('integrations collector ingest', () => {
         type: 'redis',
         name: 'shop/redis',
         members: [{ name: 'shop-redis-1', address: '127.0.0.1:16379' }],
-        settings: { query_text: true },
+        settings: { query_text: true, key_names: false },
       },
     ]);
     expect(res.headers.etag).toBe(`"${body.version}"`);

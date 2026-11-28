@@ -79,6 +79,8 @@ const base = {
   missing: Type.Optional(Text),
   note: Type.Optional(Text),
   layout: Type.Optional(Type.Union([Type.Literal('side'), Type.Literal('main')])),
+  /** A link in the header to the tab with the whole list (1.4: "All shapes →"). */
+  more: Type.Optional(Type.Object({ key: Type.String(), tab: Type.String() })),
 };
 
 export const PanelSchema = Type.Union([

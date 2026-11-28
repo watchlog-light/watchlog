@@ -32,6 +32,8 @@ interface Base {
    * e.g. RabbitMQ's health checks and the queues that need a look.
    */
   layout?: 'side' | 'main';
+  /** A link in the header to the tab with the whole list (1.4: "All shapes →"). */
+  more?: { key: string; tab: string };
 }
 
 /** A link on a panel (1.1.0): a workload or container page, a queue's page, a tab, the docs. */

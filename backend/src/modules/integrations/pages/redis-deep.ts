@@ -257,6 +257,7 @@ export async function overview(input: PageContext): Promise<Panel[]> {
     expireSeries,
     owners,
     prefixes,
+    hitSeries,
   ] = await Promise.all([
     instant(ctx, `max(watchlog_redis_memory_used_bytes{${s}})`),
     instant(ctx, `max(watchlog_redis_memory_max_bytes{${s}})`),
@@ -297,6 +298,10 @@ export async function overview(input: PageContext): Promise<Panel[]> {
     range(ctx, `sum(rate(watchlog_redis_expired_keys_total{${s}}[${RATE}]))`),
     ownersOf(ctx),
     prefixStats(ctx),
+    range(
+      ctx,
+      `sum(rate(watchlog_redis_keyspace_hits_total{${s}}[${RATE}])) / (sum(rate(watchlog_redis_keyspace_hits_total{${s}}[${RATE}])) + sum(rate(watchlog_redis_keyspace_misses_total{${s}}[${RATE}])) > 0)`,
+    ),
   ]);
   const ex = extraOf(ctx);
   const u = valueOf(used);
@@ -692,17 +697,16 @@ export async function overview(input: PageContext): Promise<Panel[]> {
       ],
     },
     {
-      id: 'evictions',
-      title: `${P}.charts.evictions`,
+      // The design's "Hit rate and evictions": the hit rate, with the moment evictions began
+      // marked (one unit a chart; evictions are the tile beside and the Memory tab's chart).
+      id: 'hits',
+      title: `${P}.charts.hitRate`,
       kind: 'line',
       span: 1,
-      unit: 'per_second',
-      state: evictSeries.length ? 'ok' : 'empty',
+      unit: 'ratio',
+      state: hitSeries.length ? 'ok' : 'empty',
       ...(markers.length ? { markers } : {}),
-      series: [
-        { nameKey: `${P}.series.evicted`, points: pointsOf(evictSeries[0]), severity: 'warning' },
-        { nameKey: `${P}.series.expired`, points: pointsOf(expireSeries[0]) },
-      ],
+      series: [{ nameKey: `${P}.series.hitRate`, points: pointsOf(hitSeries[0]) }],
     },
     checks,
     prefixTable(prefixes.rows, false),
@@ -719,6 +723,7 @@ function prefixTable(rows: PrefixStat[], full: boolean): TablePanel {
     ...(full ? {} : { layout: 'main' as const }),
     state: rows.length ? 'ok' : 'empty',
     note: { key: `${P}.prefixTable.note` },
+    ...(full ? {} : { more: { key: `${P}.prefixTable.all`, tab: 'memory' } }),
     columns: [
       `${P}.cols.prefix`,
       `${P}.cols.share`,

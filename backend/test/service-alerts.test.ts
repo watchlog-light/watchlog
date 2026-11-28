@@ -92,6 +92,10 @@ describe('alert rules for services', () => {
       'redis_replica_down',
       'redis_save_failed',
       'redis_blocked_clients',
+      'redis_evicting_new',
+      'redis_main_thread_busy',
+      'redis_stream_orphaned',
+      'redis_client_buffer',
     ]);
     // A type without its own defaults (Elasticsearch, after the launch) gets the generic two.
     expect(
@@ -110,7 +114,7 @@ describe('alert rules for services', () => {
     const rules = (await api('GET', '/alert-rules'))
       .json()
       .rules.filter((r: { service?: unknown }) => r.service);
-    expect(rules).toHaveLength(7);
+    expect(rules).toHaveLength(11);
     expect(
       rules
         .filter((r: { enabled: boolean }) => r.enabled)
