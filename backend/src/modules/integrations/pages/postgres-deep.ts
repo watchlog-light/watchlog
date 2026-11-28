@@ -525,7 +525,7 @@ export async function overview(
     },
     checks,
     {
-      id: 'costly',
+      id: 'slowest',
       title: `${P}.costly.title`,
       kind: 'statements',
       span: 1,
@@ -563,7 +563,8 @@ export async function statementsPanel(ctx: PageContext): Promise<Panel> {
     (a, b) => (stats.get(b)?.share ?? 0) - (stats.get(a)?.share ?? 0),
   );
   return {
-    id: 'statements',
+    // The id the permission note names (queries/top): without the source it says what to do.
+    id: 'top',
     title: `${P}.statements.title`,
     kind: 'statements',
     span: 2,

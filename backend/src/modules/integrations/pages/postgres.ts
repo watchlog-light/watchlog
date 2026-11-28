@@ -113,7 +113,7 @@ const duration = (s: number) =>
  * no capacity of its own). Growth per day from the last 7 days, once a day of history
  * exists (null before).
  */
-async function volumeOf(
+export async function volumeOf(
   ctx: PageContext,
 ): Promise<{ used: number; capacity: number; perDay: number | null; name: string } | null> {
   const t = ctx.row.target;

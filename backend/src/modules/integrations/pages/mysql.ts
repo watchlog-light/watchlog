@@ -4,8 +4,24 @@
 // series; statements (the digest summary), lock waits, clients and replica state from its
 // status. One type for both servers; the product comes from the server's version.
 import { genericPage } from './generic.js';
-import { ipOwners, type Owner } from './owners.js';
+import { bytes, ipOwners, type Owner } from './owners.js';
 import { instant, one, pointsOf, range, some, SPARK_RANGE, valueOf } from './query.js';
+import * as deep from './mysql-deep.js';
+import { volumeOf } from './postgres.js';
+import {
+  clientOf,
+  dominantWait,
+  longTxn,
+  memoryLimit,
+  MY,
+  ownersOf,
+  slowerSince,
+  statementFacts,
+  statementStats,
+  transactionsOf,
+  treeSessions,
+  waitsOver,
+} from './db-deep.js';
 import type { IntegrationPage, PageContext, Panel, Reason, RowMetrics, Severity } from './types.js';
 
 const P = 'integrations.mysql.panels';
@@ -71,8 +87,6 @@ function clientName(owners: Map<string, Owner>, addr: string, user?: string): st
   return user ? `${user}@${addr || 'local'}` : addr || 'local';
 }
 
-const ms = (seconds: number) =>
-  seconds >= 1 ? `${seconds.toFixed(2)} s` : `${(seconds * 1000).toFixed(1)} ms`;
 export const duration = (s: number) =>
   s >= 3600
     ? `${Math.floor(s / 3600)} h ${Math.round((s % 3600) / 60)} min`
@@ -93,142 +107,9 @@ function needs(ctx: PageContext, tab: string): Pick<Panel, 'state' | 'missing'> 
   };
 }
 
-function statementRows(list: Statement[], calls1h: Map<string, number>) {
-  return list.map((x) => ({
-    cells: [
-      x.query ?? `digest ${x.digest}`,
-      ms(x.mean),
-      Math.round(calls1h.get(x.digest) ?? 0),
-      ms(x.total),
-    ],
-    severity: x.mean > 1 ? ('warning' as Severity) : undefined,
-  }));
-}
-
-const commands = ['select', 'insert', 'update', 'delete', 'other'] as const;
-
+/** The Overview after the design (1.2, ADR-245). */
 async function overview(ctx: PageContext): Promise<Panel[]> {
-  const s = one(ctx.row.id);
-  const [
-    conns,
-    maxConn,
-    questions,
-    slow,
-    reads,
-    requests,
-    lag,
-    longest,
-    connSeries,
-    maxSeries,
-    byCommand,
-    calls1h,
-  ] = await Promise.all([
-    instant(ctx, `sum(watchlog_mysql_threads_connected{${s}})`),
-    instant(ctx, `max(watchlog_mysql_setting{${s}, name="max_connections"})`),
-    instant(ctx, `sum(rate(watchlog_mysql_questions_total{${s}}[${RATE}]))`),
-    instant(ctx, `sum(rate(watchlog_mysql_slow_queries_total{${s}}[${RATE}]))`),
-    instant(ctx, `sum(rate(watchlog_mysql_buffer_pool_reads_total{${s}}[15m]))`),
-    instant(ctx, `sum(rate(watchlog_mysql_buffer_pool_read_requests_total{${s}}[15m]))`),
-    instant(ctx, `max(watchlog_mysql_replica_lag_seconds{${s}})`),
-    instant(ctx, `max(watchlog_mysql_longest_query_seconds{${s}})`),
-    range(ctx, `sum(watchlog_mysql_threads_connected{${s}})`),
-    range(ctx, `max(watchlog_mysql_setting{${s}, name="max_connections"})`),
-    range(ctx, `sum by (command) (rate(watchlog_mysql_commands_total{${s}}[${RATE}]))`),
-    instant(ctx, `sum by (digest) (increase(watchlog_mysql_statement_calls_total{${s}}[1h]))`),
-  ]);
-  const c = valueOf(conns);
-  const m = valueOf(maxConn);
-  const rd = valueOf(reads) ?? 0;
-  const rq = valueOf(requests) ?? 0;
-  const lagS = valueOf(lag);
-  const long = valueOf(longest);
-  const callsBy = new Map(calls1h.map((x) => [x.labels.digest ?? '', x.points[0]?.[1] ?? 0]));
-  const slowest = [...(extra(ctx).statements ?? [])].sort((a, b) => b.mean - a.mean).slice(0, 10);
-  return [
-    {
-      id: 'summary',
-      title: `${P}.summary`,
-      kind: 'stat',
-      span: 2,
-      state: c === null ? 'empty' : 'ok',
-      tiles: [
-        {
-          id: 'connections',
-          labelKey: `${P}.connections`,
-          value: c,
-          unit: 'count',
-          sub: m ? { key: `${P}.ofMax`, values: { max: m } } : undefined,
-          severity: c !== null && m ? (c / m > 0.9 ? 'warning' : 'ok') : undefined,
-        },
-        { id: 'qps', labelKey: `${P}.qps`, value: valueOf(questions), unit: 'per_second' },
-        {
-          id: 'slow',
-          labelKey: `${P}.slowQueries`,
-          value: valueOf(slow),
-          unit: 'per_second',
-          severity: (valueOf(slow) ?? 0) > 0 ? 'warning' : undefined,
-        },
-        {
-          id: 'buffer',
-          labelKey: `${P}.bufferPoolHit`,
-          value: rq > 0 ? Math.max(0, 1 - rd / rq) : null,
-          unit: 'ratio',
-          severity: rq > 0 && rd > 10 && 1 - rd / rq < 0.9 ? 'warning' : undefined,
-        },
-        {
-          id: 'lag',
-          labelKey: `${P}.replicationLag`,
-          value: lagS,
-          unit: 'seconds',
-          sub: lagS === null ? { key: `${P}.notReplica` } : undefined,
-          severity: lagS !== null && lagS > LAG_LINE ? 'warning' : undefined,
-        },
-        {
-          id: 'longest',
-          labelKey: `${P}.longestQuery`,
-          value: long,
-          unit: 'seconds',
-          severity: long !== null && long > LONG_QUERY ? 'critical' : undefined,
-        },
-      ],
-    },
-    {
-      id: 'connections',
-      title: `${P}.connectionsOverTime`,
-      kind: 'line',
-      span: 1,
-      unit: 'count',
-      state: connSeries.length ? 'ok' : 'empty',
-      series: [
-        { nameKey: `${P}.series.connections`, points: pointsOf(connSeries[0]) },
-        ...(maxSeries[0]
-          ? [{ nameKey: `${P}.maxConnections`, points: pointsOf(maxSeries[0]), dashed: true }]
-          : []),
-      ],
-    },
-    {
-      id: 'statements',
-      title: `${P}.statementsByType`,
-      kind: 'stack',
-      span: 1,
-      unit: 'per_second',
-      state: byCommand.length ? 'ok' : 'empty',
-      series: commands.map((k) => ({
-        nameKey: `${P}.series.${k}`,
-        points: pointsOf(byCommand.find((x) => x.labels.command === k)),
-      })),
-    },
-    {
-      id: 'slowest',
-      title: `${P}.slowest`,
-      kind: 'table',
-      span: 2,
-      ...(needs(ctx, 'overview/slowest') ?? { state: slowest.length ? 'ok' : 'empty' }),
-      note: { key: `${P}.statementsNote` },
-      columns: [`${P}.cols.query`, `${P}.cols.mean`, `${P}.cols.calls1h`, `${P}.cols.total`],
-      rows: statementRows(slowest, callsBy),
-    } as Panel,
-  ];
+  return deep.overview(ctx, await volumeOf(ctx));
 }
 
 async function connections(ctx: PageContext): Promise<Panel[]> {
@@ -311,6 +192,7 @@ async function connections(ctx: PageContext): Promise<Panel[]> {
         { nameKey: `${P}.series.refused`, points: pointsOf(refused[0]), severity: 'critical' },
       ],
     },
+    ...(await deep.connectionsDeep(ctx)),
   ];
 }
 
@@ -343,7 +225,6 @@ async function queries(ctx: PageContext): Promise<Panel[]> {
     ),
   ]);
   const list = extra(ctx).statements ?? [];
-  const top = [...list].sort((a, b) => b.total - a.total).slice(0, 20);
   // The server's histogram (MySQL 8.0.19+), else statements by their mean (MariaDB).
   const cum = LE.map((le) => hist.find((x) => x.labels.le === le)?.points[0]?.[1] ?? 0);
   const totalH = cum.at(-1) ?? 0;
@@ -354,7 +235,6 @@ async function queries(ctx: PageContext): Promise<Panel[]> {
         share: Math.max(0, cum[i]! - (i ? cum[i - 1]! : 0)) / totalH,
       }))
     : meanBuckets(list);
-  const statementsMissing = needs(ctx, 'queries/top');
   return [
     {
       id: 'rows',
@@ -375,7 +255,7 @@ async function queries(ctx: PageContext): Promise<Panel[]> {
       span: 1,
       ...(fromHist
         ? { state: 'ok' }
-        : (statementsMissing ?? { state: list.length ? 'ok' : 'empty' })),
+        : (needs(ctx, 'queries/top') ?? { state: list.length ? 'ok' : 'empty' })),
       note: fromHist ? { key: `${P}.fromHistogram` } : { key: `${P}.byStatementMean` },
       buckets,
     } as Panel,
@@ -391,28 +271,7 @@ async function queries(ctx: PageContext): Promise<Panel[]> {
         { nameKey: `${P}.series.fullScans`, points: pointsOf(scans[0]) },
       ],
     },
-    {
-      id: 'top',
-      title: `${P}.topQueries`,
-      kind: 'table',
-      span: 2,
-      ...(statementsMissing ?? { state: top.length ? 'ok' : 'empty' }),
-      note: { key: `${P}.statementsNote` },
-      columns: [
-        `${P}.cols.query`,
-        `${P}.cols.total`,
-        `${P}.cols.mean`,
-        `${P}.cols.examinedPerCall`,
-      ],
-      rows: top.map((x) => ({
-        cells: [
-          x.query ?? `digest ${x.digest}`,
-          ms(x.total),
-          ms(x.mean),
-          x.calls ? +(x.rows_examined / x.calls).toFixed(1) : 0,
-        ],
-      })),
-    } as Panel,
+    await deep.statementsPanel(ctx),
   ];
 }
 
@@ -426,6 +285,7 @@ async function locks(ctx: PageContext): Promise<Panel[]> {
   ]);
   const blocking = [...(extra(ctx).blocking ?? [])].sort((a, b) => b.seconds - a.seconds);
   return [
+    ...(await deep.locksDeep(ctx)),
     {
       id: 'waits',
       title: `${P}.rowLockWaits`,
@@ -553,6 +413,7 @@ async function storage(ctx: PageContext): Promise<Panel[]> {
         }))
         .sort((a, b) => b.value - a.value),
     } as Panel,
+    ...(await deep.innodbDeep(ctx)),
   ];
 }
 
@@ -610,6 +471,7 @@ async function replication(ctx: PageContext): Promise<Panel[]> {
           : []),
       ],
     },
+    ...(await deep.replicationDeep(ctx, await volumeOf(ctx))),
   ];
 }
 
@@ -740,18 +602,185 @@ async function reasons(ctx: PageContext): Promise<Reason[]> {
     out.push({ severity: 'info', code: 'performance_schema_off', facts: {} });
   if (perms.some((p) => p.tab === 'storage/tables'))
     out.push({ severity: 'info', code: 'table_stats_unavailable', facts: {} });
+  out.push(...(await deepReasons(ctx, owners, valueOf(conns), valueOf(maxConn))));
+  return out;
+}
+
+/**
+ * The 1.2 findings (ADR-245): a statement far slower than its usual, a transaction open too
+ * long (with the history list it holds), the binary logs filling the disk, what the server
+ * mostly waits on, settings that hurt, a client leaking connections, the redo log nearly full.
+ */
+async function deepReasons(
+  ctx: PageContext,
+  owners: Awaited<ReturnType<typeof ownersOf>>,
+  c: number | null,
+  m: number | null,
+): Promise<Reason[]> {
+  const s = one(ctx.row.id);
+  const now = Math.floor(ctx.now / 1000);
+  const [stats, w15, settings, binlogGrowth, hll, redoUse, redoCap, mem, pool] = await Promise.all([
+    statementStats(ctx, MY),
+    waitsOver(ctx, MY, now, 900),
+    instant(
+      ctx,
+      `max by (name) (watchlog_mysql_setting{${s}, name=~"innodb_flush_log_at_trx_commit|sync_binlog|innodb_doublewrite|log_bin"})`,
+    ),
+    instant(ctx, `max(deriv(watchlog_mysql_binlog_bytes{${s}}[1h]))`),
+    instant(ctx, `max(watchlog_mysql_history_list_length{${s}})`),
+    instant(ctx, `max(watchlog_mysql_redo_in_use_bytes{${s}})`),
+    instant(ctx, `max(watchlog_mysql_redo_capacity_bytes{${s}})`),
+    memoryLimit(ctx),
+    instant(ctx, `max(watchlog_mysql_setting{${s}, name="innodb_buffer_pool_size"})`),
+  ]);
+  const out: Reason[] = [];
+  const facts = statementFacts(ctx, MY);
+  const slow = [...stats.values()]
+    .filter((x) => x.slower)
+    .sort((a, b) => (b.share ?? 0) - (a.share ?? 0))[0];
+  if (slow) {
+    const since = slow.usual ? await slowerSince(ctx, MY, slow.id, slow.usual) : null;
+    out.push({
+      severity: 'warning',
+      code: 'statement_slower',
+      facts: {
+        statement: slow.id,
+        query: (facts.get(slow.id)?.text ?? `digest ${slow.id}`).slice(0, 120),
+        x: Math.round(slow.slower!),
+        mean: duration(slow.mean ?? 0),
+        sinceAt: since,
+      },
+    });
+  }
+  const txn = transactionsOf(ctx).find(longTxn);
+  if (txn) {
+    const who = clientOf(owners, txn.addr, txn.app);
+    out.push({
+      severity: txn.blocks > 0 ? 'critical' : 'warning',
+      code: 'long_transaction',
+      facts: {
+        who: who.name,
+        holder: owners.has(txn.addr) ? who.name : null,
+        age: duration(txn.age),
+        idle: txn.idle ? duration(txn.idleFor) : null,
+        blocks: txn.blocks,
+        history: valueOf(hll),
+      },
+      ...(who.link && (who.link.kind === 'workload' || who.link.kind === 'container')
+        ? { links: [{ kind: who.link.kind, id: who.link.id, name: who.link.name }] }
+        : {}),
+    });
+  } else if ((valueOf(hll) ?? 0) > 1_000_000)
+    out.push({ severity: 'warning', code: 'history_list_long', facts: { n: valueOf(hll) } });
+  const g = valueOf(binlogGrowth) ?? 0;
+  if (g > 0) {
+    const vol = await volumeOf(ctx);
+    const eta = vol ? (vol.capacity - vol.used) / g : null;
+    if (eta !== null && eta < 7 * 86400)
+      out.push({
+        severity: eta < 86400 ? 'critical' : 'warning',
+        code: 'binlog_fills_disk',
+        facts: { eta: duration(eta) },
+      });
+  }
+  const top = dominantWait(w15);
+  if (top && top.wait !== 'cpu' && top.share >= 0.5 && w15.total >= 1)
+    out.push({
+      severity: top.wait === 'lock' ? 'warning' : 'info',
+      code: 'waits_mostly',
+      facts: {
+        pct: Math.round(top.share * 100),
+        wait: top.wait,
+        sessions: Math.round(w15.total * 10) / 10,
+      },
+    });
+  const set = new Map(settings.map((x) => [x.labels.name ?? '', x.points[0]?.[1] ?? null]));
+  if (
+    set.get('innodb_flush_log_at_trx_commit') !== undefined &&
+    set.get('innodb_flush_log_at_trx_commit') !== 1
+  )
+    out.push({
+      severity: 'warning',
+      code: 'setting_risky',
+      facts: { name: 'innodb_flush_log_at_trx_commit' },
+    });
+  if (set.get('log_bin') === 1 && set.get('sync_binlog') === 0)
+    out.push({ severity: 'warning', code: 'setting_risky', facts: { name: 'sync_binlog' } });
+  if (set.get('innodb_doublewrite') === 0)
+    out.push({ severity: 'warning', code: 'setting_risky', facts: { name: 'innodb_doublewrite' } });
+  const bp = valueOf(pool);
+  if (mem && bp && bp > 0.9 * mem)
+    out.push({
+      severity: 'info',
+      code: 'buffer_pool_vs_memory',
+      facts: { pool: bytes(bp), mem: bytes(mem) },
+    });
+  const ru = valueOf(redoUse);
+  const rc = valueOf(redoCap);
+  if (ru !== null && rc && ru / rc > 0.9)
+    out.push({
+      severity: 'warning',
+      code: 'redo_nearly_full',
+      facts: { pct: Math.round((ru / rc) * 100) },
+    });
+  // A client keeping many connections that all sleep: probably a leak.
+  if (c && m) {
+    const leak = (extra(ctx).clients ?? [])
+      .map((x) => x as unknown as Record<string, unknown>)
+      .filter(
+        (x) =>
+          Number(x.connections) >= 20 &&
+          Number(x.sleeping) === Number(x.connections) &&
+          Number(x.idle_min) >= 300,
+      )
+      .sort((a, b) => Number(b.connections) - Number(a.connections))[0];
+    if (leak && Number(leak.connections) / m >= 0.2) {
+      const who = clientOf(owners, String(leak.addr ?? ''), String(leak.user ?? ''));
+      out.push({
+        severity: c / m > 0.9 ? 'critical' : 'warning',
+        code: 'connection_leak',
+        facts: {
+          who: who.name,
+          holder: owners.has(String(leak.addr ?? '')) ? who.name : null,
+          n: Number(leak.connections),
+          idle: duration(Number(leak.idle_min)),
+          pct: Math.round((c / m) * 100),
+        },
+        ...(who.link && (who.link.kind === 'workload' || who.link.kind === 'container')
+          ? { links: [{ kind: who.link.kind, id: who.link.id, name: who.link.name }] }
+          : {}),
+      });
+    }
+  }
   return out;
 }
 
 export const mysqlPage: IntegrationPage = {
   id: 'mysql',
   tabs: [
+    // 1.2 (ADR-245): Overview, Queries, Waits, Connections, Locks, Replication, Tables,
+    // InnoDB, Alerts; a statement's and a table's page at their own addresses.
     { id: 'overview', title: 'integrations.mysql.tabs.overview', panels: overview },
-    { id: 'connections', title: 'integrations.mysql.tabs.connections', panels: connections },
     { id: 'queries', title: 'integrations.mysql.tabs.queries', panels: queries },
-    { id: 'locks', title: 'integrations.mysql.tabs.locks', panels: locks },
-    { id: 'storage', title: 'integrations.mysql.tabs.storage', panels: storage },
+    { id: 'waits', title: 'integrations.db.tabs.waits', panels: deep.waitsTab },
+    { id: 'connections', title: 'integrations.mysql.tabs.connections', panels: connections },
+    {
+      id: 'locks',
+      title: 'integrations.mysql.tabs.locks',
+      panels: locks,
+      count: async (ctx) => treeSessions(ctx).filter((t) => t.blockedBy.length).length || null,
+    },
     { id: 'replication', title: 'integrations.mysql.tabs.replication', panels: replication },
+    { id: 'tables', title: 'integrations.db.tabs.tables', panels: deep.tablesTab },
+    { id: 'storage', title: 'integrations.mysql.tabs.storage', panels: storage },
+    { id: 'alerts', title: 'integrations.db.tabs.alerts', panels: async () => [], view: 'alerts' },
+    {
+      id: 'statement',
+      title: 'integrations.db.tabs.statement',
+      panels: deep.statementPage,
+      hidden: true,
+    },
+    { id: 'table', title: 'integrations.db.tabs.table', panels: deep.tablePage, hidden: true },
     {
       id: 'connection',
       title: 'integrations.tabs.connection',
