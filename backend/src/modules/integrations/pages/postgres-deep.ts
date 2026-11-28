@@ -632,7 +632,7 @@ export async function waitsTab(input: PageContext): Promise<Panel[]> {
         },
         ...WAITS.map((w) => ({
           labelKey: `${P}.wait.${w}`,
-          value: over.total > 0 ? over.by[w] / over.total : 0,
+          value: over.total > 0 ? (over.by[w] ?? 0) / over.total : 0,
           unit: 'ratio' as const,
         })),
         ...(top && top.wait !== 'cpu' && top.share >= 0.5

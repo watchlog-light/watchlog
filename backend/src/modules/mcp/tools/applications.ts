@@ -126,6 +126,41 @@ const INTEGRATION_SENTENCES: Record<string, string> = {
   cache_pressure:
     'The WiredTiger cache is under pressure (facts.pct% used, facts.dirtyPct% dirty): operations wait for eviction.',
   operations_queued: 'Operations wait for a ticket (facts.n queued).',
+  collscan_fills_cache:
+    'Collection scans on facts.ns, sent by facts.client (facts.holder, its workload or container), fill the WiredTiger cache (facts.cachePct%): facts.perMin slow ones a minute, each reading about facts.examined documents.',
+  cursors_no_timeout:
+    'Cursors that never time out are idle (facts.n, on facts.ns, idle facts.idle): each keeps its resources until its client closes it.',
+  indexes_unused:
+    'Indexes unused since the server started (facts.n; the largest facts.index on facts.ns).',
+  access_control_off:
+    'Access control is off: anyone who reaches the port can read and change data.',
+  voting_members_even:
+    'The replica set has an even number of voting members (facts.n): it can split with no majority.',
+  single_member_set: 'The replica set (facts.set) has a single member: no failover.',
+  fcv_behind: 'The feature compatibility version (facts.fcv) is behind the binary (facts.version).',
+  mongos_only: "A mongos: only its own operations and connections are seen, not the shards'.",
+  // Redis and Valkey (1.4, ADR-247)
+  prefix_fills_memory:
+    'Keys under facts.prefix fill the memory (facts.pct%, from facts.from% two hours ago; facts.noTtl% without a TTL); keys are evicted (facts.evictPerMin a minute, policy facts.policy).',
+  main_thread_saturated:
+    'The main thread is saturated (facts.pct% of one core); the costliest command in the slow log is facts.cmd, sent by facts.client.',
+  save_wont_fit:
+    "The next save's fork needs about facts.need of copy-on-write and facts.left is left under the memory limit: it may be killed.",
+  stream_group_orphaned:
+    'A stream group (facts.group on facts.stream, lag facts.lag) has no consumer reading: facts.consumer has read nothing for facts.idle (facts.holder, its workload or container).',
+  client_buffer_near_limit:
+    'A client (facts.client) has its output buffer at facts.pct% of its facts.class limit: Redis disconnects it at the limit.',
+  backlog_short:
+    'The replication backlog (facts.size) holds about facts.seconds s of writes: a longer disconnect forces a full resync.',
+  cluster_unhealthy: 'The cluster is unhealthy: facts.failing slots fail.',
+  sentinel_master_down: 'Sentinel considers a master down.',
+  no_password: 'No password, and it listens on facts.bind.',
+  noeviction_cache:
+    'Policy noeviction on an instance used as a cache (facts.pct% of keys with a TTL): writes fail when full.',
+  no_persistence_store:
+    'No persistence at all on an instance used as a store: a restart loses facts.keys keys (facts.size).',
+  thp_always: 'Transparent huge pages are always on this host.',
+  overcommit_off: 'vm.overcommit_memory is 0 on this host: a save may fail to fork.',
   oplog_window_short:
     'The oplog holds only facts.duration of writes: a secondary down longer than that needs a full resync.',
   // Nginx

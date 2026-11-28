@@ -5832,6 +5832,22 @@
                       },
                       {
                         "type": "string",
+                        "enum": ["redis.evicted.new"]
+                      },
+                      {
+                        "type": "string",
+                        "enum": ["redis.main_thread.busy"]
+                      },
+                      {
+                        "type": "string",
+                        "enum": ["redis.stream.orphaned"]
+                      },
+                      {
+                        "type": "string",
+                        "enum": ["redis.client.buffer_ratio"]
+                      },
+                      {
+                        "type": "string",
                         "enum": ["postgres.connections"]
                       },
                       {
@@ -6009,6 +6025,26 @@
                       {
                         "type": "string",
                         "enum": ["mongodb.cache.ratio"]
+                      },
+                      {
+                        "type": "string",
+                        "enum": ["mongodb.statement.mean"]
+                      },
+                      {
+                        "type": "string",
+                        "enum": ["mongodb.statement.slower"]
+                      },
+                      {
+                        "type": "string",
+                        "enum": ["mongodb.members.unhealthy"]
+                      },
+                      {
+                        "type": "string",
+                        "enum": ["mongodb.cache.app_eviction"]
+                      },
+                      {
+                        "type": "string",
+                        "enum": ["mongodb.collscan.rate"]
                       },
                       {
                         "type": "string",
@@ -38041,6 +38077,37 @@
           },
           {
             "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 80
+            },
+            "in": "query",
+            "name": "prefix",
+            "required": false
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64,
+              "pattern": "^[a-zA-Z0-9|_-]+$"
+            },
+            "in": "query",
+            "name": "command",
+            "required": false
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 3,
+              "maxLength": 300
+            },
+            "in": "query",
+            "name": "group",
+            "required": false
+          },
+          {
+            "schema": {
               "type": "integer",
               "minimum": 0
             },
@@ -39346,6 +39413,25 @@
                                               "type": "string"
                                             }
                                           }
+                                        },
+                                        {
+                                          "type": "object",
+                                          "required": ["kind", "tab", "id", "name"],
+                                          "properties": {
+                                            "kind": {
+                                              "type": "string",
+                                              "enum": ["item"]
+                                            },
+                                            "tab": {
+                                              "type": "string"
+                                            },
+                                            "id": {
+                                              "type": "string"
+                                            },
+                                            "name": {
+                                              "type": "string"
+                                            }
+                                          }
                                         }
                                       ]
                                     }
@@ -39995,6 +40081,25 @@
                                                     "type": "string"
                                                   }
                                                 }
+                                              },
+                                              {
+                                                "type": "object",
+                                                "required": ["kind", "tab", "id", "name"],
+                                                "properties": {
+                                                  "kind": {
+                                                    "type": "string",
+                                                    "enum": ["item"]
+                                                  },
+                                                  "tab": {
+                                                    "type": "string"
+                                                  },
+                                                  "id": {
+                                                    "type": "string"
+                                                  },
+                                                  "name": {
+                                                    "type": "string"
+                                                  }
+                                                }
                                               }
                                             ]
                                           }
@@ -40298,6 +40403,25 @@
                                                   "enum": ["table"]
                                                 }
                                               ]
+                                            },
+                                            "id": {
+                                              "type": "string"
+                                            },
+                                            "name": {
+                                              "type": "string"
+                                            }
+                                          }
+                                        },
+                                        {
+                                          "type": "object",
+                                          "required": ["kind", "tab", "id", "name"],
+                                          "properties": {
+                                            "kind": {
+                                              "type": "string",
+                                              "enum": ["item"]
+                                            },
+                                            "tab": {
+                                              "type": "string"
                                             },
                                             "id": {
                                               "type": "string"
@@ -40823,6 +40947,25 @@
                                                   "enum": ["table"]
                                                 }
                                               ]
+                                            },
+                                            "id": {
+                                              "type": "string"
+                                            },
+                                            "name": {
+                                              "type": "string"
+                                            }
+                                          }
+                                        },
+                                        {
+                                          "type": "object",
+                                          "required": ["kind", "tab", "id", "name"],
+                                          "properties": {
+                                            "kind": {
+                                              "type": "string",
+                                              "enum": ["item"]
+                                            },
+                                            "tab": {
+                                              "type": "string"
                                             },
                                             "id": {
                                               "type": "string"
@@ -41471,6 +41614,25 @@
                                               "type": "string"
                                             }
                                           }
+                                        },
+                                        {
+                                          "type": "object",
+                                          "required": ["kind", "tab", "id", "name"],
+                                          "properties": {
+                                            "kind": {
+                                              "type": "string",
+                                              "enum": ["item"]
+                                            },
+                                            "tab": {
+                                              "type": "string"
+                                            },
+                                            "id": {
+                                              "type": "string"
+                                            },
+                                            "name": {
+                                              "type": "string"
+                                            }
+                                          }
                                         }
                                       ]
                                     }
@@ -41949,6 +42111,25 @@
                                               "enum": ["table"]
                                             }
                                           ]
+                                        },
+                                        "id": {
+                                          "type": "string"
+                                        },
+                                        "name": {
+                                          "type": "string"
+                                        }
+                                      }
+                                    },
+                                    {
+                                      "type": "object",
+                                      "required": ["kind", "tab", "id", "name"],
+                                      "properties": {
+                                        "kind": {
+                                          "type": "string",
+                                          "enum": ["item"]
+                                        },
+                                        "tab": {
+                                          "type": "string"
                                         },
                                         "id": {
                                           "type": "string"
@@ -42482,6 +42663,25 @@
                                                       "type": "string"
                                                     }
                                                   }
+                                                },
+                                                {
+                                                  "type": "object",
+                                                  "required": ["kind", "tab", "id", "name"],
+                                                  "properties": {
+                                                    "kind": {
+                                                      "type": "string",
+                                                      "enum": ["item"]
+                                                    },
+                                                    "tab": {
+                                                      "type": "string"
+                                                    },
+                                                    "id": {
+                                                      "type": "string"
+                                                    },
+                                                    "name": {
+                                                      "type": "string"
+                                                    }
+                                                  }
                                                 }
                                               ]
                                             }
@@ -42787,6 +42987,25 @@
                                                   "enum": ["table"]
                                                 }
                                               ]
+                                            },
+                                            "id": {
+                                              "type": "string"
+                                            },
+                                            "name": {
+                                              "type": "string"
+                                            }
+                                          }
+                                        },
+                                        {
+                                          "type": "object",
+                                          "required": ["kind", "tab", "id", "name"],
+                                          "properties": {
+                                            "kind": {
+                                              "type": "string",
+                                              "enum": ["item"]
+                                            },
+                                            "tab": {
+                                              "type": "string"
                                             },
                                             "id": {
                                               "type": "string"

@@ -2505,6 +2505,10 @@ export interface paths {
               | 'redis.blocked_clients'
               | 'redis.replica.down'
               | 'redis.save.failed'
+              | 'redis.evicted.new'
+              | 'redis.main_thread.busy'
+              | 'redis.stream.orphaned'
+              | 'redis.client.buffer_ratio'
               | 'postgres.connections'
               | 'postgres.connections.ratio'
               | 'postgres.transactions.rate'
@@ -2550,6 +2554,11 @@ export interface paths {
               | 'mongodb.slow_ops.rate'
               | 'mongodb.oplog.window'
               | 'mongodb.cache.ratio'
+              | 'mongodb.statement.mean'
+              | 'mongodb.statement.slower'
+              | 'mongodb.members.unhealthy'
+              | 'mongodb.cache.app_eviction'
+              | 'mongodb.collscan.rate'
               | 'kafka.partitions.offline'
               | 'kafka.partitions.under_replicated'
               | 'kafka.brokers.missing'
@@ -13762,6 +13771,9 @@ export interface paths {
           vhost?: string;
           statement?: string;
           table?: string;
+          prefix?: string;
+          command?: string;
+          group?: string;
           from?: number;
           to?: number;
         };
@@ -14038,6 +14050,13 @@ export interface paths {
                             kind: 'statement' | 'table';
                             id: string;
                             name: string;
+                          }
+                        | {
+                            /** @enum {string} */
+                            kind: 'item';
+                            tab: string;
+                            id: string;
+                            name: string;
                           };
                     }[];
                   }
@@ -14178,6 +14197,13 @@ export interface paths {
                               kind: 'statement' | 'table';
                               id: string;
                               name: string;
+                            }
+                          | {
+                              /** @enum {string} */
+                              kind: 'item';
+                              tab: string;
+                              id: string;
+                              name: string;
                             };
                       }[];
                       next?: number | null;
@@ -14248,6 +14274,13 @@ export interface paths {
                           }
                         | {
                             kind: 'statement' | 'table';
+                            id: string;
+                            name: string;
+                          }
+                        | {
+                            /** @enum {string} */
+                            kind: 'item';
+                            tab: string;
                             id: string;
                             name: string;
                           };
@@ -14350,6 +14383,13 @@ export interface paths {
                           }
                         | {
                             kind: 'statement' | 'table';
+                            id: string;
+                            name: string;
+                          }
+                        | {
+                            /** @enum {string} */
+                            kind: 'item';
+                            tab: string;
                             id: string;
                             name: string;
                           };
@@ -14480,6 +14520,13 @@ export interface paths {
                             kind: 'statement' | 'table';
                             id: string;
                             name: string;
+                          }
+                        | {
+                            /** @enum {string} */
+                            kind: 'item';
+                            tab: string;
+                            id: string;
+                            name: string;
                           };
                     }[];
                   }
@@ -14589,6 +14636,13 @@ export interface paths {
                           id: string;
                           name: string;
                         }
+                      | {
+                          /** @enum {string} */
+                          kind: 'item';
+                          tab: string;
+                          id: string;
+                          name: string;
+                        }
                     )[];
                   }
                 | {
@@ -14691,6 +14745,13 @@ export interface paths {
                               kind: 'statement' | 'table';
                               id: string;
                               name: string;
+                            }
+                          | {
+                              /** @enum {string} */
+                              kind: 'item';
+                              tab: string;
+                              id: string;
+                              name: string;
                             };
                       } | null;
                       hint?: {
@@ -14758,6 +14819,13 @@ export interface paths {
                           }
                         | {
                             kind: 'statement' | 'table';
+                            id: string;
+                            name: string;
+                          }
+                        | {
+                            /** @enum {string} */
+                            kind: 'item';
+                            tab: string;
                             id: string;
                             name: string;
                           };

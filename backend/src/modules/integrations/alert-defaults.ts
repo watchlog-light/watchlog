@@ -78,6 +78,37 @@ const BY_TYPE: Partial<Record<IntegrationType, ServiceAlertDefault[]>> = {
       condition: { op: '>', value: 0 },
       forSeconds: 120,
     },
+    // 1.4 (ADR-247).
+    {
+      key: 'redis_evicting_new',
+      name: 'Redis evicting keys where it evicted none the day before',
+      metric: 'redis.evicted.new',
+      condition: { op: '>', value: 0 },
+      forSeconds: 0,
+    },
+    {
+      key: 'redis_main_thread_busy',
+      name: 'Redis main thread saturated',
+      metric: 'redis.main_thread.busy',
+      condition: { op: '>', value: 0.9 },
+      forSeconds: 300,
+      severity: 'critical',
+    },
+    {
+      key: 'redis_stream_orphaned',
+      name: 'Redis stream group with lag and no consumer',
+      metric: 'redis.stream.orphaned',
+      condition: { op: '>', value: 0 },
+      forSeconds: 120,
+      severity: 'critical',
+    },
+    {
+      key: 'redis_client_buffer',
+      name: 'Redis client near its output-buffer limit',
+      metric: 'redis.client.buffer_ratio',
+      condition: { op: '>', value: 0.8 },
+      forSeconds: 60,
+    },
   ],
   postgres: [
     {
@@ -259,10 +290,34 @@ const BY_TYPE: Partial<Record<IntegrationType, ServiceAlertDefault[]>> = {
     },
     {
       key: 'mongodb_oplog_window',
-      name: 'MongoDB oplog window under 24 h',
+      // 12 h since 1.4 (24 h before; rules created then keep theirs).
+      name: 'MongoDB oplog window under 12 h',
       metric: 'mongodb.oplog.window',
-      condition: { op: '<', value: 86400 },
+      condition: { op: '<', value: 43200 },
       forSeconds: 600,
+    },
+    // 1.4 (ADR-247).
+    {
+      key: 'mongodb_member_unhealthy',
+      name: 'MongoDB member down or more than 60 s behind',
+      metric: 'mongodb.members.unhealthy',
+      condition: { op: '>', value: 0 },
+      forSeconds: 60,
+      severity: 'critical',
+    },
+    {
+      key: 'mongodb_app_eviction',
+      name: 'MongoDB application threads evicting from the cache',
+      metric: 'mongodb.cache.app_eviction',
+      condition: { op: '>', value: 0 },
+      forSeconds: 300,
+    },
+    {
+      key: 'mongodb_collscan_rate',
+      name: 'MongoDB collection scans above 100 a minute',
+      metric: 'mongodb.collscan.rate',
+      condition: { op: '>', value: 100 },
+      forSeconds: 300,
     },
   ],
   nginx: [

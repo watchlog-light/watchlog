@@ -1783,7 +1783,16 @@
     "mysql_statement_slower": "MySQL statement slower than usual (×)",
     "mysql_binlog_fill_eta": "MySQL binary logs fill the disk in",
     "mysql_history_list": "MySQL history list length",
-    "mysql_table_size": "MySQL table size"
+    "mysql_table_size": "MySQL table size",
+    "mongodb_cache_app_eviction": "MongoDB eviction by application threads",
+    "mongodb_collscan_rate": "MongoDB collection scans a minute",
+    "mongodb_members_unhealthy": "MongoDB members down or over 60 s behind",
+    "mongodb_statement_mean": "MongoDB operation shape mean time",
+    "mongodb_statement_slower": "MongoDB operation shape slower than usual (×)",
+    "redis_client_buffer_ratio": "Redis fullest client output buffer",
+    "redis_evicted_new": "Redis keys evicted, none the day before",
+    "redis_main_thread_busy": "Redis main thread busy",
+    "redis_stream_orphaned": "Redis stream groups with no consumer"
   },
   "combobox": {
     "noMatches": "No matches",
@@ -2604,7 +2613,14 @@
         "mysql_blocking": "When a session waits on a lock over 1 minute (critical)",
         "mysql_long_transaction": "When a transaction stays open over 30 minutes",
         "mysql_statement_slower": "When a top statement runs far slower than its usual for 10 minutes",
-        "mysql_binlog_fills_disk": "When the binary logs fill the disk within a day (critical)"
+        "mysql_binlog_fills_disk": "When the binary logs fill the disk within a day (critical)",
+        "mongodb_app_eviction": "Application threads evicting from the cache for 5 min",
+        "mongodb_collscan_rate": "Collection scans above 100 a minute",
+        "mongodb_member_unhealthy": "A member down or more than 60 s behind",
+        "redis_client_buffer": "A client near its output-buffer limit",
+        "redis_evicting_new": "Evicting keys where it evicted none the day before",
+        "redis_main_thread_busy": "The main thread saturated for 5 min",
+        "redis_stream_orphaned": "A stream group with lag and no consumer"
       }
     },
     "metricsError": "Key metrics couldn't be loaded.",
@@ -2821,8 +2837,8 @@
       "performance_schema_off": "performance_schema is off (MariaDB's default): statements and their latency stay empty. Set performance_schema=ON in the server's configuration and restart it.",
       "table_stats_unavailable": "WatchLog's user can't read mysql.innodb_table_stats: the largest tables stay empty. GRANT SELECT ON mysql.innodb_table_stats to it.",
       "no_primary": "The replica set {set} has no primary: writes fail until one is elected.",
-      "slow_collscan": "{perMin} slow operations a minute scan all of {ns} (mean {mean}): {client} sends most of them. An index on the fields it filters by would stop the scans.",
-      "cache_pressure": "The WiredTiger cache is under pressure ({pct}% used, {dirtyPct}% dirty): operations wait while it evicts.",
+      "slow_collscan": "Collection scans on {ns}: {perMin} slow ones a minute, each reading about {examined} documents. {client} sends them. An index on the fields it filters by would stop the scans.",
+      "cache_pressure": "The WiredTiger cache is under pressure ({pct}% used, {dirtyPct}% dirty): operations wait while application threads evict pages.",
       "operations_queued": "{n} operations wait for a read or write ticket.",
       "oplog_window_short": "The oplog holds only {duration} of writes: a secondary down longer than that needs a full resync.",
       "no_server_up": "{backend} has no server up: Traefik answers {answered} requests a second itself with 503 \"no available server\". What happened to {backend} is the cause.",
@@ -2863,7 +2879,28 @@
       "history_list_long": "InnoDB's history list is long ({n}): an old transaction keeps purge from cleaning up.",
       "binlog_fills_disk": "The binary logs fill the data volume in {eta} at their last hour's growth.",
       "buffer_pool_vs_memory": "innodb_buffer_pool_size ({pool}) is close to the memory the server may use ({mem}).",
-      "redo_nearly_full": "The redo log is {pct}% full: writes stall when the checkpoint can't keep up."
+      "redo_nearly_full": "The redo log is {pct}% full: writes stall when the checkpoint can't keep up.",
+      "collscan_fills_cache": "Collection scans on {ns}, sent by {client}, fill the cache: {perMin} slow ones a minute, each reading about {examined} documents, and the WiredTiger cache is at {cachePct}%. An index on the fields it filters by would stop them.",
+      "access_control_off": "Access control is off: WatchLog connected without a user, and so can anyone who reaches the port.",
+      "backlog_short": "The replication backlog ({size}) holds about {seconds} s of writes: a replica disconnected longer than that needs a full resync.",
+      "client_buffer_near_limit": "{client} has an output buffer at {pct}% of its {class} limit: Redis disconnects it when the limit is reached.",
+      "cluster_unhealthy": "The cluster is not healthy: {failing} slots are failing or unreachable, and keys in them can’t be read or written.",
+      "cursors_no_timeout": "{n} cursors that never time out are idle (on {ns}, idle {idle}): each keeps its resources until the client closes it.",
+      "fcv_behind": "The feature compatibility version is {fcv} on {version}: the new version’s features stay off until it is raised.",
+      "indexes_unused": "{n} indexes have not been used since the server started (largest: {index} on {ns}): each slows every write and takes cache.",
+      "main_thread_saturated": "The main thread is saturated ({pct}% of one core): Redis is at its limit whatever the memory says. The costliest command in the slow log is {cmd}, sent by {client}.",
+      "mongos_only": "This is a mongos: WatchLog sees its own operations and connections, not the shards’. Add each shard’s replica set as its own service.",
+      "no_password": "Redis needs no password and listens on {bind}: anyone who reaches the port can read and change every key.",
+      "no_persistence_store": "Nothing is saved to disk (no RDB, no AOF) and most keys have no TTL: a restart loses all {keys} keys ({size}).",
+      "noeviction_cache": "The policy is noeviction although {pct}% of the keys have a TTL, as in a cache: when memory is full, writes fail instead of old keys being evicted.",
+      "overcommit_off": "vm.overcommit_memory is 0 on this host: a save’s fork can fail when memory is short.",
+      "prefix_fills_memory": "Keys under {prefix} grew to {pct}% of memory (from {from}% two hours ago), and {noTtl}% of them have no TTL. Keys are being evicted ({evictPerMin} a minute, policy {policy}).",
+      "save_wont_fit": "The next save may be killed for memory: its fork needs about {need} of copy-on-write and {left} is left under the memory limit.",
+      "sentinel_master_down": "Sentinel considers a master down.",
+      "single_member_set": "The replica set {set} has a single member: there is no failover if it stops.",
+      "stream_group_orphaned": "Group {group} on {stream} is falling behind ({lag} entries): its consumer {consumer} has read nothing for {idle}.",
+      "thp_always": "Transparent huge pages are set to always on this host: Redis forks and frees memory more slowly.",
+      "voting_members_even": "The replica set has {n} voting members: an even number can split in two with no majority. Make it odd."
     },
     "page": {
       "since": "monitored since {at}",
@@ -2960,7 +2997,12 @@
         "memory": "Memory",
         "commands": "Commands",
         "clients": "Clients",
-        "persistence": "Persistence and replication"
+        "persistence": "Persistence",
+        "streams": "Streams",
+        "replication": "Replication",
+        "prefix": "Key prefix",
+        "command": "Command",
+        "group": "Stream group"
       },
       "panels": {
         "summary": "At a glance",
@@ -2986,7 +3028,47 @@
           "duration": "Duration",
           "client": "Client",
           "member": "Member",
-          "when": "When"
+          "when": "When",
+          "prefix": "Key prefix",
+          "share": "Share of memory",
+          "keys": "Keys",
+          "withTtl": "With a TTL",
+          "growth2h": "Growth, 2 h",
+          "type": "Type",
+          "key": "Key",
+          "size": "Size",
+          "elements": "Elements",
+          "callsPerSecond": "Calls /s",
+          "mean": "Mean",
+          "p50": "p50",
+          "p99": "p99",
+          "p999": "p99.9",
+          "failures": "Failures /s",
+          "sentBy": "Sent by",
+          "connections": "Connections",
+          "blocked": "Blocked",
+          "subscribed": "Subscribed",
+          "idle": "Idle",
+          "outputBuffer": "Output buffer",
+          "opened": "Opened, 30 s",
+          "lastCommand": "Last command",
+          "stream": "Stream",
+          "group": "Group",
+          "consumers": "Consumers active",
+          "lag": "Lag",
+          "pending": "Pending",
+          "oldestPending": "Oldest pending",
+          "consumer": "Consumer",
+          "lastRead": "Last read",
+          "master": "Master",
+          "status": "Status",
+          "address": "Address",
+          "replicas": "Replicas",
+          "sentinels": "Sentinels",
+          "node": "Node",
+          "role": "Role",
+          "health": "Health",
+          "slots": "Slots"
         },
         "breakdown": "Memory breakdown",
         "capacity": "Capacity",
@@ -3021,7 +3103,193 @@
           "expired": "Expired",
           "evicted": "Evicted",
           "connected": "Connected",
-          "blocked": "Blocked"
+          "blocked": "Blocked",
+          "mainThread": "main thread",
+          "process": "whole process",
+          "oneCore": "one core",
+          "used": "used",
+          "keys": "keys",
+          "noTtl": "without a TTL",
+          "withTtl": "with a TTL",
+          "received": "connections opened",
+          "rejected": "refused",
+          "aof": "AOF size",
+          "changes": "changes",
+          "failures": "failures",
+          "lag": "lag",
+          "pending": "pending"
+        },
+        "flow": {
+          "title": "Command flow, now",
+          "note": "who connects, what they run, what it does to memory",
+          "runs": "{n} · {cmd}",
+          "commands": "Commands",
+          "cmdPerSecond": "cmd/s",
+          "slowest": "slowest",
+          "slowestText": "{cmd} · {ms} ms",
+          "hit": "hit rate",
+          "memory": "Memory",
+          "ofMaxmemory": "of maxmemory",
+          "noMax": "no maxmemory",
+          "grew": "{pct}% ↑",
+          "fragmentation": "fragmentation",
+          "evicted": "evicted",
+          "perMin": "{n}/min",
+          "persistence": "Persistence",
+          "persistenceReplica": "Persistence · replica",
+          "sinceSave": "since the last save",
+          "aof": "AOF",
+          "aofOk": "on, healthy",
+          "aofFailed": "on, failing",
+          "off": "off",
+          "replica": "replica",
+          "inSync": "in sync · {size}",
+          "noReplica": "no replica",
+          "linkUp": "link up",
+          "linkDown": "link down",
+          "blocked": "blocked clients"
+        },
+        "tiles": {
+          "ofMax": "{used} of {max}",
+          "was": "usual {pct}%",
+          "commands": "Commands",
+          "usual": "usual {n}/s",
+          "evicted": "Evicted a minute",
+          "yesterday": "{n} a minute yesterday",
+          "ofMaxclients": "of maxclients {n}",
+          "ttl": "Keys with a TTL",
+          "prefixTtl": "{prefix} has {pct}%"
+        },
+        "charts": {
+          "memory": "Memory against maxmemory",
+          "evictions": "Evicted and expired keys"
+        },
+        "marker": {
+          "evictions": "{at} evictions start"
+        },
+        "checks": {
+          "memory": "Memory under 90% of maxmemory",
+          "noMax": "no maxmemory",
+          "evicted": "No keys evicted",
+          "perMin": "{n} a minute",
+          "slowlog": "No KEYS or other O(N) command in the slow log",
+          "times": "{cmd} · {n} times",
+          "maxmemory": "maxmemory is set",
+          "maxOf": "{size} · {policy}",
+          "notSet": "not set",
+          "replica": "Replica connected and in sync",
+          "behind": "{size} behind",
+          "save": "Last save succeeded",
+          "ago": "{ago}",
+          "never": "no save yet",
+          "rejected": "No client refused at maxclients",
+          "n": "{n}",
+          "fragmentation": "Fragmentation under 1.5",
+          "ratio": "{r}"
+        },
+        "prefixTable": {
+          "title": "What fills the memory",
+          "note": "from a sample of key names, at most 20,000 every 10 minutes; values are never read",
+          "sampled": "{n} key names in the last sample; values are never read"
+        },
+        "largest": {
+          "title": "Largest sampled keys",
+          "note": "names only with “Show key names” on; otherwise the largest of each prefix"
+        },
+        "mem": {
+          "fullIn": "full in {d} at the last hour’s growth",
+          "noTtl": "Keys without a TTL",
+          "noTtlNote": "they stay until deleted or evicted"
+        },
+        "mainThread": {
+          "title": "The main thread",
+          "note": "share of one core, Redis’s own counter: near 100% Redis is saturated whatever the memory says"
+        },
+        "commandTable": {
+          "title": "Commands",
+          "note": "15 minutes; percentiles from INFO latencystats",
+          "noPercentiles": "15 minutes; percentiles need Redis 7 or later"
+        },
+        "clientTable": {
+          "title": "Clients by workload",
+          "note": "CLIENT LIST every 30 s; the output buffer against its class’s limit (normal, pubsub)"
+        },
+        "clientChurn": "Connections opened and refused",
+        "streams": {
+          "groups": "Consumer groups",
+          "groupsNote": "streams found by the key sampler; lag needs Redis 7 or later",
+          "length": "Stream length",
+          "lag": "Group lag",
+          "lagNote": "entries not yet delivered to the group",
+          "consumers": "Consumers",
+          "consumersNote": "when each last read; one quiet for 5 minutes is gone"
+        },
+        "persist": {
+          "duration": "Last save took",
+          "fork": "Fork took",
+          "saveOff": "saving is off",
+          "nextSave": "Does the next save fit?",
+          "nextSaveNote": "the last save’s copy-on-write against the memory left under the limit",
+          "noLimit": "needs a memory limit WatchLog can see (a container’s or a systemd service’s)",
+          "cow": "Copy-on-write of the last save",
+          "left": "Memory left under the limit",
+          "verdict": "Verdict",
+          "fits": "fits",
+          "wontFit": "may be killed for memory",
+          "aofSize": "AOF size",
+          "aofNote": "{rewrites} rewrites and {delayed} delayed fsyncs in this range",
+          "aofOff": "AOF is off"
+        },
+        "latencyEvents": {
+          "title": "Latency events",
+          "note": "from the latency monitor (LATENCY LATEST): the latest of each event",
+          "off": "The latency monitor is off: CONFIG SET latency-monitor-threshold 100 turns it on (events over 100 ms).",
+          "event": "{event}: {ms} ms (max {max} ms)",
+          "source": "latency monitor"
+        },
+        "replicationTab": {
+          "role": "Role",
+          "replicas": "{n} replicas online",
+          "link": "Link to the primary",
+          "isPrimary": "this is the primary",
+          "downFor": "down for {d}",
+          "backlog": "Backlog covers",
+          "backlogOf": "{size} of writes",
+          "writes": "Writes",
+          "roleChanges": "Role changes",
+          "becamePrimary": "{member} became primary",
+          "becameReplica": "{member} became a replica",
+          "source": "replication"
+        },
+        "sentinel": {
+          "title": "Sentinel’s masters",
+          "note": "as this Sentinel sees them"
+        },
+        "cluster": {
+          "title": "Cluster",
+          "state": "State",
+          "assigned": "Slots assigned",
+          "failing": "Slots failing",
+          "imbalance": "Most slots against fewest",
+          "nodes": "Nodes",
+          "nodesNote": "CLUSTER SHARDS (Redis 7 or later)"
+        },
+        "prefix": {
+          "facts": "This prefix",
+          "memory": "Memory",
+          "share2h": "Share two hours ago",
+          "sampledAt": "Last sample",
+          "memoryOverTime": "Memory",
+          "keysOverTime": "Keys"
+        },
+        "command": {
+          "facts": "This command",
+          "callsOverTime": "Calls and failures a second",
+          "latencyOverTime": "Latency"
+        },
+        "group": {
+          "facts": "This group",
+          "consumers": "Consumers active"
         }
       },
       "missing": {
@@ -3034,10 +3302,17 @@
           "prefixes": "Add {missing} to the user's ACL (key names only; values are never read)."
         },
         "commands": {
-          "latency": "Add {missing} to the user's ACL."
+          "latency": "Add {missing} to the user's ACL.",
+          "slowlog": "Add {missing} to the user's ACL."
         },
         "clients": {
           "by-workload": "Add {missing} to the user's ACL."
+        },
+        "streams": {
+          "groups": "Add {missing} to the user's ACL (stream metadata only; entries are never read)."
+        },
+        "replication": {
+          "cluster": "Add {missing} to the user's ACL."
         }
       }
     },
@@ -3296,7 +3571,12 @@
       "tabs": {
         "overview": "Overview",
         "operations": "Operations",
-        "storage": "Cache and storage"
+        "storage": "Cache and storage",
+        "clients": "Clients",
+        "collection": "Collection",
+        "collections": "Collections",
+        "replica": "Replica set",
+        "shape": "Operation shape"
       },
       "panels": {
         "summary": "At a glance",
@@ -3345,7 +3625,25 @@
           "count": "Count",
           "plan": "Plan",
           "client": "Client",
-          "index": "Index"
+          "index": "Index",
+          "docsRead": "Docs read",
+          "fields": "Fields",
+          "examinedPerReturned": "Examined per returned",
+          "app": "Application",
+          "opened": "Opened, 30 s",
+          "activeNow": "Active now",
+          "idleFor": "Idle for",
+          "ping": "Heartbeat",
+          "priority": "Priority",
+          "votes": "Votes",
+          "size": "Size",
+          "data": "Data",
+          "documents": "Documents",
+          "avgDoc": "Average document",
+          "reusable": "Reusable",
+          "growth": "Growth",
+          "coveredBy": "Covered by",
+          "progress": "Progress"
         },
         "series": {
           "query": "Queries",
@@ -3355,7 +3653,177 @@
           "getmore": "Get more",
           "command": "Commands",
           "read": "Read",
-          "write": "Write"
+          "write": "Write",
+          "p95": "p95",
+          "p50": "p50",
+          "used": "used",
+          "dirty": "dirty",
+          "evictionLine": "eviction threshold 95%",
+          "appEviction": "eviction by application threads",
+          "checkpoint": "last checkpoint",
+          "faults": "page faults",
+          "docsExamined": "documents examined",
+          "keysExamined": "keys examined",
+          "returned": "returned",
+          "documents": "documents",
+          "lagged": "flow control engaged",
+          "opened": "opened",
+          "ops": "operations",
+          "queued": "queued",
+          "seconds": "seconds spent"
+        },
+        "flow": {
+          "title": "Operation flow, now",
+          "note": "who sends, what runs, where it lands",
+          "operations": "Operations",
+          "opsPerSecond": "ops/s",
+          "scans": "collection scans",
+          "perMin": "{n}/min",
+          "p95read": "p95 read",
+          "queued": "queued for a ticket",
+          "reads": "reads",
+          "replicaSet": "Replica set · {n}",
+          "standalone": "Standalone",
+          "behind": "behind at most",
+          "secondaryLag": "secondary · {lag}",
+          "state": "{state}",
+          "oplog": "oplog window",
+          "storage": "Cache and storage",
+          "ofCache": "of cache",
+          "dirty": "dirty",
+          "data": "data"
+        },
+        "tiles": {
+          "ops": "Operations",
+          "usual": "usual {n}/s",
+          "lastHour": "in the last hour",
+          "worstSecondary": "worst secondary",
+          "evicting": "application threads evict",
+          "dirty": "{pct}% dirty",
+          "dayOff": "enough for a day off",
+          "underDay": "less than a day"
+        },
+        "charts": {
+          "latency": "Read latency",
+          "latencyNote": "p50 and p95, from the server’s latency histograms",
+          "cache": "WiredTiger cache",
+          "cacheNote": "used and dirty, as a share of the cache; eviction works hard above 95% used"
+        },
+        "marker": {
+          "scans": "{at} scans start"
+        },
+        "checks": {
+          "collscan": "No collection scan over 100 ms",
+          "perMin": "{n} a minute",
+          "cache": "Cache under 90%",
+          "queued": "No operation queued for a ticket",
+          "queuedN": "{n} queued",
+          "primary": "The set has a primary",
+          "name": "{name}",
+          "members": "Every member is up",
+          "ofUp": "{n} of {of}",
+          "lag": "Secondaries within 10 s",
+          "oplog": "Oplog covers more than 24 h"
+        },
+        "slowHour": {
+          "title": "Slow operations, last hour",
+          "note": "by shape: field names and operators, values are ?"
+        },
+        "shapes": {
+          "title": "Operation shapes by their share of the time",
+          "source": {
+            "slowlog": "source: the slow log, which sees only operations over slowms (100 ms by default); faster ones appear when the 15-second sample catches them running",
+            "querystats": "source: $queryStats, every operation the server counted",
+            "none": "no source yet: the slow log has no operation and $queryStats has no rows"
+          }
+        },
+        "missingIndex": {
+          "title": "Probably missing an index",
+          "note": "shapes that scan a collection or examine 100 documents or more for each one they return; fields only with query text on"
+        },
+        "waits": {
+          "note": "what each active operation did in $currentOp, sampled every 15 s",
+          "noteOld": "what each active operation did in $currentOp, sampled every 15 s; before 8.0 a ticket wait counts as running",
+          "average": "Active operations on average",
+          "byShape": "Shapes by active operations",
+          "byClient": "Clients by active operations",
+          "byClientNote": "the average number of operations each client had running, and on what they waited most"
+        },
+        "clients": {
+          "note": "from $currentOp’s connections, read every 30 s; opened: connections not there at the last read",
+          "connections": "Connections",
+          "churn": "Connections opened",
+          "churnNote": "all clients, a second"
+        },
+        "transactions": {
+          "title": "Open transactions",
+          "note": "the server aborts a transaction at its lifetime limit (60 s by default)"
+        },
+        "cursors": {
+          "title": "Idle cursors that never time out",
+          "note": "{n} open now; $currentOp names their collection, not their client"
+        },
+        "replica": {
+          "lagLine": "10 s",
+          "ping": "Heartbeat round trip",
+          "pingNote": "between this member and the others",
+          "oplog": "Oplog",
+          "oplogUsed": "Used",
+          "oplogMax": "Size",
+          "fills": "Fills",
+          "fullHolds": "full: holds {d} of writes",
+          "perHour": "{size} an hour",
+          "rollbacks": "Rollbacks in this range",
+          "elections": "Elections",
+          "electionsNote": "when a member became primary, and why, as the new primary says",
+          "elected": "{member} became primary ({reason})",
+          "electedNoReason": "{member} became primary",
+          "source": "replica set",
+          "flowControl": "Flow control",
+          "flowControlNote": "the primary slows writes while the majority lags",
+          "flowControlZero": "Flow control was not engaged in this range."
+        },
+        "collections": {
+          "title": "Collections",
+          "note": "the 100 largest, read every 10 minutes ($collStats)"
+        },
+        "indexes": {
+          "unusedNote": "unused on every member since it started ($indexStats); _id is left out",
+          "redundant": "Redundant indexes",
+          "redundantNote": "its keys are the start of a longer index’s, which serves the same queries",
+          "builds": "Index builds in progress"
+        },
+        "storage": {
+          "cacheOverTime": "Cache over time",
+          "eviction": "Eviction by application threads",
+          "evictionTime": "time a second spent by operations evicting pages themselves (8.0)",
+          "evictionPages": "pages a second evicted by operations themselves",
+          "evictionZero": "Application threads did no eviction in this range.",
+          "checkpoint": "Checkpoint duration",
+          "checkpointNote": "how long the last checkpoint took",
+          "faults": "Page faults",
+          "faultsNote": "a second; many mean the data doesn’t fit in memory",
+          "indexes": "All indexes",
+          "indexesNote": "against the cache: they compete with the data for it"
+        },
+        "shape": {
+          "facts": "This shape",
+          "collection": "Collection",
+          "plan": "Plan",
+          "examinedPerReturned": "Documents examined for each one returned",
+          "callsOverTime": "Calls and documents returned a second",
+          "examined": "What it reads",
+          "examinedNote": "a second: documents and index keys examined against documents returned",
+          "sendersNote": "the clients seen running it or sending it slowly, in the last hour"
+        },
+        "collection": {
+          "facts": "This collection",
+          "name": "Collection",
+          "indexes": "Indexes",
+          "sizeOverTime": "Size",
+          "documentsOverTime": "Documents",
+          "time": "Operations and time a second",
+          "shapes": "Shapes on it"
         }
       },
       "missing": {
@@ -3367,11 +3835,26 @@
         "operations": {
           "slow": "WatchLog's user needs {missing} for this panel: grant it the clusterMonitor role.",
           "clients": "WatchLog's user needs {missing} for this panel: grant it the clusterMonitor role.",
-          "busiest": "WatchLog's user needs {missing} for this panel: grant it the clusterMonitor role."
+          "busiest": "WatchLog's user needs {missing} for this panel: grant it the clusterMonitor role.",
+          "top": "WatchLog's user needs {missing} for this panel: grant it the clusterMonitor role."
         },
         "storage": {
           "collections": "WatchLog's user needs {missing} for this panel: grant it the clusterMonitor role.",
           "indexes": "WatchLog's user needs {missing} for this panel: grant it the clusterMonitor role."
+        },
+        "replica": {
+          "members": "WatchLog's user needs {missing} for this panel: grant it the clusterMonitor role.",
+          "oplog": "WatchLog's user needs {missing} for this panel: grant it the clusterMonitor role."
+        },
+        "clients": {
+          "clients": "WatchLog's user needs {missing} for this panel: grant it the clusterMonitor role."
+        },
+        "collections": {
+          "collections": "WatchLog's user needs {missing} for this panel: grant it the clusterMonitor role.",
+          "unused": "WatchLog's user needs {missing} for this panel: grant it the clusterMonitor role."
+        },
+        "waits": {
+          "waits": "WatchLog's user needs {missing} for this panel: grant it the clusterMonitor role."
         }
       }
     },
@@ -3883,7 +4366,10 @@
           "io": "I/O",
           "lock": "a lock",
           "client": "the client",
-          "other": "other"
+          "other": "other",
+          "running": "running",
+          "ticket": "a ticket",
+          "flow_control": "flow control"
         },
         "waitsSummary": {
           "title": "In this period",

@@ -806,16 +806,23 @@ export const applicationRoutes: FastifyPluginAsyncTypebox<{
         page: {
           id: page.id,
           // A sub-page (a queue) has its own address, not a tab.
-          tabs: await Promise.all(
-            page.tabs
-              .filter((t) => !t.hidden)
-              .map(async (t) => ({
-                id: t.id,
-                title: t.title,
-                ...(t.view ? { view: t.view } : {}),
-                ...(t.count ? { count: await soft(t.count(ctx), null) } : {}),
-              })),
-          ),
+          // A tab shown only when it has something (1.4: Redis's Streams) is left out otherwise.
+          tabs: (
+            await Promise.all(
+              page.tabs
+                .filter((t) => !t.hidden)
+                .map(async (t) =>
+                  t.onlyWhen && !(await soft(t.onlyWhen(ctx), true))
+                    ? null
+                    : {
+                        id: t.id,
+                        title: t.title,
+                        ...(t.view ? { view: t.view } : {}),
+                        ...(t.count ? { count: await soft(t.count(ctx), null) } : {}),
+                      },
+                ),
+            )
+          ).filter((t) => t !== null),
         },
         range,
         ...(install &&
@@ -854,6 +861,12 @@ export const applicationRoutes: FastifyPluginAsyncTypebox<{
           ),
           /** A database's table page (tab=table): "db/schema.table" (1.2). */
           table: Type.Optional(Type.String({ minLength: 1, maxLength: 300 })),
+          /** Redis's item pages (1.4): a key prefix, a command, a stream and group ("stream\u0000group"). */
+          prefix: Type.Optional(Type.String({ minLength: 1, maxLength: 80 })),
+          command: Type.Optional(
+            Type.String({ minLength: 1, maxLength: 64, pattern: '^[a-zA-Z0-9|_-]+$' }),
+          ),
+          group: Type.Optional(Type.String({ minLength: 3, maxLength: 300 })),
           /** The Waits tab's chosen period, unix seconds (1.2). */
           from: Type.Optional(Type.Integer({ minimum: 0 })),
           to: Type.Optional(Type.Integer({ minimum: 0 })),
@@ -875,11 +888,14 @@ export const applicationRoutes: FastifyPluginAsyncTypebox<{
       const range = rangeOf(request.query.range);
       if (range === null)
         return sendProblem(reply, 400, 'range is one of 3600, 21600, 86400, 604800');
-      const { queue, vhost, statement, table, from, to } = request.query;
+      const { queue, vhost, statement, table, prefix, command, group, from, to } = request.query;
       const params: Record<string, string> = {
         ...(queue ? { queue, vhost: vhost ?? '/' } : {}),
         ...(statement ? { statement } : {}),
         ...(table ? { table } : {}),
+        ...(prefix ? { prefix } : {}),
+        ...(command ? { command } : {}),
+        ...(group ? { group } : {}),
         ...(from !== undefined && to !== undefined ? { from: String(from), to: String(to) } : {}),
       };
       const found = await contextOf(

@@ -43,7 +43,9 @@ export type Link =
   /** A database's statement page (1.2): its queryid or digest. */
   | { kind: 'statement'; id: string; name: string }
   /** A database's table page (1.2): "db/schema.table" or "db/table". */
-  | { kind: 'table'; id: string; name: string };
+  | { kind: 'table'; id: string; name: string }
+  /** Another item page at its own address (1.4: Redis's prefix, command, stream group). */
+  | { kind: 'item'; tab: string; id: string; name: string };
 
 export interface SeriesPanel extends Base {
   kind: 'line' | 'stack';
@@ -392,6 +394,8 @@ export interface TabDef {
   view?: 'alerts';
   /** A number beside the title ("Queues · 42"), when it is cheap to know. */
   count?(ctx: PageContext): Promise<number | null>;
+  /** Shown only when this says so (1.4: Redis's Streams tab, when there are streams). */
+  onlyWhen?(ctx: PageContext): Promise<boolean>;
 }
 
 export interface ListContext {

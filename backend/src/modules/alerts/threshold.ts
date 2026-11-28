@@ -109,7 +109,11 @@ export async function resolveScope(
   }
   if (scope.statement) {
     q.statement = scope.statement;
-    q.statementLabel = metric?.startsWith('mysql.') ? 'digest' : 'queryid';
+    q.statementLabel = metric?.startsWith('mysql.')
+      ? 'digest'
+      : metric?.startsWith('mongodb.')
+        ? 'shape'
+        : 'queryid';
   }
   if (scope.table) q.table = scope.table;
   // A database's data volume, for the fill-the-disk metrics (1.2): of one service only.

@@ -41,7 +41,7 @@ export interface QueryScope {
    * label follows the metric (resolveScope).
    */
   statement?: string;
-  statementLabel?: 'queryid' | 'digest';
+  statementLabel?: 'queryid' | 'digest' | 'shape';
   /** One database table (1.2): its series carry db and table ("db/schema.table"). */
   table?: string;
   /**
@@ -738,6 +738,34 @@ const ENTRIES = {
     expr: (s) =>
       `max by (service, service_type) ((1 - watchlog_redis_rdb_last_save_ok${s()}) or (1 - watchlog_redis_aof_last_write_ok${s()}))`,
   },
+  // 1.4 (ADR-247): evictions where there were none, the main thread, streams, buffers.
+  /** Keys evicted a second, on an instance that evicted none the day before. */
+  'redis.evicted.new': {
+    unit: 'per_second',
+    agg: 'max',
+    expr: (s, r) =>
+      `(sum by (service, service_type) (rate(watchlog_redis_evicted_keys_total${s()}[${r}])) > 0) and on (service, service_type) (sum by (service, service_type) (increase(watchlog_redis_evicted_keys_total${s()}[1d] offset 1h)) == 0)`,
+  },
+  /** The main thread's share of one core (Redis's own counter). */
+  'redis.main_thread.busy': {
+    unit: 'ratio',
+    agg: 'max',
+    expr: (s, r) =>
+      `max by (service, service_type) (rate(watchlog_redis_main_thread_cpu_seconds_total${s()}[${r}]))`,
+  },
+  /** Stream groups with entries waiting and no consumer that read in 5 minutes. */
+  'redis.stream.orphaned': {
+    unit: 'count',
+    agg: 'max',
+    expr: (s) =>
+      `count by (service, service_type) (((max by (service, service_type, stream, group) (watchlog_redis_stream_group_pending${s()}) > 0) or (max by (service, service_type, stream, group) (watchlog_redis_stream_group_lag${s()}) > 0)) and on (service, service_type, stream, group) (max by (service, service_type, stream, group) (watchlog_redis_stream_group_active_consumers${s()}) == 0))`,
+  },
+  /** The fullest client output buffer against its class's limit. */
+  'redis.client.buffer_ratio': {
+    unit: 'ratio',
+    agg: 'max',
+    expr: (s) => `max by (service, service_type) (watchlog_redis_client_output_buffer_ratio${s()})`,
+  },
   // PostgreSQL (v0.3 slice 8, SPEC §4.12).
   'postgres.connections': {
     unit: 'count',
@@ -1026,6 +1054,41 @@ const ENTRIES = {
     agg: 'max',
     expr: (s) =>
       `max by (service, service_type, member) (watchlog_mongodb_cache_bytes${s('state="used"')}) / on (service, service_type, member) (max by (service, service_type, member) (watchlog_mongodb_cache_bytes${s('state="max"')}) > 0)`,
+  },
+  // 1.4 (ADR-247): shapes, unhealthy members, eviction by application threads, scans.
+  /** Each top shape's mean time (a shape's own alert). */
+  'mongodb.statement.mean': {
+    unit: 'seconds',
+    agg: 'max',
+    expr: (s, r) =>
+      `sum by (service, service_type, shape) (rate(watchlog_mongodb_statement_seconds_total${s()}[${r}])) / (sum by (service, service_type, shape) (rate(watchlog_mongodb_statement_calls_total${s()}[${r}])) > 0)`,
+  },
+  /** How many times slower than its usual a top shape is, when it is far slower. */
+  'mongodb.statement.slower': {
+    unit: 'count',
+    agg: 'max',
+    expr: (s) => slowerExpr('watchlog_mongodb', 'shape', s),
+  },
+  /** Members down, or more than 60 s behind the primary, as any reachable member sees them. */
+  'mongodb.members.unhealthy': {
+    unit: 'count',
+    agg: 'max',
+    expr: (s) =>
+      `count by (service, service_type) ((max by (service, service_type, rs_member) (1 - watchlog_mongodb_member_health${s()}) > 0) or (max by (service, service_type, rs_member) (watchlog_mongodb_replication_lag_seconds${s()}) > 60)) or max by (service, service_type) (watchlog_mongodb_replica_set${s()}) * 0`,
+  },
+  /** Application threads doing eviction (time a second on 8.0, pages a second before). */
+  'mongodb.cache.app_eviction': {
+    unit: 'per_second',
+    agg: 'max',
+    expr: (s, r) =>
+      `(sum by (service, service_type) (rate(watchlog_mongodb_app_eviction_seconds_total${s()}[${r}]))) or (sum by (service, service_type) (rate(watchlog_mongodb_app_evicted_pages_total${s()}[${r}])))`,
+  },
+  /** Collection scans a minute (serverStatus; the oplog's tailable scans left out on 6.0+). */
+  'mongodb.collscan.rate': {
+    unit: 'count',
+    agg: 'sum',
+    expr: (s, r, a) =>
+      `${a} by (service, service_type) (rate(watchlog_mongodb_collection_scans_total${s()}[${r}])) * 60`,
   },
   // Kafka (v0.5 slice 4, ADR-166): the admin API's view of the cluster, written once per
   // scrape by the collector (no member label), groups and topics by name.

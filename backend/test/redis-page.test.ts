@@ -7,6 +7,7 @@ import { afterAll, afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { newId } from '../src/lib/ids.js';
 import { authorisedScope, VictoriaQueryClient } from '../src/lib/victoria.js';
 import { lookupEvaluator } from '../src/modules/alerts/rules.js';
+import { reasonSentence } from '../src/modules/mcp/tools/applications.js';
 import {
   TEST_VM_URL,
   closeTestContext,
@@ -155,6 +156,37 @@ describe('the Redis page', () => {
             { addr: '10.244.1.7', connections: 12, member: 'redis-0' },
             { addr: '10.244.9.9', connections: 3, member: 'redis-0' },
           ],
+          // CLIENT LIST per address (1.4): a subscriber near its pubsub buffer limit.
+          client_detail: [
+            {
+              addr: '10.244.1.7',
+              connections: 12,
+              blocked: 0,
+              subscribed: 0,
+              young: 1,
+              idle: 0,
+              omem: 0,
+              limit: 0,
+              class: 'normal',
+              cmd: 'get',
+              name: '',
+              member: 'redis-0',
+            },
+            {
+              addr: '10.244.9.9',
+              connections: 3,
+              blocked: 1,
+              subscribed: 1,
+              young: 0,
+              idle: 4,
+              omem: 30e6,
+              limit: 33554432,
+              class: 'pubsub',
+              cmd: 'subscribe',
+              name: 'notifier',
+              member: 'redis-0',
+            },
+          ],
         },
       },
     ]);
@@ -256,12 +288,15 @@ describe('the Redis page', () => {
 
     const d = (await api('GET', `/applications/${id}`)).json();
     expect(d.page.id).toBe('redis');
+    // No stream seen: no Streams tab (1.4).
     expect(d.page.tabs.map((t: { id: string }) => t.id)).toEqual([
       'overview',
       'memory',
       'commands',
       'clients',
       'persistence',
+      'replication',
+      'alerts',
       'connection',
     ]);
     const codes = d.reasons.map((r: { code: string }) => r.code);
@@ -295,15 +330,28 @@ describe('the Redis page', () => {
       severity?: string;
     }[];
     expect(tiles.find((t) => t.id === 'memory')).toMatchObject({
-      sub: { values: { max: '1.0 GB', pct: 95 } },
+      sub: { values: { max: '1.0 GB' } },
       severity: 'warning',
     });
+    expect(tiles.find((t) => t.id === 'memory')!.value).toBeCloseTo(0.95, 2);
     expect(tiles.find((t) => t.id === 'hit')!.value).toBeCloseTo(0.9, 2);
-    expect(tiles.find((t) => t.id === 'keys')).toMatchObject({
-      value: 1000,
-      sub: { values: { pct: 25 } },
+    expect(tiles.find((t) => t.id === 'ttl')!.value).toBeCloseTo(0.25, 2);
+    expect(ov.map((p) => p.id)).toEqual([
+      'flow',
+      'summary',
+      'memory',
+      'evictions',
+      'checks',
+      'prefixes',
+    ]);
+    const checks = panel(ov, 'checks').items as { id: string; state: string }[];
+    expect(Object.fromEntries(checks.map((c) => [c.id, c.state]))).toMatchObject({
+      memory: 'warn',
+      slowlog: 'warn',
+      save: 'fail',
+      maxmemory: 'pass',
     });
-    const slow = panel(ov, 'slowlog') as unknown as {
+    const slow = panel(await tab('commands'), 'slowlog') as unknown as {
       rows: { cells: unknown[]; severity?: string }[];
     };
     expect(slow.rows[0]!.cells.slice(0, 3)).toEqual(['GET cart:*', '1.5 ms', '10.244.9.9']);
@@ -325,19 +373,28 @@ describe('the Redis page', () => {
     });
 
     const cmds = await tab('commands');
-    expect((panel(cmds, 'slowest').items as { label: string; value: number }[])[0]).toMatchObject({
-      label: 'keys',
+    const table = panel(cmds, 'commands').rows as {
+      cells: unknown[];
+      severity?: string;
+      link?: object;
+    }[];
+    expect(table.find((r) => r.cells[0] === 'KEYS')).toMatchObject({
+      severity: 'warning',
+      link: { kind: 'item', tab: 'command', id: 'keys' },
     });
-    expect((panel(cmds, 'slowest').items as { value: number }[])[0]!.value).toBeCloseTo(0.25, 2);
     expect(
       (panel(cmds, 'latency').buckets as { share: number }[]).map((b) => +b.share.toFixed(2)),
     ).toEqual([0.1, 0.8, 0.1]);
 
     const cl = await tab('clients');
-    expect(panel(cl, 'by-workload').items).toEqual([
-      { label: 'shop/checkout', value: 12 },
-      { label: '10.244.9.9', value: 3 },
+    const byWorkload = panel(cl, 'by-workload').rows as { cells: unknown[]; severity?: string }[];
+    expect(byWorkload.map((r) => r.cells.slice(0, 2))).toEqual([
+      ['shop/checkout', 12],
+      ['10.244.9.9', 3],
     ]);
+    // Near its output-buffer limit: about to be disconnected.
+    expect(byWorkload[1]).toMatchObject({ severity: 'critical' });
+    expect(byWorkload[1]!.cells[5]).toBe('29 MB / 32 MB');
     expect(panel(cl, 'capacity').items).toEqual([expect.objectContaining({ value: 15, max: 100 })]);
 
     const pers = await tab('persistence');
@@ -350,7 +407,7 @@ describe('the Redis page', () => {
       value: 'failed',
       severity: 'critical',
     });
-    expect(panel(pers, 'lag').state).toBe('ok');
+    expect(panel(await tab('replication'), 'lag').state).toBe('ok');
 
     const list = (await api('GET', '/applications/metrics')).json().metrics[id];
     expect(list.keyMetrics.map((m: { id: string }) => m.id)).toEqual(['memory', 'hit', 'ops']);
@@ -360,7 +417,7 @@ describe('the Redis page', () => {
     // A light scrape (no extra) keeps the slow log the heavy scrape sent.
     await status(k8s.token, '', [{ id, state: 'ok', members: [{ name: 'redis-0', up: true }] }]);
     expect(
-      ((await tab('overview')).find((p) => p.id === 'slowlog') as unknown as { rows: unknown[] })
+      ((await tab('commands')).find((p) => p.id === 'slowlog') as unknown as { rows: unknown[] })
         .rows,
     ).toHaveLength(2);
 
@@ -445,13 +502,245 @@ describe('the Redis page', () => {
         extra: {
           slowlog: [],
           clients: [{ addr: '172.18.0.5', connections: 4, member: 'storefront-cache-1' }],
+          client_detail: [
+            {
+              addr: '172.18.0.5',
+              connections: 4,
+              blocked: 0,
+              subscribed: 0,
+              young: 0,
+              idle: 1,
+              omem: 0,
+              limit: 0,
+              class: 'normal',
+              cmd: 'get',
+              name: '',
+              member: 'storefront-cache-1',
+            },
+          ],
         },
       },
     ]);
     expect((await api('GET', `/applications/${id}`)).json().page.id).toBe('redis');
     const cl = (await api('GET', `/applications/${id}/panels?tab=clients`)).json().panels;
-    expect(cl.find((p: { id: string }) => p.id === 'by-workload').items).toEqual([
-      { label: 'storefront-web-1', value: 4 },
+    expect(
+      cl
+        .find((p: { id: string }) => p.id === 'by-workload')
+        .rows.map((r: { cells: unknown[] }) => r.cells.slice(0, 2)),
+    ).toEqual([['storefront-web-1', 4]]);
+  });
+
+  it('1.4 on a server: what fills the memory, the main thread, a group nobody serves, the next save', async () => {
+    const fleet = await cluster('web-01', 'server');
+    const container = async (name: string, ip: string) =>
+      ctx.db
+        .insertInto('objects')
+        .values({
+          id: newId(),
+          cluster_id: fleet.id,
+          source: 'docker',
+          kind: 'DockerContainer',
+          namespace: 'shop',
+          name,
+          uid: newId().replace(/-/g, ''),
+          node: 'web-01',
+          spec_summary: JSON.stringify({ image: 'shop/x:1', compose_service: name, ips: [ip] }),
+          status_summary: JSON.stringify({ state: 'running' }),
+        })
+        .execute();
+    await container('report-cron', '172.20.0.9');
+    await container('billing-worker', '172.20.0.10');
+    const id = (
+      await api('POST', '/applications', {
+        clusterId: fleet.id,
+        type: 'redis',
+        target: {
+          kind: 'compose',
+          host: 'web-01',
+          compose_project: 'shop',
+          compose_service: 'redis',
+          port: 6379,
+        },
+      })
+    ).json().application.id as string;
+    await status(fleet.token, 'web-01', [
+      {
+        id,
+        state: 'ok',
+        service_version: '7.2.17',
+        members: [{ name: 'shop-redis-1', up: true }],
+        extra: {
+          slowlog: [
+            {
+              at: Math.floor(NOW / 1000) - 30,
+              usec: 80_000,
+              member: 'shop-redis-1',
+              command: 'KEYS session:*',
+              client: '172.20.0.9',
+            },
+          ],
+          clients: [],
+          prefixes: [
+            { prefix: 'session:', type: 'string', ttl_share: 0.08, member: 'shop-redis-1' },
+            { prefix: 'cart:', type: 'hash', ttl_share: 1, member: 'shop-redis-1' },
+          ],
+          stream_consumers: [
+            {
+              stream: 'orders',
+              group: 'billing',
+              consumer: 'billing-worker-1',
+              pending: 1,
+              idle: 1100,
+              inactive: 1100,
+              member: 'shop-redis-1',
+            },
+          ],
+          settings: [
+            { name: 'save', value: '3600 1', member: 'shop-redis-1' },
+            { name: 'appendonly', value: 'no', member: 'shop-redis-1' },
+            { name: 'bind', value: '127.0.0.1 -::1', member: 'shop-redis-1' },
+          ],
+        },
+      },
     ]);
+    const svc = (extra: Record<string, string> = {}) => ({
+      service: id,
+      service_type: 'redis',
+      member: 'shop-redis-1',
+      ...extra,
+    });
+    const GB = 2 ** 30;
+    await Promise.all([
+      write(fleet.id, 'watchlog_redis_memory_used_bytes', svc(), () => 3.9 * GB),
+      write(fleet.id, 'watchlog_redis_memory_max_bytes', svc(), () => 4 * GB),
+      write(fleet.id, 'watchlog_redis_memory_rss_bytes', svc(), () => 4.2 * GB),
+      write(
+        fleet.id,
+        'watchlog_redis_maxmemory_policy_info',
+        svc({ policy: 'allkeys-lru' }),
+        () => 1,
+      ),
+      write(fleet.id, 'watchlog_redis_evicted_keys_total', svc(), (i) => i * 300),
+      // session: at 58% of memory, 92% without a TTL (only 30 min written: no growth over 2 h is known).
+      write(
+        fleet.id,
+        'watchlog_redis_prefix_memory_bytes',
+        svc({ prefix: 'session:' }),
+        () => 2.2 * GB,
+      ),
+      write(
+        fleet.id,
+        'watchlog_redis_prefix_memory_bytes',
+        svc({ prefix: 'cart:' }),
+        () => 1.6 * GB,
+      ),
+      write(fleet.id, 'watchlog_redis_prefix_keys', svc({ prefix: 'session:' }), () => 4.1e6),
+      write(fleet.id, 'watchlog_redis_prefix_ttl_keys', svc({ prefix: 'session:' }), () => 0.33e6),
+      write(fleet.id, 'watchlog_redis_prefix_keys', svc({ prefix: 'cart:' }), () => 610e3),
+      write(fleet.id, 'watchlog_redis_prefix_ttl_keys', svc({ prefix: 'cart:' }), () => 610e3),
+      write(fleet.id, 'watchlog_redis_keys', svc({ db: 'db0' }), () => 4.71e6),
+      write(fleet.id, 'watchlog_redis_keys_expiring', svc({ db: 'db0' }), () => 0.94e6),
+      // The main thread busy 97% of a core.
+      write(fleet.id, 'watchlog_redis_main_thread_cpu_seconds_total', svc(), (i) => i * 15 * 0.97),
+      write(fleet.id, 'watchlog_redis_rdb_cow_bytes', svc(), () => 3.1 * GB),
+      write(
+        fleet.id,
+        'watchlog_service_memory_limit_bytes',
+        { host: 'web-01', unit: 'x' },
+        () => 0,
+      ),
+      write(
+        fleet.id,
+        'watchlog_redis_stream_length',
+        svc({ stream: 'orders' }),
+        (i) => 5000 + i * 75,
+      ),
+      write(
+        fleet.id,
+        'watchlog_redis_stream_group_lag',
+        svc({ stream: 'orders', group: 'billing' }),
+        (i) => i * 60,
+      ),
+      write(
+        fleet.id,
+        'watchlog_redis_stream_group_pending',
+        svc({ stream: 'orders', group: 'billing' }),
+        () => 1,
+      ),
+      write(
+        fleet.id,
+        'watchlog_redis_stream_group_consumers',
+        svc({ stream: 'orders', group: 'billing' }),
+        () => 1,
+      ),
+      write(
+        fleet.id,
+        'watchlog_redis_stream_group_active_consumers',
+        svc({ stream: 'orders', group: 'billing' }),
+        () => 0,
+      ),
+      write(fleet.id, 'watchlog_redis_host_thp_always', svc(), () => 1),
+    ]);
+    await fetch(`${TEST_VM_URL}/internal/force_flush`);
+    const d = (await api('GET', `/applications/${id}`)).json();
+    // Streams seen: the tab is there.
+    expect(d.page.tabs.map((t: { id: string }) => t.id)).toContain('streams');
+    const reasons = d.reasons as {
+      code: string;
+      facts: Record<string, unknown>;
+      links?: { name: string }[];
+    }[];
+    const by = (c: string) => reasons.find((r) => r.code === c);
+    expect(by('main_thread_saturated')?.facts).toMatchObject({
+      pct: 97,
+      cmd: 'KEYS',
+      client: 'report-cron',
+      holder: 'report-cron',
+    });
+    expect(by('stream_group_orphaned')?.facts).toMatchObject({
+      stream: 'orders',
+      group: 'billing',
+      consumer: 'billing-worker-1',
+      holder: 'billing-worker',
+    });
+    expect(by('prefix_fills_memory')?.facts).toMatchObject({
+      prefix: 'session:*',
+      pct: 58,
+      noTtl: 92,
+      policy: 'allkeys-lru',
+    });
+    expect(by('thp_always')).toBeTruthy();
+    // A bind to loopback only: no "no password" finding.
+    expect(by('no_password')).toBeUndefined();
+    for (const r of reasons) expect(reasonSentence(r), r.code).not.toBe('See the facts.');
+    const panels = async (tab: string, q = '') =>
+      (await api('GET', `/applications/${id}/panels?tab=${tab}${q}`)).json().panels as {
+        id: string;
+        state: string;
+        [k: string]: unknown;
+      }[];
+    const ov = await panels('overview');
+    const prefixes = ov.find((p) => p.id === 'prefixes') as unknown as {
+      rows: { cells: unknown[]; link?: object }[];
+    };
+    expect(prefixes.rows[0]).toMatchObject({
+      cells: ['session:*', '58%', '4.1 M', '8%', '–', 'string'],
+      link: { kind: 'item', tab: 'prefix', id: 'session:' },
+    });
+    const streams = await panels('streams');
+    const groups = streams.find((p) => p.id === 'groups') as unknown as {
+      rows: { cells: unknown[]; severity?: string }[];
+    };
+    expect(groups.rows[0]).toMatchObject({ severity: 'critical' });
+    expect(groups.rows[0]!.cells.slice(0, 3)).toEqual(['orders', 'billing', '0 / 1']);
+    const prefix = await panels('prefix', '&prefix=session%3A');
+    expect(prefix.find((p) => p.id === 'facts')!.state).toBe('ok');
+    const group = await panels('group', `&group=${encodeURIComponent('orders\u0000billing')}`);
+    expect(group.find((p) => p.id === 'facts')!.state).toBe('ok');
+    const cmd = await panels('command', '&command=keys');
+    expect(
+      (cmd.find((p) => p.id === 'slowlog') as unknown as { rows: { cells: unknown[] }[] }).rows[0]!
+        .cells[2],
+    ).toBe('report-cron');
   });
 });

@@ -106,7 +106,17 @@ async function pod(clusterId: string, ns: string, name: string, workload: string
 
 type Panel = { id: string; state: string; [k: string]: unknown };
 
-const TABS = ['overview', 'operations', 'storage'];
+const TABS = [
+  'overview',
+  'operations',
+  'waits',
+  'clients',
+  'replica',
+  'collections',
+  'storage',
+  'alerts',
+];
+const SHAPE = 'f4cca5f6a9615ca6';
 
 describe('the MongoDB page', () => {
   it('fills every tab, says what is wrong, and names the client sending scans (Kubernetes, 8.0)', async () => {
@@ -127,6 +137,7 @@ describe('the MongoDB page', () => {
         defaultAlerts: ['mongodb_slow_ops'],
       })
     ).json().application.id as string;
+    // What the 1.4 collector sends (Step 0's 8.0.38 replica set, broken).
     await status(k8s.token, '', [
       {
         id,
@@ -146,6 +157,8 @@ describe('the MongoDB page', () => {
               uptime: 225,
               seen_by: 'mongo-0',
               set: 'rs0',
+              votes: 1,
+              priority: 1,
             },
             {
               name: 'mongo-1',
@@ -155,42 +168,100 @@ describe('the MongoDB page', () => {
               uptime: 0,
               seen_by: 'mongo-0',
               set: 'rs0',
+              votes: 1,
+              priority: 1,
+              ping: 0.002,
             },
           ],
-          slow: [
+          shapes: [
             {
+              shape: SHAPE,
               ns: 'shop.events',
               op: 'find',
               plan: 'COLLSCAN',
-              count: 240,
-              mean_ms: 37,
-              max_ms: 61,
               collscan: true,
-              remote: '10.244.2.70',
-              last: Math.floor(NOW / 1000),
+              calls: 240,
+              examined: 72e6,
+              keys: 0,
+              returned: 12e6,
               member: 'mongo-0',
-              shape: '{amount: {$gt: ?}, kind: ?}',
-              hash: 'C117D0022998A24F',
+              query: '{createdAt: {$gt: ?}, type: ?}',
+              fields: 'createdAt,type',
             },
             {
+              shape: 'aa01',
               ns: 'shop.orders',
               op: 'update',
               plan: 'IXSCAN { _id: 1 }',
-              count: 2,
-              mean_ms: 120,
-              max_ms: 130,
               collscan: false,
-              remote: '10.244.2.71',
-              last: Math.floor(NOW / 1000),
+              calls: 2,
+              examined: 2,
+              keys: 2,
+              returned: 0,
               member: 'mongo-0',
             },
           ],
           clients: [
-            { addr: '10.244.2.70', app: '', connections: 54, member: 'mongo-0' },
-            { addr: '10.244.2.71', app: 'api', connections: 2, member: 'mongo-0' },
+            {
+              addr: '10.244.2.70',
+              app: 'analytics',
+              connections: 54,
+              member: 'mongo-0',
+              opened: 1,
+            },
+            { addr: '10.244.2.71', app: 'api', connections: 2, member: 'mongo-0', opened: 0 },
           ],
+          // Unused on both members: unused. customer_1 is used on the primary: not unused.
           unused_indexes: [
-            { ns: 'shop.events', index: 'at_1', since: 1794529933, member: 'mongo-0' },
+            {
+              ns: 'shop.orders',
+              index: 'total_1',
+              since: 1794529933,
+              bytes: 655360,
+              member: 'mongo-0',
+            },
+            {
+              ns: 'shop.orders',
+              index: 'total_1',
+              since: 1794529933,
+              bytes: 684032,
+              member: 'mongo-1',
+            },
+            {
+              ns: 'shop.orders',
+              index: 'customer_1',
+              since: 1794529933,
+              bytes: 1507328,
+              member: 'mongo-1',
+            },
+          ],
+          redundant_indexes: [
+            {
+              ns: 'shop.orders',
+              index: 'customer_1',
+              covered_by: 'customer_1_createdAt_-1',
+              bytes: 1511424,
+              member: 'mongo-0',
+            },
+          ],
+          transactions: [
+            {
+              addr: '10.244.2.71',
+              app: 'api',
+              age: 45,
+              idle: 44,
+              state: 'idleSession',
+              member: 'mongo-0',
+            },
+          ],
+          cursors: [{ ns: 'shop.events', idle: 900, age: 900, member: 'mongo-0' }],
+          settings: [
+            {
+              name: 'featureCompatibilityVersion',
+              value: '8.0',
+              version: '8.0.38',
+              member: 'mongo-0',
+            },
           ],
         },
       },
@@ -209,6 +280,7 @@ describe('the MongoDB page', () => {
       ),
       write(k8s.id, 'watchlog_mongodb_replica_set', svc(), () => 1),
       write(k8s.id, 'watchlog_mongodb_primary_seen', svc(), () => 1),
+      write(k8s.id, 'watchlog_mongodb_voting_members', svc(), () => 3),
       write(k8s.id, 'watchlog_mongodb_member_health', svc({ rs_member: 'mongo-0' }), () => 1),
       write(k8s.id, 'watchlog_mongodb_member_health', svc({ rs_member: 'mongo-1' }), (i) =>
         i > 100 ? 0 : 1,
@@ -219,11 +291,19 @@ describe('the MongoDB page', () => {
         svc({ rs_member: 'mongo-1' }),
         (i) => (i > 100 ? 45 : 1),
       ),
+      write(
+        k8s.id,
+        'watchlog_mongodb_member_ping_seconds',
+        svc({ rs_member: 'mongo-1' }),
+        () => 0.002,
+      ),
       write(k8s.id, 'watchlog_mongodb_slow_ops_total', svc({ plan: 'collscan' }), (i) => i * 4),
       write(k8s.id, 'watchlog_mongodb_slow_ops_total', svc({ plan: 'other' }), () => 2),
-      write(k8s.id, 'watchlog_mongodb_cache_bytes', svc({ state: 'used' }), () => 64e6),
+      write(k8s.id, 'watchlog_mongodb_collection_scans_total', svc(), (i) => i * 30),
+      write(k8s.id, 'watchlog_mongodb_cache_bytes', svc({ state: 'used' }), () => 250e6),
       write(k8s.id, 'watchlog_mongodb_cache_bytes', svc({ state: 'dirty' }), () => 9e6),
       write(k8s.id, 'watchlog_mongodb_cache_bytes', svc({ state: 'max' }), () => 268435456),
+      write(k8s.id, 'watchlog_mongodb_app_eviction_seconds_total', svc(), (i) => i * 0.2),
       write(k8s.id, 'watchlog_mongodb_fs_bytes', svc({ state: 'used' }), () => 20e9),
       write(k8s.id, 'watchlog_mongodb_fs_bytes', svc({ state: 'total' }), () => 30e9),
       write(k8s.id, 'watchlog_mongodb_tickets', svc({ op: 'read', state: 'available' }), () => 4),
@@ -239,9 +319,78 @@ describe('the MongoDB page', () => {
       ),
       write(
         k8s.id,
+        'watchlog_mongodb_collection_data_bytes',
+        svc({ ns: 'shop.events' }),
+        () => 52e6,
+      ),
+      write(
+        k8s.id,
+        'watchlog_mongodb_collection_documents',
+        svc({ ns: 'shop.events' }),
+        () => 300000,
+      ),
+      write(
+        k8s.id,
         'watchlog_mongodb_collection_time_seconds_total',
         svc({ ns: 'shop.events' }),
         (i) => i * 2,
+      ),
+      write(
+        k8s.id,
+        'watchlog_mongodb_collection_ops_total',
+        svc({ ns: 'shop.events' }),
+        (i) => i * 20,
+      ),
+      // The shape: 4 calls a scrape, 0.15 s each, 300 k documents examined, 50 k returned.
+      write(k8s.id, 'watchlog_mongodb_statement_calls_total', svc({ shape: SHAPE }), (i) => i * 4),
+      write(
+        k8s.id,
+        'watchlog_mongodb_statement_seconds_total',
+        svc({ shape: SHAPE }),
+        (i) => i * 0.6,
+      ),
+      write(
+        k8s.id,
+        'watchlog_mongodb_statement_docs_examined_total',
+        svc({ shape: SHAPE }),
+        (i) => i * 1.2e6,
+      ),
+      write(
+        k8s.id,
+        'watchlog_mongodb_statement_docs_returned_total',
+        svc({ shape: SHAPE }),
+        (i) => i * 2e5,
+      ),
+      write(
+        k8s.id,
+        'watchlog_mongodb_statement_keys_examined_total',
+        svc({ shape: SHAPE }),
+        () => 0,
+      ),
+      write(
+        k8s.id,
+        'watchlog_mongodb_statement_client_sessions',
+        svc({ shape: SHAPE, addr: '10.244.2.70' }),
+        () => 2,
+      ),
+      write(k8s.id, 'watchlog_mongodb_shape_source', svc({ source: 'slowlog' }), () => 1),
+      // What the operations wait on: mostly running, the scans; a ticket queue now and then.
+      ...['running', 'lock', 'ticket', 'flow_control', 'other'].map((wait) =>
+        write(k8s.id, 'watchlog_mongodb_active_sessions', svc({ wait }), () =>
+          wait === 'running' ? 3 : wait === 'ticket' ? 1 : 0,
+        ),
+      ),
+      write(
+        k8s.id,
+        'watchlog_mongodb_statement_active_sessions',
+        svc({ shape: SHAPE, wait: 'running' }),
+        () => 2,
+      ),
+      write(
+        k8s.id,
+        'watchlog_mongodb_client_active_sessions',
+        svc({ addr: '10.244.2.70', wait: 'running' }),
+        () => 2,
       ),
       ...['0.001', '0.01', '0.1', '1', '10', '+Inf'].map((le, j) =>
         write(
@@ -262,22 +411,27 @@ describe('the MongoDB page', () => {
     for (const c of [
       'member_down',
       'replica_lag',
-      'slow_collscan',
+      'collscan_fills_cache',
       'connections_near_max',
       'oplog_window_short',
+      'long_transaction',
+      'cursors_no_timeout',
     ])
       expect(codes, c).toContain(c);
     expect(codes).not.toContain('no_primary');
-    // The client as probable cause follows it: a workload "namespace/name" (ADR-164).
-    expect(reasons.find((r) => r.code === 'slow_collscan')!.facts).toMatchObject({
+    // Cause first: the shape's collection and fields, who sends it (a workload, for probable
+    // cause), and what it does to the cache.
+    expect(reasons.find((r) => r.code === 'collscan_fills_cache')!.facts).toMatchObject({
       ns: 'shop.events',
+      fields: 'createdAt, type',
       client: 'shop/analytics',
       holder: 'shop/analytics',
-      mean: '37 ms',
+      cachePct: 93,
+      examined: 300000,
     });
-    expect(reasons.find((r) => r.code === 'member_down')!.facts).toMatchObject({
-      member: 'mongo-1',
-      n: 1,
+    expect(reasons.find((r) => r.code === 'long_transaction')!.facts).toMatchObject({
+      who: 'shop/api',
+      age: '45 s',
     });
     expect(reasons.find((r) => r.code === 'connections_near_max')!.facts).toMatchObject({
       pct: 93,
@@ -285,46 +439,129 @@ describe('the MongoDB page', () => {
     });
     for (const r of reasons) expect(reasonSentence(r), r.code).not.toBe('See the facts.');
 
-    const panels = async (tab: string) =>
-      (await api('GET', `/applications/${id}/panels?tab=${tab}`)).json().panels as Panel[];
-    for (const tab of TABS) {
-      const ps = await panels(tab);
-      expect(
-        ps.filter((p) => p.state !== 'ok'),
-        tab,
-      ).toEqual([]);
-    }
+    const panels = async (tab: string, q = '') =>
+      (await api('GET', `/applications/${id}/panels?tab=${tab}${q}`)).json().panels as Panel[];
+    const overview = await panels('overview');
+    expect(overview.map((p) => p.id)).toEqual([
+      'flow',
+      'summary',
+      'latency',
+      'cache',
+      'checks',
+      'slow',
+      'cpu',
+      'memory',
+      'disk',
+    ]);
+    for (const pid of ['flow', 'summary', 'latency', 'cache', 'checks', 'slow'])
+      expect(overview.find((p) => p.id === pid)!.state, pid).toBe('ok');
+    const flow = overview.find((p) => p.id === 'flow') as unknown as {
+      columns: { id: string; rows: { name: string; text?: { key: string } }[] }[];
+    };
+    // The client sending the scans comes first in the flow, said.
+    expect(flow.columns[0]!.rows[0]).toMatchObject({
+      name: 'shop/analytics',
+      text: { key: 'integrations.mongodb.panels.flow.scans' },
+    });
     const tiles = (
-      (await panels('overview')).find((p) => p.id === 'summary') as unknown as {
-        tiles: { id: string; value: number | null; severity?: string }[];
+      overview.find((p) => p.id === 'summary') as unknown as {
+        tiles: { id: string; value: number | null; severity?: string; sub?: { key: string } }[];
       }
     ).tiles;
-    expect(tiles.find((t) => t.id === 'connections')).toMatchObject({
-      value: 56,
+    expect(tiles.find((t) => t.id === 'connections')!.value).toBeCloseTo(0.933, 2);
+    expect(tiles.find((t) => t.id === 'cache')).toMatchObject({
+      severity: 'warning',
+      sub: { key: 'integrations.mongodb.panels.tiles.evicting' },
+    });
+    const slow = overview.find((p) => p.id === 'slow') as unknown as {
+      rows: { cells: unknown[]; severity?: string; link?: { kind: string; id: string } }[];
+    };
+    expect(slow.rows[0]!.cells.slice(0, 2)).toEqual([
+      'find {createdAt: {$gt: ?}, type: ?}',
+      'shop.events',
+    ]);
+    expect(slow.rows[0]!.cells.slice(5)).toEqual(['COLLSCAN', 'shop/analytics']);
+    expect(slow.rows[0]!.cells[4]).toBe('300 k');
+    expect(slow.rows[0]).toMatchObject({
+      severity: 'warning',
+      link: { kind: 'statement', id: SHAPE },
+    });
+    const checks = overview.find((p) => p.id === 'checks') as unknown as {
+      items: { id: string; state: string }[];
+    };
+    expect(Object.fromEntries(checks.items.map((c) => [c.id, c.state]))).toMatchObject({
+      collscan: 'fail',
+      cache: 'warn',
+      members: 'fail',
+      oplog: 'fail',
+      primary: 'pass',
+    });
+
+    const ops = await panels('operations');
+    const top = ops.find((p) => p.id === 'top') as unknown as {
+      note: { key: string };
+      rows: { id: string; sentBy: { name: string } | null; hint?: { values: { table: string } } }[];
+    };
+    expect(top.note.key).toBe('integrations.mongodb.panels.shapes.source.slowlog');
+    expect(top.rows[0]).toMatchObject({
+      id: SHAPE,
+      sentBy: { name: 'shop/analytics' },
+      hint: { values: { table: 'shop.events (createdAt, type)' } },
+    });
+    expect(ops.find((p) => p.id === 'indexes')!.state).toBe('ok');
+
+    const waits = await panels('waits');
+    expect(waits.find((p) => p.id === 'waits')!.state).toBe('ok');
+    expect(
+      (waits.find((p) => p.id === 'by-statement') as unknown as { rows: { id: string }[] }).rows[0]!
+        .id,
+    ).toBe(SHAPE);
+
+    const clients = await panels('clients');
+    const txns = clients.find((p) => p.id === 'transactions') as unknown as {
+      rows: { cells: unknown[]; severity?: string }[];
+    };
+    expect(txns.rows[0]).toEqual({
+      cells: ['shop/api', 'idleSession', '45 s', '44 s'],
       severity: 'warning',
     });
-    expect(tiles.find((t) => t.id === 'cache')!.value).toBeCloseTo(0.238, 2);
-    const members = (await panels('overview')).find((p) => p.id === 'members') as unknown as {
+
+    const replica = await panels('replica');
+    const members = replica.find((p) => p.id === 'members') as unknown as {
       rows: { cells: unknown[]; severity?: string }[];
     };
     expect(members.rows[1]).toEqual({
-      cells: ['mongo-1', '(not reachable/healthy)', 'down', '–'],
+      cells: ['mongo-1', '(not reachable/healthy)', 'down', '–', '2 ms', 1, 1],
       severity: 'critical',
     });
-    const slow = (await panels('operations')).find((p) => p.id === 'slow') as unknown as {
-      rows: { cells: unknown[]; severity?: string }[];
+
+    const colls = await panels('collections');
+    const unused = colls.find((p) => p.id === 'unused') as unknown as {
+      rows: { cells: unknown[] }[];
     };
-    expect(slow.rows[0]).toEqual({
-      cells: [
-        'find {amount: {$gt: ?}, kind: ?}',
-        'shop.events',
-        '37 ms',
-        240,
-        'COLLSCAN',
-        'shop/analytics',
-      ],
-      severity: 'warning',
-    });
+    expect(unused.rows.map((r) => r.cells[1])).toEqual(['total_1']);
+    const redundant = colls.find((p) => p.id === 'redundant') as unknown as {
+      rows: { cells: unknown[] }[];
+    };
+    expect(redundant.rows[0]!.cells.slice(0, 3)).toEqual([
+      'shop.orders',
+      'customer_1',
+      'customer_1_createdAt_-1',
+    ]);
+
+    const shape = await panels('statement', `&statement=${SHAPE}`);
+    expect(shape.find((p) => p.id === 'facts')!.state).toBe('ok');
+    const senders = shape.find((p) => p.id === 'senders') as unknown as {
+      items: { label: string }[];
+    };
+    expect(senders.items[0]!.label).toBe('shop/analytics');
+    const coll = await panels('table', '&table=shop%2Fevents');
+    expect(coll.find((p) => p.id === 'facts')!.state).toBe('ok');
+    expect(
+      (coll.find((p) => p.id === 'statements') as unknown as { rows: { id: string }[] }).rows[0]!
+        .id,
+    ).toBe(SHAPE);
+
     const row = (await api('GET', '/applications/metrics')).json().metrics[id] as {
       keyMetrics: { id: string; value: number | null }[];
     };
@@ -352,7 +589,7 @@ describe('the MongoDB page', () => {
         state: 'ok',
         service_version: '7.0.48',
         members: [{ name: 'shop-mongo-1', up: true }],
-        permissions: [{ tab: 'operations/slow', missing: 'clusterMonitor' }],
+        permissions: [{ tab: 'operations/top', missing: 'clusterMonitor' }],
         extra: { clients: [] },
       },
     ]);
@@ -367,14 +604,14 @@ describe('the MongoDB page', () => {
     expect(reasons.map((r) => r.code)).not.toContain('no_primary');
     const ops = (await api('GET', `/applications/${id}/panels?tab=operations`)).json()
       .panels as Panel[];
-    const slow = ops.find((p) => p.id === 'slow')!;
-    expect(slow.state).toBe('needs_permission');
-    expect((slow as unknown as { missing: { key: string } }).missing.key).toBe(
-      'integrations.mongodb.missing.operations.slow',
+    const top = ops.find((p) => p.id === 'top')!;
+    expect(top.state).toBe('needs_permission');
+    expect((top as unknown as { missing: { key: string } }).missing.key).toBe(
+      'integrations.mongodb.missing.operations.top',
     );
-    const overview = (await api('GET', `/applications/${id}/panels?tab=overview`)).json()
+    const replica = (await api('GET', `/applications/${id}/panels?tab=replica`)).json()
       .panels as Panel[];
-    expect(overview.find((p) => p.id === 'members')!.note).toEqual({
+    expect(replica.find((p) => p.id === 'members')!.note).toEqual({
       key: 'integrations.mongodb.panels.standaloneNote',
     });
   });
@@ -435,11 +672,11 @@ describe('the MongoDB page', () => {
     const tiles = overview.find((p) => p.id === 'summary')!.tiles as {
       id: string;
       value: unknown;
-      sub?: { values: { max: number } };
+      sub?: { values: { n: number; max: number } };
     }[];
     expect(tiles.find((t) => t.id === 'connections')).toMatchObject({
-      value: 100,
-      sub: { values: { max: 100 } },
+      value: 1,
+      sub: { values: { n: 100, max: 100 } },
     });
     const list = (await api('GET', '/applications/metrics')).json().metrics[id];
     expect(list.keyMetrics.find((k: { id: string }) => k.id === 'connections')).toMatchObject({

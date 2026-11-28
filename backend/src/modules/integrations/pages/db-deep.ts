@@ -20,28 +20,51 @@ import type {
 } from './types.js';
 
 export interface Engine {
-  type: 'postgres' | 'mysql';
+  type: 'postgres' | 'mysql' | 'mongodb';
   /** The series' prefix. */
-  m: 'watchlog_postgres' | 'watchlog_mysql';
-  /** The label naming a statement. */
-  stmt: 'queryid' | 'digest';
+  m: 'watchlog_postgres' | 'watchlog_mysql' | 'watchlog_mongodb';
+  /** The label naming a statement (MongoDB: an operation shape, 1.4). */
+  stmt: 'queryid' | 'digest' | 'shape';
   /** The i18n prefix of the deep panels. */
   P: string;
+  /** The classes of "active sessions by wait"; the first is emitted every sample. */
+  waits: readonly string[];
+  /** The classes drawn in a severity colour. */
+  severe: Partial<Record<string, Severity>>;
 }
-/** The deep panels' words, the same for both engines. */
+/** The deep panels' words, the same for every engine. */
 const P = 'integrations.db.panels';
-export const PG: Engine = { type: 'postgres', m: 'watchlog_postgres', stmt: 'queryid', P };
-export const MY: Engine = { type: 'mysql', m: 'watchlog_mysql', stmt: 'digest', P };
 
 /** The five classes of "active sessions by wait" (the collectors' WaitClasses). */
 export const WAITS = ['cpu', 'io', 'lock', 'client', 'other'] as const;
-export type WaitClass = (typeof WAITS)[number];
-export const WAIT_SEVERITY: Record<WaitClass, Severity | undefined> = {
-  cpu: undefined,
-  io: undefined,
-  lock: 'critical',
-  client: undefined,
-  other: undefined,
+/** MongoDB's (1.4, ADR-247): what $currentOp says each active operation does. */
+export const MONGO_WAITS = ['running', 'lock', 'ticket', 'flow_control', 'other'] as const;
+export type WaitClass = string;
+export const WAIT_SEVERITY: Partial<Record<string, Severity>> = { lock: 'critical' };
+
+export const PG: Engine = {
+  type: 'postgres',
+  m: 'watchlog_postgres',
+  stmt: 'queryid',
+  P,
+  waits: WAITS,
+  severe: WAIT_SEVERITY,
+};
+export const MY: Engine = {
+  type: 'mysql',
+  m: 'watchlog_mysql',
+  stmt: 'digest',
+  P,
+  waits: WAITS,
+  severe: WAIT_SEVERITY,
+};
+export const MG: Engine = {
+  type: 'mongodb',
+  m: 'watchlog_mongodb',
+  stmt: 'shape',
+  P,
+  waits: MONGO_WAITS,
+  severe: { lock: 'critical', ticket: 'warning', flow_control: 'warning' },
 };
 
 /** A rate's window: at least two scrapes and two chart steps (as RabbitMQ's, 1.1.1). */
@@ -105,19 +128,19 @@ export async function waitsOver(
     `sum by (wait) (avg_over_time(${e.m}_active_sessions{${one(ctx.row.id)}}[${dur}s]))`,
     end,
   );
-  const by = Object.fromEntries(WAITS.map((w) => [w, 0])) as Record<WaitClass, number>;
+  const by: Record<WaitClass, number> = Object.fromEntries(e.waits.map((w) => [w, 0]));
   for (const s of r) {
-    const w = s.labels.wait as WaitClass;
+    const w = s.labels.wait ?? '';
     if (w in by) by[w] = s.points[0]?.[1] ?? 0;
   }
-  return { by, total: WAITS.reduce((a, w) => a + by[w], 0) };
+  return { by, total: e.waits.reduce((a, w) => a + by[w]!, 0) };
 }
 
-/** The wait class with the largest share, when it is most of the time and not CPU. */
+/** The wait class with the largest share (the first class wins a tie: running, or CPU). */
 export function dominantWait(w: { by: Record<WaitClass, number>; total: number }) {
   if (w.total <= 0) return null;
-  const top = [...WAITS].sort((a, b) => w.by[b] - w.by[a])[0]!;
-  const share = w.by[top] / w.total;
+  const top = Object.keys(w.by).sort((a, b) => w.by[b]! - w.by[a]!)[0]!;
+  const share = w.by[top]! / w.total;
   return { wait: top, share };
 }
 
@@ -137,10 +160,10 @@ export async function waitsChart(ctx: PageContext, e: Engine, select = true): Pr
     state: series.length ? 'ok' : 'empty',
     note: { key: `${P}.waitsNote` },
     ...(select ? { select: true } : {}),
-    series: WAITS.map((w) => ({
+    series: e.waits.map((w) => ({
       nameKey: `${P}.wait.${w}`,
       points: pointsOf(by.get(w)),
-      ...(WAIT_SEVERITY[w] ? { severity: WAIT_SEVERITY[w] } : {}),
+      ...(e.severe[w] ? { severity: e.severe[w] } : {}),
     })),
   };
 }
@@ -186,7 +209,11 @@ export async function statementStats(
   const s = one(ctx.row.id);
   const by = e.stmt;
   const rowsMetric =
-    e.type === 'postgres' ? `${e.m}_statement_rows_total` : `${e.m}_statement_rows_sent_total`;
+    e.type === 'postgres'
+      ? `${e.m}_statement_rows_total`
+      : e.type === 'mongodb'
+        ? `${e.m}_statement_docs_returned_total`
+        : `${e.m}_statement_rows_sent_total`;
   const q = (metric: string, w: string, off = '') =>
     instant(ctx, `sum by (${by}) (rate(${metric}{${s}}[${w}]${off}))`);
   const [calls, secs, rows, callsU, secsU] = await Promise.all([
@@ -313,8 +340,16 @@ export interface StatementFact {
   blocks?: number;
   rows?: number;
   calls?: number;
+  /** MongoDB (1.4): its collection, plan, whether it scanned a collection, the fields it filters
+   * and sorts on (only with query text on), keys examined. */
+  ns?: string;
+  plan?: string;
+  collscan?: boolean;
+  fields?: string;
+  keys?: number;
 }
 export function statementFacts(ctx: PageContext, e: Engine): Map<string, StatementFact> {
+  if (e.type === 'mongodb') return shapeFacts(ctx);
   const extra = (ctx.row.status_details as { extra?: { statements?: Record<string, unknown>[] } })
     .extra;
   const out = new Map<string, StatementFact>();
@@ -337,6 +372,32 @@ export function statementFacts(ctx: PageContext, e: Engine): Map<string, Stateme
   return out;
 }
 
+/** MongoDB's shapes (1.4): the collector's rows, one per shape across members. */
+function shapeFacts(ctx: PageContext): Map<string, StatementFact> {
+  const extra = (ctx.row.status_details as { extra?: { shapes?: Record<string, unknown>[] } })
+    .extra;
+  const out = new Map<string, StatementFact>();
+  for (const s of extra?.shapes ?? []) {
+    const id = String(s.shape ?? '');
+    if (!id) continue;
+    const ns = String(s.ns ?? '');
+    const op = String(s.op ?? '');
+    out.set(id, {
+      id,
+      text: typeof s.query === 'string' && s.query ? `${op} ${s.query}` : `${op} · ${ns}`,
+      examined: Number(s.examined ?? 0),
+      sent: Number(s.returned ?? 0),
+      keys: Number(s.keys ?? 0),
+      calls: Number(s.calls ?? 0),
+      ns,
+      plan: String(s.plan ?? ''),
+      collscan: s.collscan === true,
+      ...(typeof s.fields === 'string' && s.fields ? { fields: s.fields } : {}),
+    });
+  }
+  return out;
+}
+
 /**
  * "Probably missing an index": a statement that reads far more than it returns. A hint, never
  * a certainty: MySQL says it used no index and examined 100 rows or more for each one sent;
@@ -350,6 +411,12 @@ export function missingIndex(
   fullScans: Map<string, number>,
 ): { table: string } | null {
   if (!f) return null;
+  if (e.type === 'mongodb') {
+    // A collection scan, or 100 documents or more examined for each one returned (1.4).
+    const scans = f.collscan || (f.examined ?? 0) >= 100 * Math.max(f.sent ?? 0, 1);
+    if (!scans || !f.ns || ((f.examined ?? 0) === 0 && !f.collscan)) return null;
+    return { table: f.fields ? `${f.ns} (${f.fields.split(',').join(', ')})` : f.ns };
+  }
   const tables = tablesIn(f.text);
   const pick = () => {
     const known = tables
@@ -467,7 +534,7 @@ export { statementLink };
  * in an hour would read as always active.
  */
 export function sparseAvg(e: Engine, serviceSel: string, expr: string, by: string, w: string) {
-  return `sum by (${by}) (sum_over_time(${expr}[${w}])) / scalar(max(count_over_time(${e.m}_active_sessions{${serviceSel}, wait="cpu"}[${w}])))`;
+  return `sum by (${by}) (sum_over_time(${expr}[${w}])) / scalar(max(count_over_time(${e.m}_active_sessions{${serviceSel}, wait="${e.waits[0]}"}[${w}])))`;
 }
 
 /** The statements by their active sessions over a period (the Waits tab's list). */
@@ -477,6 +544,7 @@ export async function statementsByWaits(
   end: number,
   dur: number,
 ): Promise<{ id: string; sessions: number; wait: WaitClass | null }[]> {
+  // (MongoDB's shapes are labelled "shape"; e.stmt says which.)
   const r = await at(
     ctx,
     sparseAvg(
@@ -805,16 +873,18 @@ export async function resourcePanels(ctx: PageContext, e: Engine): Promise<Panel
   // Seconds per operation: PostgreSQL's timed reads per block read, timed writes per buffer
   // written; MySQL's time per read and per write on the data files.
   const latency =
-    e.type === 'postgres'
-      ? `label_replace(sum(rate(watchlog_postgres_io_time_seconds_total{${s}, op="read"}[${w}])) / sum(rate(watchlog_postgres_blks_read_total{${s}}[${w}])), "op", "read", "", "") or label_replace(sum(rate(watchlog_postgres_io_time_seconds_total{${s}, op="write"}[${w}])) / sum(rate(watchlog_postgres_buffers_written_total{${s}}[${w}])), "op", "write", "", "")`
-      : `sum by (op) (rate(watchlog_mysql_file_io_seconds_total{${s}, file="data"}[${w}])) / sum by (op) (rate(watchlog_mysql_file_io_total{${s}, file="data"}[${w}]))`;
+    e.type === 'mongodb'
+      ? ''
+      : e.type === 'postgres'
+        ? `label_replace(sum(rate(watchlog_postgres_io_time_seconds_total{${s}, op="read"}[${w}])) / sum(rate(watchlog_postgres_blks_read_total{${s}}[${w}])), "op", "read", "", "") or label_replace(sum(rate(watchlog_postgres_io_time_seconds_total{${s}, op="write"}[${w}])) / sum(rate(watchlog_postgres_buffers_written_total{${s}}[${w}])), "op", "write", "", "")`
+        : `sum by (op) (rate(watchlog_mysql_file_io_seconds_total{${s}, file="data"}[${w}])) / sum by (op) (rate(watchlog_mysql_file_io_total{${s}, file="data"}[${w}]))`;
   const [cpu, cpuLimit, mem, memLimit, io, lat] = await Promise.all([
     p ? range(ctx, p.cpu.replaceAll('$w', w)) : Promise.resolve([]),
     p?.cpuLimit ? range(ctx, p.cpuLimit) : Promise.resolve([]),
     p ? range(ctx, p.mem) : Promise.resolve([]),
     p?.memLimit ? range(ctx, p.memLimit) : Promise.resolve([]),
     p?.io ? range(ctx, p.io.replaceAll('$w', w)) : Promise.resolve([]),
-    range(ctx, latency),
+    latency ? range(ctx, latency) : Promise.resolve([]),
   ]);
   const noProcess = p ? undefined : { key: `${P}.process.byAddress` };
   const limitLine = (r: QuerySeries[], key: string) =>
@@ -865,19 +935,23 @@ export async function resourcePanels(ctx: PageContext, e: Engine): Promise<Panel
         points: pointsOf(x),
       })),
     },
-    {
-      id: 'latency',
-      title: `${P}.process.latency`,
-      kind: 'line',
-      span: 1,
-      unit: 'seconds',
-      state: lat.length ? 'ok' : 'empty',
-      note: { key: `${P}.process.latencyNote.${e.type}` },
-      series: lat.map((x) => ({
-        nameKey: `${P}.process.${x.labels.op ?? 'read'}`,
-        points: pointsOf(x),
-      })),
-    },
+    ...(e.type === 'mongodb'
+      ? []
+      : [
+          {
+            id: 'latency',
+            title: `${P}.process.latency`,
+            kind: 'line',
+            span: 1,
+            unit: 'seconds',
+            state: lat.length ? 'ok' : 'empty',
+            note: { key: `${P}.process.latencyNote.${e.type}` },
+            series: lat.map((x) => ({
+              nameKey: `${P}.process.${x.labels.op ?? 'read'}`,
+              points: pointsOf(x),
+            })),
+          } as Panel,
+        ]),
   ];
 }
 
@@ -896,10 +970,17 @@ export async function capacityPanel(
   const conns =
     e.type === 'postgres'
       ? `(sum(watchlog_postgres_backends{${s}, db=""}) or 0 * max(watchlog_postgres_setting{${s}, name="max_connections"}))`
-      : `sum(watchlog_mysql_threads_connected{${s}})`;
+      : e.type === 'mongodb'
+        ? `max(watchlog_mongodb_connections{${s}, state="current"})`
+        : `sum(watchlog_mysql_threads_connected{${s}})`;
   const [c, m, growth] = await Promise.all([
     instant(ctx, conns),
-    instant(ctx, `max(${e.m}_setting{${s}, name="max_connections"})`),
+    instant(
+      ctx,
+      e.type === 'mongodb'
+        ? `max(sum by (member) (watchlog_mongodb_connections{${s}, state=~"current|available"}))`
+        : `max(${e.m}_setting{${s}, name="max_connections"})`,
+    ),
     instant(
       ctx,
       `(deriv((${conns})[7d:1h]) and last_over_time((${conns})[1h:5m] offset 1d)) * 86400`,

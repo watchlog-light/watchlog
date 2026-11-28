@@ -61,6 +61,13 @@ const Link = Type.Union([
     id: Type.String(),
     name: Type.String(),
   }),
+  // 1.4: another item page (Redis's prefix, command, stream group).
+  Type.Object({
+    kind: Type.Literal('item'),
+    tab: Type.String(),
+    id: Type.String(),
+    name: Type.String(),
+  }),
 ]);
 const Num = Nullable(Type.Number());
 

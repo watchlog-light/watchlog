@@ -65,7 +65,9 @@ export function linksOf(ev: Evidence): Link[] {
   if (
     f.code === 'queue_no_consumers' ||
     f.code === 'no_server_up' ||
-    f.code === 'group_no_members'
+    f.code === 'group_no_members' ||
+    // Redis's stream group whose consumer went quiet (1.4).
+    f.code === 'stream_group_orphaned'
   ) {
     const l = (f.links ?? []).find((x) => x.kind === 'workload' || x.kind === 'container');
     if (!l) return [];
@@ -93,7 +95,13 @@ export function linksOf(ev: Evidence): Link[] {
     ];
   }
   // MongoDB's collection scans name the client that sends them (ADR-164).
-  if (f.code === 'slow_collscan' && typeof f.facts.holder === 'string' && f.facts.holder) {
+  if (
+    (f.code === 'slow_collscan' ||
+      f.code === 'collscan_fills_cache' ||
+      f.code === 'main_thread_saturated') &&
+    typeof f.facts.holder === 'string' &&
+    f.facts.holder
+  ) {
     if (ev.platform === 'kubernetes' && !f.facts.holder.includes('/')) return [];
     return [holderLink(ev, f.code, f.facts.holder, null)];
   }
@@ -197,7 +205,7 @@ export function findingStep(ev: Evidence, a: EvApplication, f: Finding, next: St
       facts: { pct: num(f.facts.pct), n: num(f.facts.n), max: num(f.facts.max) },
       since: null,
     };
-  if (f.code === 'slow_collscan')
+  if (f.code === 'slow_collscan' || f.code === 'collscan_fills_cache')
     return {
       ...base,
       code: 'slow_collscan',
@@ -382,7 +390,7 @@ export function throughLink(
       },
     };
   }
-  if (f.code === 'slow_collscan') {
+  if (f.code === 'slow_collscan' || f.code === 'collscan_fills_cache') {
     if (far.gone) return null;
     const since = started(far);
     const ns = typeof f.facts.ns === 'string' ? f.facts.ns : null;
