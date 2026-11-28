@@ -329,6 +329,7 @@ export async function overview(input: PageContext): Promise<Panel[]> {
   const top = prefixes.rows.filter((x) => x.prefix !== 'other');
   const grew = top[0] && top[0].share2h !== null ? top[0].share - top[0].share2h : null;
   const at = valueOf(lastSave);
+  const saveOff = settingOf(ex, 'save') === '' && (valueOf(aof) ?? 0) === 0;
 
   // Memory against maxmemory with the largest prefix's memory beneath it.
   const topSeries = top[0]
@@ -466,9 +467,10 @@ export async function overview(input: PageContext): Promise<Panel[]> {
       {
         id: 'persistence',
         title: { key: isPrimary ? `${P}.flow.persistence` : `${P}.flow.persistenceReplica` },
-        value: at ? Math.max(0, Math.floor(ctx.now / 1000) - at) : null,
+        // Saving off (save "" with no AOF): no "since the last save", which would be the start.
+        value: saveOff ? null : at ? Math.max(0, Math.floor(ctx.now / 1000) - at) : null,
         unit: 'seconds',
-        valueKey: `${P}.flow.sinceSave`,
+        valueKey: saveOff ? `${P}.persist.saveOff` : `${P}.flow.sinceSave`,
         ...(valueOf(saveOk) === 0 ? { severity: 'critical' as Severity } : {}),
         rows: [
           {
