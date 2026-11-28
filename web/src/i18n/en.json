@@ -211,7 +211,102 @@
     "label": "Live demo",
     "sample": "sample cluster",
     "install": "Install yours in 5 minutes",
-    "readOnly": "This is a read-only demo. Install WatchLog to try this on your cluster."
+    "readOnly": "This is a read-only demo. Install WatchLog to try this on your cluster.",
+    "replayTour": "Replay the 30-second tour"
+  },
+  "tour": {
+    "step": "Step {n} of 4",
+    "skip": "Skip the tour",
+    "back": "Back",
+    "close": "Close the tour",
+    "welcome": {
+      "label": "Live demo · 30 seconds",
+      "esc": "Esc to skip",
+      "title": "A sample shop is breaking right now.",
+      "body": "Watch WatchLog find the problem and say why it happened, in four steps, on live data.",
+      "open": "open {d}",
+      "question": "What do you run?",
+      "kubernetes": {
+        "title": "Kubernetes",
+        "body": "A cluster: pods, workloads and the services between them."
+      },
+      "server": {
+        "title": "Linux servers",
+        "body": "A server: systemd services, processes, Docker containers."
+      },
+      "own": "I'll look around on my own",
+      "foot": "Read-only. No sign-up."
+    },
+    "problem": {
+      "title": "WatchLog found this by itself.",
+      "body": "Nobody wrote a rule or built a dashboard for it. The default alerts were on from the first minute after one install command.",
+      "next": "See why it broke"
+    },
+    "why": {
+      "title": "The why, in one sentence.",
+      "kubernetes": "WatchLog followed the symptom through the workloads it touches to where it starts. You didn't write a query or open three dashboards.",
+      "server": "WatchLog followed the symptom on the server to where it starts: the service, its last change, its limits. You didn't open a log or ssh in.",
+      "small": "Fixed rules over data the agent already collects. No AI guess, and it says so when it isn't sure.",
+      "next": "Show me the proof"
+    },
+    "proof": {
+      "title": "You don't have to take its word for it.",
+      "kubernetes": "The moment it started is marked on the alert's own chart, and What changed lists what moved around it. Both were there before you asked.",
+      "server": "The moment it started is marked on the alert's own chart, beside the change that came just before. Both were there before you asked.",
+      "next": "Get this on my own systems"
+    },
+    "end": {
+      "title": "A problem, its cause and the proof. Nobody set anything up.",
+      "body": "You get the same on your own systems with one command.",
+      "command": {
+        "kubernetes": "On your cluster",
+        "server": "On a Linux server, with Docker Compose"
+      },
+      "points": {
+        "1": "One agent",
+        "2": "No exporters, no query language",
+        "3": "First data in under a minute",
+        "4": "Alerts on from the start",
+        "5": "Open source",
+        "6": "Self-host free, or use Cloud"
+      },
+      "cloud": "Start free on Cloud",
+      "install": "Install on my own servers",
+      "another": "Or see another one, 30 seconds each",
+      "keep": "Keep exploring the demo"
+    },
+    "stories": {
+      "rabbitmq-payments": {
+        "title": "A queue nobody reads",
+        "why": "WatchLog followed the queue to its consumer, and the consumer to its memory limit. You didn't write a query or open three dashboards.",
+        "proof": "The moment the worker died is marked on the queue's own chart, and the cause names which client stopped reading. Both were there before you asked."
+      },
+      "postgres-lock": {
+        "title": "A row held in an idle transaction",
+        "why": "WatchLog followed the waiting sessions to the one holding the lock, and to the service whose transaction sits idle. You didn't run a query on the database.",
+        "proof": "The moment the lock was taken is marked on the alert's own chart. It was there before you asked."
+      },
+      "legacy-importer": {
+        "title": "A container that never starts",
+        "why": "WatchLog read how the container ends each time and what changed before it began. You didn't open a log or a terminal.",
+        "proof": "Every restart is on the alert's own chart, and the cause says how the container exits. Both were there before you asked."
+      },
+      "orders-release": {
+        "title": "A server after a bad release",
+        "why": "WatchLog saw a new orders binary on the server just before the crashes began. You didn't open a log or ssh in.",
+        "proof": "The release is marked on the alert's own chart, right before the first crash. It was there before you asked."
+      },
+      "invoices": {
+        "title": "A service that fails since its last change",
+        "why": "WatchLog saw a new invoices build on the server just before it started failing. You didn't open a log or ssh in.",
+        "proof": "The new build is marked on the alert's own chart, right before the failures. It was there before you asked."
+      },
+      "report-builder": {
+        "title": "A job that fails quietly",
+        "why": "WatchLog can't prove one cause here, so it lists what could explain it and what it checked. It says so when it isn't sure.",
+        "proof": "Every failed run is on the alert's own chart. It was there before you asked."
+      }
+    }
   },
   "account": {
     "signOut": "Sign out",

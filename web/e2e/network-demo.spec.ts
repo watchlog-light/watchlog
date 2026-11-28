@@ -31,6 +31,14 @@ interface Dev {
 }
 
 async function enter(page: Page, width: number) {
+  // The guided tour (1.3.0) opens on a first visit; these walk the pages without it.
+  await page.addInitScript(() => {
+    try {
+      localStorage.setItem('watchlog-demo-tour-seen', '1');
+    } catch {
+      /* no storage: the tour may open, as for a visitor */
+    }
+  });
   await page.setViewportSize(width < 1024 ? viewportFor(width).viewport : { width, height: 1000 });
   const res = await page.request.post('/api/v1/demo/session');
   expect(res.ok(), 'this spec runs against the read-only demo').toBe(true);

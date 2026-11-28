@@ -2,8 +2,10 @@
 <script setup lang="ts">
 import { ArrowRight } from '@lucide/vue';
 import { LINKS } from '@/lib/links';
+import { replayTour } from '@/lib/tour-signal';
 
-// Read-only demo (ADR-122): on every page, says what this is and where to get your own.
+// Read-only demo (ADR-122): on every page, says what this is and where to get your own, and
+// (1.3.0) replays the guided tour.
 </script>
 
 <template>
@@ -17,6 +19,15 @@ import { LINKS } from '@/lib/links';
     </span>
     <span class="text-text-muted" aria-hidden="true">·</span>
     <span class="text-text-muted">{{ $t('demo.sample') }}</span>
+    <span class="text-text-muted" aria-hidden="true">·</span>
+    <button
+      type="button"
+      class="font-semibold text-link hover:text-primary-hover hover:underline max-lg:min-h-11"
+      data-testid="demo-replay-tour"
+      @click="replayTour"
+    >
+      {{ $t('demo.replayTour') }}
+    </button>
     <span class="text-text-muted" aria-hidden="true">·</span>
     <a
       :href="LINKS.install"

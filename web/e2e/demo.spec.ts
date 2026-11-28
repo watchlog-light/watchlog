@@ -8,9 +8,17 @@ import { layoutProblems, report, viewportFor } from './layout-checks';
 const SHOT_DIR = new URL('./screenshots/', import.meta.url).pathname;
 const MESSAGE = 'This is a read-only demo. Install WatchLog to try this on your cluster.';
 
-test.beforeEach(async ({ request }) => {
+test.beforeEach(async ({ request, page }) => {
   const status = await (await request.get('/api/v1/setup')).json();
   test.skip(!status.demoMode, 'the dashboard is not in demo mode');
+  // The guided tour (1.3.0) opens on a first visit; these walk the pages without it.
+  await page.addInitScript(() => {
+    try {
+      localStorage.setItem('watchlog-demo-tour-seen', '1');
+    } catch {
+      /* no storage: the tour may open, as for a visitor */
+    }
+  });
 });
 
 async function settle(page: Page) {

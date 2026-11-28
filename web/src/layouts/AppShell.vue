@@ -9,7 +9,7 @@ import {
   DialogRoot,
   DialogTitle,
 } from 'reka-ui';
-import { computed, onBeforeUnmount, onMounted, watch } from 'vue';
+import { computed, defineAsyncComponent, onBeforeUnmount, onMounted, watch } from 'vue';
 import { usePolling } from '@/composables/usePolling';
 import { useI18n } from 'vue-i18n';
 import { useRoute } from 'vue-router';
@@ -19,6 +19,8 @@ import AlertingStatusBanner from '@/components/alerts/AlertingStatusBanner.vue';
 import LicenseBanner from '@/components/license/LicenseBanner.vue';
 import CommandPalette from '@/components/layout/CommandPalette.vue';
 import DemoBanner from '@/components/layout/DemoBanner.vue';
+// The live demo's guided tour (1.3.0, ADR-246): its own chunk, loaded only in demo mode.
+const TourRoot = defineAsyncComponent(() => import('@/tour/TourRoot.vue'));
 import SupportBanner from '@/components/cloud/SupportBanner.vue';
 import VerifyBanner from '@/components/cloud/VerifyBanner.vue';
 import PlanBanner from '@/components/plan/PlanBanner.vue';
@@ -83,6 +85,7 @@ onBeforeUnmount(() => document.documentElement.classList.remove('app-shell'));
     </DialogRoot>
     <div class="flex min-h-0 min-w-0 flex-1 flex-col">
       <DemoBanner v-if="auth.demoMode" class="flex-none" />
+      <TourRoot v-if="auth.demoMode" />
       <AppTopBar :title="title" class="flex-none" />
       <SupportBanner v-if="auth.isCloud" class="flex-none" />
       <VerifyBanner v-if="auth.isCloud" class="flex-none" />
