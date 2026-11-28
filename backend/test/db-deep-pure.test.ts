@@ -8,6 +8,7 @@ import {
   clientOf,
   dominantWait,
   missingIndex,
+  sparseAvg,
   MY,
   periodOf,
   PG,
@@ -182,5 +183,13 @@ describe('clientOf', () => {
     expect(clientOf(owners, '172.18.0.4')).toEqual({ name: 'shop-report-1' });
     expect(clientOf(owners, '10.9.9.9')).toEqual({ name: '10.9.9.9' });
     expect(clientOf(owners, '', 'psql')).toEqual({ name: 'psql' });
+  });
+});
+
+describe('sparseAvg', () => {
+  it('averages a series present only while active over every scrape of the window', () => {
+    expect(sparseAvg(PG, 'service="s"', 'x{service="s"}', 'addr, wait', '3600s')).toBe(
+      'sum by (addr, wait) (sum_over_time(x{service="s"}[3600s])) / scalar(max(count_over_time(watchlog_postgres_active_sessions{service="s", wait="cpu"}[3600s])))',
+    );
   });
 });

@@ -21,6 +21,7 @@ import {
   slowerSince,
   statementFacts,
   statementRows,
+  sparseAvg,
   statementsNaming,
   statementsByWaits,
   statementStats,
@@ -778,7 +779,7 @@ export async function statementPage(input: PageContext): Promise<Panel[]> {
     range(ctx, `sum(rate(watchlog_mysql_statement_errors_total{${sel}}[${w}]))`),
     range(
       ctx,
-      `sum by (wait) (avg_over_time(watchlog_mysql_statement_active_sessions{${sel}}[${w}]))`,
+      sparseAvg(E, one(ctx.row.id), `watchlog_mysql_statement_active_sessions{${sel}}`, 'wait', w),
     ),
     scanRows(ctx),
   ]);

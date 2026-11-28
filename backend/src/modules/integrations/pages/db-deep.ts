@@ -459,6 +459,17 @@ export async function statementsNaming(
 
 export { statementLink };
 
+/**
+ * The average of a series that exists only while sessions are active (by statement, by client)
+ * over a window: its sum over the window divided by the number of samples the always-present
+ * total (`active_sessions{wait="cpu"}`, one a scrape) has there, so the minutes nobody ran count
+ * as zero. avg_over_time would average only the samples present, and a statement active once
+ * in an hour would read as always active.
+ */
+export function sparseAvg(e: Engine, serviceSel: string, expr: string, by: string, w: string) {
+  return `sum by (${by}) (sum_over_time(${expr}[${w}])) / scalar(max(count_over_time(${e.m}_active_sessions{${serviceSel}, wait="cpu"}[${w}])))`;
+}
+
 /** The statements by their active sessions over a period (the Waits tab's list). */
 export async function statementsByWaits(
   ctx: PageContext,
@@ -468,7 +479,13 @@ export async function statementsByWaits(
 ): Promise<{ id: string; sessions: number; wait: WaitClass | null }[]> {
   const r = await at(
     ctx,
-    `sum by (${e.stmt}, wait) (avg_over_time(${e.m}_statement_active_sessions{${one(ctx.row.id)}}[${dur}s]))`,
+    sparseAvg(
+      e,
+      one(ctx.row.id),
+      `${e.m}_statement_active_sessions{${one(ctx.row.id)}}`,
+      `${e.stmt}, wait`,
+      `${dur}s`,
+    ),
     end,
   );
   const per = new Map<string, { sessions: number; top: [WaitClass | null, number] }>();
@@ -490,7 +507,13 @@ export async function statementsByWaits(
 export async function clientsByWaits(ctx: PageContext, e: Engine, end: number, dur: number) {
   const r = await at(
     ctx,
-    `sum by (addr, wait) (avg_over_time(${e.m}_client_active_sessions{${one(ctx.row.id)}}[${dur}s]))`,
+    sparseAvg(
+      e,
+      one(ctx.row.id),
+      `${e.m}_client_active_sessions{${one(ctx.row.id)}}`,
+      'addr, wait',
+      `${dur}s`,
+    ),
     end,
   );
   const per = new Map<string, { sessions: number; top: [WaitClass | null, number] }>();

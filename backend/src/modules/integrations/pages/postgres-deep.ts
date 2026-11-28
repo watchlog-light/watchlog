@@ -22,6 +22,7 @@ import {
   slowerSince as slowerSinceOf,
   statementFacts,
   statementRows,
+  sparseAvg,
   statementsNaming,
   statementsByWaits,
   statementStats,
@@ -711,7 +712,13 @@ export async function statementPage(input: PageContext): Promise<Panel[]> {
       range(ctx, `sum(rate(watchlog_postgres_statement_temp_blocks_total{${sel}}[${w}]))`),
       range(
         ctx,
-        `sum by (wait) (avg_over_time(watchlog_postgres_statement_active_sessions{${sel}}[${w}]))`,
+        sparseAvg(
+          E,
+          one(ctx.row.id),
+          `watchlog_postgres_statement_active_sessions{${sel}}`,
+          'wait',
+          w,
+        ),
       ),
       scanRows(ctx),
     ]);
