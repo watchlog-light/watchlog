@@ -54,7 +54,7 @@ export interface CollectorTarget {
   type: IntegrationType;
   name: string;
   members: CollectorMember[];
-  settings: { query_text: boolean };
+  settings: { query_text: boolean; key_names: boolean };
   /** How to log in (ADR-133): only to this service's own collector, never stored by it. */
   credential?: CollectorCredential;
 }
@@ -273,13 +273,16 @@ export async function buildCollectorConfig(
   };
 
   const out: CollectorTarget[] = targets.map((t) => {
-    const settings = t.settings as { query_text?: boolean };
+    const settings = t.settings as { query_text?: boolean; key_names?: boolean };
     return {
       id: t.id,
       type: t.type as IntegrationType,
       name: t.name,
       members: membersOf(t.target),
-      settings: { query_text: settings.query_text !== false },
+      settings: {
+        query_text: settings.query_text !== false,
+        key_names: settings.key_names === true,
+      },
       ...credentialOf(t.id, t),
     };
   });

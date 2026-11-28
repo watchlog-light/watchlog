@@ -46,7 +46,8 @@ import type {
 
 const E = MG;
 const P = 'integrations.mongodb.panels';
-const D = 'integrations.db.panels';
+// 1.2's shared database words (a template, so the keys test reads only `${D}.…` uses).
+const D = `integrations.db.panels`;
 const RATE = '2m';
 const LAG_LINE = 10;
 const OPLOG_DAY = 86400;

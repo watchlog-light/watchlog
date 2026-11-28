@@ -13685,6 +13685,7 @@ export interface paths {
           'application/json': {
             paused?: boolean;
             queryText?: boolean;
+            keyNames?: boolean;
           };
         };
       };
@@ -15915,6 +15916,7 @@ export interface paths {
               settings: {
                 queryText: boolean;
                 paused: boolean;
+                keyNames: boolean;
               };
               events: {
                 action: string;

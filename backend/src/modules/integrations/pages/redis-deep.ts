@@ -23,7 +23,8 @@ import type {
 } from './types.js';
 
 const P = 'integrations.redis.panels';
-const D = 'integrations.db.panels';
+// 1.2's shared database words (a template, so the keys test reads only `${D}.…` uses).
+const D = `integrations.db.panels`;
 const RATE = '2m';
 
 export interface SlowEntry {

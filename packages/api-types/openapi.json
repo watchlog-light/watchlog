@@ -37874,6 +37874,9 @@
                   },
                   "queryText": {
                     "type": "boolean"
+                  },
+                  "keyNames": {
+                    "type": "boolean"
                   }
                 },
                 "additionalProperties": false
@@ -45865,12 +45868,15 @@
                     },
                     "settings": {
                       "type": "object",
-                      "required": ["queryText", "paused"],
+                      "required": ["queryText", "paused", "keyNames"],
                       "properties": {
                         "queryText": {
                           "type": "boolean"
                         },
                         "paused": {
+                          "type": "boolean"
+                        },
+                        "keyNames": {
                           "type": "boolean"
                         }
                       }

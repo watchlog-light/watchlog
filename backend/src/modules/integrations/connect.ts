@@ -509,7 +509,12 @@ export const connectRoutes: FastifyPluginAsyncTypebox<{
         response: {
           200: Type.Object({
             access: Type.Union([AccessView, Type.Null()]),
-            settings: Type.Object({ queryText: Type.Boolean(), paused: Type.Boolean() }),
+            settings: Type.Object({
+              queryText: Type.Boolean(),
+              paused: Type.Boolean(),
+              /** Redis: the largest sampled keys by name (1.4, off by default). */
+              keyNames: Type.Boolean(),
+            }),
             events: Type.Array(EventView),
           }),
           401: ProblemSchema,
@@ -561,6 +566,7 @@ export const connectRoutes: FastifyPluginAsyncTypebox<{
           : null,
         settings: {
           queryText: (row.settings as { query_text?: boolean }).query_text !== false,
+          keyNames: (row.settings as { key_names?: boolean }).key_names === true,
           paused: row.status === 'paused',
         },
         events: events.map((e) => ({
@@ -664,7 +670,11 @@ export const connectRoutes: FastifyPluginAsyncTypebox<{
         tags: ['applications'],
         params: Type.Object({ id: Type.String({ format: 'uuid' }) }),
         body: Type.Object(
-          { paused: Type.Optional(Type.Boolean()), queryText: Type.Optional(Type.Boolean()) },
+          {
+            paused: Type.Optional(Type.Boolean()),
+            queryText: Type.Optional(Type.Boolean()),
+            keyNames: Type.Optional(Type.Boolean()),
+          },
           { additionalProperties: false },
         ),
         response: { 204: Type.Null(), 401: ProblemSchema, 403: ProblemSchema, 404: ProblemSchema },
@@ -679,8 +689,8 @@ export const connectRoutes: FastifyPluginAsyncTypebox<{
         .where('org_id', '=', orgId)
         .executeTakeFirst();
       if (!svc) return sendProblem(reply, 404, 'Service not found');
-      const { paused, queryText } = request.body;
-      const settings = svc.settings as { query_text?: boolean };
+      const { paused, queryText, keyNames } = request.body;
+      const settings = svc.settings as { query_text?: boolean; key_names?: boolean };
       const wasPaused = svc.status === 'paused';
       await db
         .updateTable('integrations')
@@ -690,9 +700,15 @@ export const connectRoutes: FastifyPluginAsyncTypebox<{
             : paused
               ? { status: 'paused' }
               : { status: 'pending', status_details: '{}' }),
-          ...(queryText === undefined
+          ...(queryText === undefined && keyNames === undefined
             ? {}
-            : { settings: JSON.stringify({ ...settings, query_text: queryText }) }),
+            : {
+                settings: JSON.stringify({
+                  ...settings,
+                  ...(queryText === undefined ? {} : { query_text: queryText }),
+                  ...(keyNames === undefined ? {} : { key_names: keyNames }),
+                }),
+              }),
         })
         .where('id', '=', svc.id)
         .execute();
@@ -701,6 +717,15 @@ export const connectRoutes: FastifyPluginAsyncTypebox<{
           orgId,
           integrationId: svc.id,
           action: paused ? 'paused' : 'resumed',
+          ...actor(request),
+        });
+      }
+      if (keyNames !== undefined && keyNames !== (settings.key_names === true)) {
+        await recordEvent(db, {
+          orgId,
+          integrationId: svc.id,
+          action: 'settings_changed',
+          details: { keyNames },
           ...actor(request),
         });
       }
