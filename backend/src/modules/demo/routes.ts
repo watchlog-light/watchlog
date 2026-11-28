@@ -65,6 +65,28 @@ export const demoRoutes: FastifyPluginAsyncTypebox<{
         tags: ['auth'],
         response: {
           200: Type.Object({
+            /**
+             * The open alerts a story could tell (its rules only), with what the choice reads:
+             * so the tour asks no page's API of its own, which the demo analytics would count
+             * as the visitor opening that page.
+             */
+            open: Type.Array(
+              Type.Object({
+                id: Type.String(),
+                cluster: Type.Object({
+                  id: Type.String(),
+                  kind: Type.String(),
+                  name: Type.String(),
+                }),
+                rule: Type.Object({
+                  key: Type.Union([Type.String(), Type.Null()]),
+                  name: Type.String(),
+                }),
+                labels: Type.Record(Type.String(), Type.String()),
+                startedAt: Type.String(),
+                firedAt: Type.Union([Type.String(), Type.Null()]),
+              }),
+            ),
             stories: Type.Array(
               Type.Object({
                 id: Type.String(),
@@ -81,9 +103,48 @@ export const demoRoutes: FastifyPluginAsyncTypebox<{
         },
       },
     },
-    async (_request, reply) => {
+    async (request, reply) => {
       if (!demoMode) return sendProblem(reply, 404, 'This server is not a demo');
+      const rules = [...new Set((tour?.stories ?? []).flatMap((st) => st.rules))];
+      const rows = rules.length
+        ? await systemDb
+            .selectFrom('alert_states as s')
+            .innerJoin('alert_rules as r', 'r.id', 's.rule_id')
+            .innerJoin('clusters as c', 'c.id', 's.cluster_id')
+            .select([
+              's.id',
+              's.labels',
+              's.started_at',
+              's.fired_at',
+              'r.rule_key',
+              'r.name',
+              'c.id as cluster_id',
+              'c.kind',
+              'c.name as cluster_name',
+            ])
+            .where('s.org_id', '=', request.user!.org.id)
+            .where('s.state', '=', 'firing')
+            .where('s.held', '=', false)
+            .where((eb) => eb.or([eb('r.rule_key', 'in', rules), eb('r.name', 'in', rules)]))
+            .orderBy('s.started_at')
+            .limit(200)
+            .execute()
+        : [];
+      const iso = (d: Date | string | null) => (d ? new Date(d).toISOString() : null);
       return {
+        open: rows.map((r) => ({
+          id: r.id,
+          cluster: { id: r.cluster_id, kind: r.kind, name: r.cluster_name },
+          rule: { key: r.rule_key, name: r.name },
+          labels: Object.fromEntries(
+            Object.entries((r.labels ?? {}) as Record<string, unknown>).map(([k, v]) => [
+              k,
+              String(v),
+            ]),
+          ),
+          startedAt: iso(r.started_at)!,
+          firedAt: iso(r.fired_at),
+        })),
         stories: (tour?.stories ?? []).map((st) => ({
           id: st.id,
           kind: st.kind,
