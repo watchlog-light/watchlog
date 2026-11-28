@@ -310,6 +310,53 @@ async function mountPage(path: string) {
 }
 
 describe('Application page', () => {
+  it("narrows a database's Waits tab to a chosen period, and back to the whole range", async () => {
+    const waits = { tab: 'waits', range: 3600, panels: [PANELS[0]] };
+    const tabs = [
+      { id: 'overview', title: 'integrations.tabs.overview' },
+      { id: 'waits', title: 'integrations.db.tabs.waits' },
+    ];
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-11-28T10:00:00Z'));
+    const to = Math.floor(Date.parse('2026-11-28T10:00:00Z') / 1000);
+    const chosen = `/api/v1/applications/${ID}/panels?tab=waits&range=3600&from=${to - 900}&to=${to}`;
+    const { calls } = mockFetch({
+      [`GET /api/v1/applications/${ID}?range=3600`]: {
+        status: 200,
+        body: detail({}, { page: { id: 'postgres', tabs } }),
+      },
+      [`GET /api/v1/applications/${ID}/panels?tab=waits&range=3600`]: [
+        { status: 200, body: waits },
+        { status: 200, body: waits },
+      ],
+      [`GET ${chosen}`]: { status: 200, body: waits },
+    });
+    try {
+      const { wrapper, router } = await mountPage(
+        `/applications/${ID}?cluster=${K8S.id}&tab=waits`,
+      );
+      expect(wrapper.get('[data-testid="waits-period"]').text()).toContain(
+        'Drag on the chart to look at a period',
+      );
+      expect(wrapper.find('[data-testid="period-clear"]').exists()).toBe(false);
+      await wrapper.get('[data-testid="period-15"]').trigger('click');
+      await flushPromises();
+      expect(router.currentRoute.value.query).toMatchObject({
+        from: String(to - 900),
+        to: String(to),
+      });
+      expect(calls.map((c) => c.path)).toContain(chosen);
+      expect(wrapper.get('[data-testid="waits-period"]').text()).toContain('Showing');
+      await wrapper.get('[data-testid="period-clear"]').trigger('click');
+      await flushPromises();
+      expect(router.currentRoute.value.query.from).toBeUndefined();
+      expect(calls.at(-1)?.path).toMatch(/tab=waits&range=3600$/);
+      wrapper.unmount();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('shows a Kubernetes service: header, reasons, tabs, panels, connected workloads', async () => {
     const { calls } = mockFetch({
       [`GET /api/v1/applications/${ID}?range=3600`]: { status: 200, body: detail({}) },
