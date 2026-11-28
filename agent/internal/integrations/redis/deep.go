@@ -93,7 +93,17 @@ func newPass(now time.Time) *pass {
 func (sm *sampler) step(ctx context.Context, c *resp.Conn, now time.Time, total float64) error {
 	if sm.windowStart.IsZero() || now.Sub(sm.windowStart) >= SampleWindow {
 		sm.windowStart, sm.spent = now, 0
-		if sm.cur == nil {
+	}
+	// A new pass when the last finished and the budget allows: its names spread evenly over
+	// the window, so a small instance is sampled again every minute or two (3,000 keys: every
+	// 90 s), a large one once a window. Never more than SampleBudget names a window.
+	if sm.cur == nil && sm.spent < SampleBudget {
+		due := sm.last == nil
+		if sm.last != nil {
+			gap := time.Duration(float64(SampleWindow) * sm.last.sampled / SampleBudget)
+			due = now.Sub(sm.last.start) >= max(gap, 30*time.Second)
+		}
+		if due {
 			sm.cur = newPass(now)
 			if sm.next != "" {
 				sm.cur.cursor = sm.next

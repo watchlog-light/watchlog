@@ -72,6 +72,31 @@ func TestSlowerNeedsThreeInARow(t *testing.T) {
 	}
 }
 
+// A small keyspace is sampled again within the window as the budget allows; a pass's
+// names count against it.
+func TestSamplerSpreadsItsBudget(t *testing.T) {
+	sm := &sampler{}
+	t0 := time.Now()
+	sm.windowStart = t0
+	sm.last = &pass{start: t0, sampled: 3000}
+	sm.spent = 3000
+	if sm.cur != nil {
+		t.Fatal("pass")
+	}
+	// 3,000 of 20,000 a window: due again after 90 s, not before.
+	for _, c := range []struct {
+		after time.Duration
+		due   bool
+	}{{60 * time.Second, false}, {91 * time.Second, true}} {
+		s := *sm
+		gap := time.Duration(float64(SampleWindow) * s.last.sampled / SampleBudget)
+		due := t0.Add(c.after).Sub(s.last.start) >= max(gap, 30*time.Second)
+		if due != c.due {
+			t.Fatalf("after %v: due %v", c.after, due)
+		}
+	}
+}
+
 func TestAgeOfID(t *testing.T) {
 	now := time.UnixMilli(1795884277031)
 	if a := AgeOfID("1795884217031-0", now); a != 60 {
