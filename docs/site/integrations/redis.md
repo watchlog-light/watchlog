@@ -30,7 +30,8 @@ and whether it has a TTL (`PTTL`), and for a collection its number of elements (
 than when it began. Only each prefix (`session:`), its size, keys, share with a TTL and
 type leave the collector; a key's full name only if you turn **Show key names** on in the
 service's settings. A pass picks up where the last one stopped, so on a large instance
-every key is seen, a window at a time.
+every key is seen, a window at a time; a small one is sampled again every minute or two
+within the same budget.
 
 **Streams** are found by that sample. For each stream WatchLog reads `XLEN`, `XINFO GROUPS`,
 `XINFO CONSUMERS` and the summary form of `XPENDING` (counts and the oldest pending
