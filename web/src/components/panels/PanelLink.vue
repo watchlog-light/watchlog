@@ -14,7 +14,7 @@ const to = computed(() => linkRoute(props.link, page.appId, page.clusterId));
   <RouterLink
     v-if="to"
     :to="to"
-    class="text-primary hover:underline max-lg:inline-flex max-lg:min-h-11 max-lg:items-center"
+    class="text-primary hover:underline max-lg:inline-flex max-lg:min-h-11 max-lg:min-w-11 max-lg:items-center"
     ><slot
   /></RouterLink>
   <a
@@ -22,7 +22,7 @@ const to = computed(() => linkRoute(props.link, page.appId, page.clusterId));
     :href="link.href"
     target="_blank"
     rel="noopener"
-    class="text-primary hover:underline max-lg:inline-flex max-lg:min-h-11 max-lg:items-center"
+    class="text-primary hover:underline max-lg:inline-flex max-lg:min-h-11 max-lg:min-w-11 max-lg:items-center"
     ><slot
   /></a>
   <span v-else><slot /></span>
