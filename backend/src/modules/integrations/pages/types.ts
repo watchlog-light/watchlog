@@ -295,6 +295,8 @@ export interface StatementsPanel extends Base {
   shareOf: 'time' | 'waits';
   full: boolean;
   total: number;
+  /** The text and rows columns' words, where "statement" and "rows" don't fit (1.4: MongoDB). */
+  words?: { text: string; rows: string };
 }
 /** Who blocks whom (1.2): pre-order, the root blocker first, each with its depth. */
 export interface TreePanel extends Base {

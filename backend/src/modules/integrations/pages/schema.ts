@@ -346,6 +346,7 @@ export const PanelSchema = Type.Union([
     shareOf: Type.Union([Type.Literal('time'), Type.Literal('waits')]),
     full: Type.Boolean(),
     total: Type.Integer(),
+    words: Type.Optional(Type.Object({ text: Type.String(), rows: Type.String() })),
   }),
   Type.Object({
     ...base,

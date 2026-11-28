@@ -14834,6 +14834,10 @@ export interface paths {
                     shareOf: 'time' | 'waits';
                     full: boolean;
                     total: number;
+                    words?: {
+                      text: string;
+                      rows: string;
+                    };
                   }
                 | {
                     id: string;

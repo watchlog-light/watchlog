@@ -445,6 +445,7 @@ describe('the MongoDB page', () => {
     expect(overview.map((p) => p.id)).toEqual([
       'flow',
       'summary',
+      'ops',
       'latency',
       'cache',
       'checks',
@@ -453,7 +454,7 @@ describe('the MongoDB page', () => {
       'memory',
       'disk',
     ]);
-    for (const pid of ['flow', 'summary', 'latency', 'cache', 'checks', 'slow'])
+    for (const pid of ['flow', 'summary', 'ops', 'latency', 'cache', 'checks', 'slow'])
       expect(overview.find((p) => p.id === pid)!.state, pid).toBe('ok');
     const flow = overview.find((p) => p.id === 'flow') as unknown as {
       columns: { id: string; rows: { name: string; text?: { key: string } }[] }[];

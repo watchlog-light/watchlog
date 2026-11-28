@@ -42964,6 +42964,18 @@
                               },
                               "total": {
                                 "type": "integer"
+                              },
+                              "words": {
+                                "type": "object",
+                                "required": ["text", "rows"],
+                                "properties": {
+                                  "text": {
+                                    "type": "string"
+                                  },
+                                  "rows": {
+                                    "type": "string"
+                                  }
+                                }
                               }
                             }
                           },

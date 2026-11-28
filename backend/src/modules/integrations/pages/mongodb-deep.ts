@@ -50,10 +50,13 @@ const P = 'integrations.mongodb.panels';
 // 1.2's shared database words (a template, so the keys test reads only `${D}.…` uses).
 const D = `integrations.db.panels`;
 const RATE = '2m';
+const OPS = ['query', 'insert', 'update', 'delete', 'getmore', 'command'] as const;
 const LAG_LINE = 10;
 const OPLOG_DAY = 86400;
 /** Transactions worth naming: the server aborts them at 60 s by default. */
 export const TXN_LONG = 30;
+/** The shapes table's words: an operation, documents returned (1.4). */
+const WORDS = { text: `${P}.cols.shape`, rows: `${P}.cols.returned` };
 
 export interface MongoMember {
   name: string;
@@ -270,6 +273,7 @@ export async function overview(input: PageContext): Promise<Panel[]> {
     owners,
     hour,
     senders,
+    byOp,
   ] = await Promise.all([
     instant(ctx, `sum(rate(watchlog_mongodb_ops_total{${s}}[${RATE}]))`),
     instant(ctx, `sum(rate(watchlog_mongodb_ops_total{${s}, op=~"query|getmore"}[${RATE}]))`),
@@ -321,6 +325,7 @@ export async function overview(input: PageContext): Promise<Panel[]> {
     ownersOf(ctx),
     lastHour(ctx),
     sentBy(ctx, E),
+    range(ctx, `sum by (op) (rate(watchlog_mongodb_ops_total{${s}}[${RATE}]))`),
   ]);
   const ex = extraOf(ctx);
   const facts = statementFacts(ctx, E);
@@ -662,6 +667,8 @@ export async function overview(input: PageContext): Promise<Panel[]> {
         },
       ],
     },
+    // Operations by type a second (opcounters): what the server is asked to do.
+    opsByType(byOp, markers),
     {
       id: 'latency',
       title: `${P}.charts.latency`,
@@ -705,6 +712,26 @@ export async function overview(input: PageContext): Promise<Panel[]> {
     // only by its address: three empty panels would say nothing).
     ...(processOf(ctx) ? await resourcePanels(ctx, E) : []),
   ];
+}
+
+/** Operations a second by type: query, insert, update, delete, getmore, command. */
+function opsByType(
+  byOp: QuerySeries[],
+  markers: { at: number; text: Text; severity?: Severity }[] = [],
+): Panel {
+  return {
+    id: 'ops',
+    title: `${P}.opsByType`,
+    kind: 'stack',
+    span: 2,
+    unit: 'per_second',
+    state: byOp.length ? 'ok' : 'empty',
+    ...(markers.length ? { markers } : {}),
+    series: OPS.map((k) => ({
+      nameKey: `${P}.series.${k}`,
+      points: pointsOf(byOp.find((x) => x.labels.op === k)),
+    })),
+  };
 }
 
 /** The shape that scans most in the last hour and its sender, when one sends most of it. */
@@ -788,7 +815,7 @@ export async function operations(input: PageContext): Promise<Panel[]> {
   const ctx = aligned(input);
   const s = one(ctx.row.id);
   const seconds = Math.max(ctx.range, 300);
-  const [stats, senders, owners, source, hist, busiest] = await Promise.all([
+  const [stats, senders, owners, source, hist, busiest, byOp, latency] = await Promise.all([
     statementStats(ctx, E),
     sentBy(ctx, E),
     ownersOf(ctx),
@@ -797,6 +824,11 @@ export async function operations(input: PageContext): Promise<Panel[]> {
     instant(
       ctx,
       `topk(15, sum by (ns) (rate(watchlog_mongodb_collection_time_seconds_total{${s}}[${seconds}s])))`,
+    ),
+    range(ctx, `sum by (op) (rate(watchlog_mongodb_ops_total{${s}}[${RATE}]))`),
+    range(
+      ctx,
+      `sum by (type) (rate(watchlog_mongodb_op_latency_seconds_total{${s}}[${RATE}])) / (sum by (type) (rate(watchlog_mongodb_op_latency_ops_total{${s}}[${RATE}])) > 0)`,
     ),
   ]);
   const facts = statementFacts(ctx, E);
@@ -812,10 +844,25 @@ export async function operations(input: PageContext): Promise<Panel[]> {
   const cum = LE.map((le) => hist.find((x) => x.labels.le === le)?.points[0]?.[1] ?? 0);
   const totalH = cum.at(-1) ?? 0;
   return [
+    { ...opsByType(byOp), span: 1 } as Panel,
+    {
+      // Each kind's mean time (serverStatus opLatencies): reads, writes, commands.
+      id: 'latency-by-type',
+      title: `${P}.latencyByType`,
+      kind: 'line',
+      span: 1,
+      unit: 'seconds',
+      state: latency.length ? 'ok' : 'empty',
+      series: ['reads', 'writes', 'commands'].map((t) => ({
+        nameKey: `${P}.series.${t}`,
+        points: pointsOf(latency.find((x) => x.labels.type === t)),
+      })),
+    },
     {
       id: 'top',
       title: `${P}.shapes.title`,
       kind: 'statements',
+      words: WORDS,
       span: 2,
       state: ids.length ? 'ok' : 'empty',
       note: { key: `${P}.shapes.source.${source ?? 'none'}` },
@@ -940,6 +987,7 @@ export async function waitsTab(input: PageContext): Promise<Panel[]> {
       id: 'by-statement',
       title: `${P}.waits.byShape`,
       kind: 'statements',
+      words: WORDS,
       span: 2,
       state: shapes.length ? 'ok' : 'empty',
       shareOf: 'waits',
@@ -1801,6 +1849,7 @@ export async function collectionPage(input: PageContext): Promise<Panel[]> {
       id: 'statements',
       title: `${P}.collection.shapes`,
       kind: 'statements',
+      words: WORDS,
       span: 2,
       state: ids.length ? 'ok' : 'empty',
       shareOf: 'time',
