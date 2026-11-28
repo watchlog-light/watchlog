@@ -46,6 +46,37 @@ const SeedDemoMcpSchema = Type.Object(
 );
 
 /**
+ * The live demo's guided tour (1.3.0, ADR-246): its stories in the order the tour tries them,
+ * each a scripted failure the demo runs, found among the open alerts by its rule (key or name)
+ * and label values; the first open one with a Likely cause is told, else the story marked as
+ * the fallback (a failure that never heals). `another` lists the stories offered at the end.
+ * The words are the web's (i18n, by story id); used only in demo mode.
+ */
+const SeedTourStorySchema = Type.Object(
+  {
+    id: Type.String({ pattern: '^[a-z0-9][a-z0-9-]{0,39}$' }),
+    kind: Type.Union([Type.Literal('kubernetes'), Type.Literal('server')]),
+    /** The alert rule's key or, for rules without one, its name. */
+    rules: Type.Array(Type.String({ minLength: 1, maxLength: 200 }), { minItems: 1, maxItems: 5 }),
+    labels: Type.Optional(
+      Type.Record(Type.String({ pattern: '^[a-z_]{1,40}$' }), Type.String({ maxLength: 200 })),
+    ),
+    fallback: Type.Optional(Type.Boolean()),
+  },
+  { additionalProperties: false },
+);
+const SeedDemoTourSchema = Type.Object(
+  {
+    stories: Type.Array(SeedTourStorySchema, { minItems: 1, maxItems: 20 }),
+    another: Type.Optional(
+      Type.Array(Type.String({ pattern: '^[a-z0-9][a-z0-9-]{0,39}$' }), { maxItems: 6 }),
+    ),
+  },
+  { additionalProperties: false },
+);
+export type DemoTour = Static<typeof SeedDemoTourSchema>;
+
+/**
  * A cluster or Docker fleet the seed registers with its agents' token (ADR-170): the
  * demo's Docker host, whose agents run outside the chart. Only the token's SHA-256 and
  * its prefix are in the seed; the token stays with the agents.
@@ -77,6 +108,7 @@ export const SeedSchema = Type.Object(
     /** Services to monitor once the agents report them (ADR-142): seed/services.ts. */
     services: Type.Optional(Type.Array(SeedServiceSchema, { maxItems: 100 })),
     demoMcp: Type.Optional(SeedDemoMcpSchema),
+    demoTour: Type.Optional(SeedDemoTourSchema),
     /** Own metrics (ADR-236): a write-only token, dashboards, pins, watching and alert rules. */
     ownMetrics: Type.Optional(SeedOwnMetricsSchema),
     /**

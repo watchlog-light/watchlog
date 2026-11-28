@@ -94,6 +94,9 @@ export const ROUTES: Record<string, RouteClass> = {
   // The caller's own theme (ADR-228): about the caller only, no ids.
   'PATCH /api/v1/me/preferences': { kind: 'public', body: { theme: 'light' } },
   'POST /api/v1/demo/session': pub,
+  'GET /api/v1/demo/tour': pub,
+  'GET /api/v1/demo/tour/event/:name': pub,
+  'GET /api/v1/demo/tour/event/:name/:detail': pub,
   // A change event from outside (ADR-238): a write-only own-metrics token says whose cluster
   // it is; a session or an API token gets 401 (own-events tests).
   'POST /api/v1/events': pub,

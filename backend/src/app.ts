@@ -434,6 +434,7 @@ export async function buildApp(config: Config, deps: AppDeps): Promise<FastifyIn
         systemDb,
         demoMode: config.demoMode,
         sessions: demoSessions,
+        tour: deps.seed?.demoTour,
       });
       await api.register(clusterRoutes, { db: deps.db, config, tokens, settings, victoria });
       await api.register(queryRoutes, { db: deps.db, victoria });

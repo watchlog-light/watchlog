@@ -22,3 +22,22 @@ export const DEMO_READ_ONLY_MESSAGE =
 
 /** Demo sessions one visitor address may start a minute (ADR-122: 20; ADR-206: 60). */
 export const DEMO_SESSIONS_PER_MINUTE = 60;
+
+/**
+ * The guided tour's moments (1.3.0, ADR-246), each one request to /demo/tour/event/<name>
+ * [/<detail>] that the demo analytics read from the access log: shown (the welcome card),
+ * started/<k8s|servers>, step/<1-4>, finished, skipped/<0-4>, cloud, install,
+ * another/<story id>, replayed.
+ */
+export const TOUR_EVENTS = [
+  'shown',
+  'started',
+  'step',
+  'finished',
+  'skipped',
+  'cloud',
+  'install',
+  'another',
+  'replayed',
+] as const;
+export type TourEvent = (typeof TOUR_EVENTS)[number];
