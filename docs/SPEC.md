@@ -395,6 +395,8 @@ The catalog follows the owner's mock-up (`design/v0.3-integrations/Main.dc.html`
 
 ### Redis (INFO, CONFIG GET, MEMORY STATS, SLOWLOG, LATENCY, CLIENT LIST)
 
+**Since 1.4 (ADR-247 to ADR-249):** the bounded key sampler (prefix memory, TTL share, type, largest keys with the `key_names` switch), commands' failures and percentiles, the main thread, clients against their buffer limits, streams and their groups, persistence and whether the next save fits, backlog, Sentinel, cluster, latency events and settings that hurt. Tabs: Overview, Memory, Commands, Clients, Streams (when there are any), Persistence, Replication, Alerts; pages for a prefix, a command and a stream group. The catalog below is 0.3's; `docs/site/integrations/redis.md` is current.
+
 Access: nothing without a password; otherwise the password or a small ACL user (`+info +slowlog +latency +config|get +client|list +memory|stats +memory|usage +scan +ping`).
 
 | Tab | Panels and sources |
@@ -570,6 +572,8 @@ Access: nothing on PLAINTEXT listeners; otherwise SASL (PLAIN, SCRAM-SHA-256/512
 - **Probable cause:** `group_no_members` is an application finding that chains to the lost member's own cause (OOM-killed, crashing, scaled to 0).
 
 ### MongoDB — v0.5 (shipped in 0.5.0; ADR-162, ADR-164; versions 6.0+, standalone and replica sets)
+
+**Since 1.4 (ADR-247 to ADR-249):** MongoDB is 1.2's third database engine: waits by state, shape and client from `$currentOp` every 15 s; operation shapes from `$queryStats` or the slow log, with "sent mostly by" and the missing-index hint; transactions, idle cursors, elections, heartbeats, votes, rollbacks, flow control, eviction by application threads, unused and redundant indexes, collections' reusable space; the catalog every 10 minutes. Tabs: Overview, Operations, Waits, Clients, Replica set, Collections, Cache and storage, Alerts; pages for a shape and a collection. The catalog below is 0.5's; `docs/site/integrations/mongodb.md` is current.
 
 Access: nothing with authentication off; otherwise a user with `clusterMonitor`, which on 7.0 and 8.0 also reads `local` (the oplog window; measured in slice 2). The official Go driver v2, one direct connection per member (ADR-164).
 
