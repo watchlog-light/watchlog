@@ -126,7 +126,8 @@ export const LIMITS = {
   permissions: 16,
   tab: 64,
   missing: 128,
-  lists: 8,
+  // 1.2: a database's page reads up to 14 lists (statements, the tree, transactions, slots…).
+  lists: 24,
   rows: 100,
   fields: 12,
   key: 32,
