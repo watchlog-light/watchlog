@@ -102,7 +102,10 @@ for (const width of [1440, 390]) {
       await shot(page, `${kind}-2-why`, width);
 
       await nextUnderASecond(page, 3);
-      await litIs(page, '[data-testid="alert-chart"]');
+      // The chart, with the What changed card above it when the page has one: the spotlight
+      // covers both, from the first.
+      await expect(page.locator('[data-testid="alert-chart"][data-tour-lit]')).toBeVisible();
+      await litIs(page, '');
       await layoutOk(page, `${kind} proof`);
       await shot(page, `${kind}-3-proof`, width);
 
