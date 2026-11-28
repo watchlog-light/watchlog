@@ -120,10 +120,11 @@ function errorMessage(err: unknown): string {
   return t('auth.errors.generic');
 }
 
-function afterSignIn() {
+function afterSignIn(tour?: string) {
   const redirect = typeof route.query.redirect === 'string' ? route.query.redirect : '/';
   // Only follow same-app paths, never absolute URLs.
-  return router.replace(redirect.startsWith('/') && !redirect.startsWith('//') ? redirect : '/');
+  const to = redirect.startsWith('/') && !redirect.startsWith('//') ? redirect : '/';
+  return router.replace(tour ? `${to}${to.includes('?') ? '&' : '?'}tour=${tour}` : to);
 }
 
 async function submit() {
@@ -157,7 +158,11 @@ async function enterDemo() {
   submitting.value = true;
   try {
     await auth.enterDemo();
-    await afterSignIn();
+    // A link that names the guided tour's side (1.3.0): /demo?tour=k8s|servers|off carries it on.
+    const tour = route.query.tour;
+    await afterSignIn(
+      typeof tour === 'string' && /^(k8s|servers|off)$/.test(tour) ? tour : undefined,
+    );
   } catch (err) {
     error.value =
       err instanceof ApiError && err.status === 429

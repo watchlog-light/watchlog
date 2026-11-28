@@ -592,7 +592,7 @@ export function installLandingRule(router: Router, landing: () => LandingState):
     const l = landing();
     if (!l.offered) return true;
     const s = await l.summary().catch(() => null);
-    return s && s.counts.all >= 2 ? { name: 'all-clusters', replace: true } : true;
+    return s && s.counts.all >= 2 ? { name: 'all-clusters', query: to.query, replace: true } : true;
   });
 }
 

@@ -423,19 +423,23 @@ describe('getting there', () => {
   });
 
   describe('the landing rule', () => {
-    async function land(from: string | null, count: number | null, offered = true) {
+    async function arrive(from: string | null, count: number | null, offered = true, to = '/') {
       const router = createRouter({ history: createMemoryHistory(), routes });
       installLandingRule(router, () => ({
         offered,
         summary: async () => (count === null ? null : { counts: { all: count } }),
       }));
       if (from) await router.push(from);
-      await router.push('/');
-      return router.currentRoute.value.name;
+      await router.push(to);
+      return router.currentRoute.value;
     }
+    const land = async (from: string | null, count: number | null, offered = true) =>
+      (await arrive(from, count, offered)).name;
     it('Pro with two or more lands on All clusters and fleets after sign-in', async () => {
       expect(await land('/login', 2)).toBe('all-clusters');
       expect(await land(null, 3)).toBe('all-clusters');
+      // A link's query comes along (the demo's ?tour=servers, 1.3.0).
+      expect((await arrive('/demo', 3, true, '/?tour=servers')).fullPath).toBe('/all?tour=servers');
     });
     it('one cluster, Free, Community, or a click inside the app: Overview as today', async () => {
       expect(await land('/login', 1)).toBe('overview');

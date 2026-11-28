@@ -85,6 +85,19 @@ describe('demo entry', () => {
     await vi.waitFor(() => expect(router.currentRoute.value.path).toBe('/'), { timeout: 5000 });
   });
 
+  it("carries the guided tour's side on, and nothing else", async () => {
+    mockFetch({ 'POST /api/v1/demo/session': { status: 200, body: { user: DEMO_USER } } });
+    const { router } = await mountLogin('/demo?tour=servers&redirect=/all', true);
+    await vi.waitFor(() => expect(router.currentRoute.value.fullPath).toBe('/all?tour=servers'), {
+      timeout: 5000,
+    });
+    mockFetch({ 'POST /api/v1/demo/session': { status: 200, body: { user: DEMO_USER } } });
+    const other = await mountLogin('/demo?tour=<x>', true);
+    await vi.waitFor(() => expect(other.router.currentRoute.value.fullPath).toBe('/'), {
+      timeout: 5000,
+    });
+  });
+
   it('keeps the sign-in form when the server is not a demo', async () => {
     const { fetchMock } = mockFetch({});
     const { wrapper, router } = await mountLogin('/demo', false);

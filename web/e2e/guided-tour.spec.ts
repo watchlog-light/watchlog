@@ -180,6 +180,16 @@ test('?tour=off never shows it, even on a first visit', async ({ page }) => {
   await expect(page.getByTestId('tour')).toHaveCount(0);
 });
 
+for (const [q, kind] of [
+  ['k8s', 'kubernetes'],
+  ['servers', 'server'],
+] as const)
+  test(`the site's /demo?tour=${q} link starts the ${kind} story at once`, async ({ page }) => {
+    await page.goto(`/demo?tour=${q}`);
+    await expect(page.getByTestId('tour')).toHaveAttribute('data-step', '1', { timeout: 15_000 });
+    await expect(page.getByTestId('tour')).toHaveAttribute('data-kind', kind);
+  });
+
 test('outside demo mode the tour is never loaded or asked for', async ({ page }) => {
   // The same dashboard told it isn't the demo: no tour chunk, no tour request, no markup.
   await page.route('**/api/v1/setup', async (route) => {
