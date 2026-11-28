@@ -246,7 +246,7 @@ func (r *Redis) member(ctx context.Context, t integrations.Target, m integration
 	if v, err := c.Do(ctx, "SLOWLOG", "GET", strconv.Itoa(SlowEntries)); err == nil {
 		out.slow = Slowlog(v, m.Name, t.Settings.QueryText)
 	} else if resp.IsCode(err, "NOPERM") {
-		out.perms["overview/slowlog"] = "+slowlog"
+		out.perms["commands/slowlog"] = "+slowlog"
 	}
 	// LATENCY HISTOGRAM (Redis 7+): every command's latency, merged.
 	if v, err := c.Do(ctx, "LATENCY", "HISTOGRAM"); err == nil {
@@ -278,6 +278,13 @@ func (r *Redis) member(ctx context.Context, t integrations.Target, m integration
 		out.clients = Clients(s, m.Name)
 		// Opened since the last heavy scrape (every second light one): the churn.
 		young := 2 * integrations.DefaultInterval.Seconds()
+		fullest := 0.0
+		for _, cr := range ClientsDetail(s, young) {
+			if l := limits[cr.Class]; l > 0 {
+				fullest = max(fullest, cr.OutputMax/l)
+			}
+		}
+		lbl("watchlog_redis_client_output_buffer_ratio", fullest)
 		for i, cr := range ClientsDetail(s, young) {
 			if i >= TopClients {
 				break
@@ -416,6 +423,22 @@ func (r *Redis) sample(ctx context.Context, c *resp.Conn, t integrations.Target,
 		if g.Lag >= 0 {
 			lbl("watchlog_redis_stream_group_lag", g.Lag, ls...)
 		}
+	}
+	// A group's consumers seen reading in the last 5 minutes: none, with entries waiting,
+	// is a group nobody serves.
+	active := map[[2]string]float64{}
+	for _, cr := range consumers {
+		seen := cr.Inactive
+		if seen < 0 {
+			seen = cr.Idle
+		}
+		if seen < 300 {
+			active[[2]string{cr.Stream, cr.Group}]++
+		}
+	}
+	for _, g := range groups {
+		lbl("watchlog_redis_stream_group_active_consumers", active[[2]string{g.Stream, g.Group}],
+			"stream", trimTo(g.Stream, 128), "group", g.Group)
 	}
 	for _, cr := range consumers {
 		out.lists["stream_consumers"] = append(out.lists["stream_consumers"], map[string]any{"stream": trimTo(cr.Stream, 128),

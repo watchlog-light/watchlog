@@ -418,7 +418,11 @@ func (s *scrape) light(ctx context.Context) {
 			s.add("watchlog_mongodb_queued", v, "op", op)
 		}
 	}
-	if v, ok := num(ss, "metrics.queryExecutor.collectionScans.total"); ok {
+	// Collection scans without the tailable ones (secondaries tailing the oplog), when the
+	// version says (1.4); else all.
+	if v, ok := num(ss, "metrics.queryExecutor.collectionScans.nonTailable"); ok {
+		s.add("watchlog_mongodb_collection_scans_total", v)
+	} else if v, ok := num(ss, "metrics.queryExecutor.collectionScans.total"); ok {
 		s.add("watchlog_mongodb_collection_scans_total", v)
 	}
 	if v, ok := num(ss, "metrics.operation.scanAndOrder"); ok {
@@ -503,7 +507,7 @@ func (s *scrape) replication(ctx context.Context) {
 	st, err := s.run(ctx, s.admin, bson.D{{Key: "replSetGetStatus", Value: 1}})
 	if err != nil {
 		if denied(err) {
-			s.perms["overview/members"] = "clusterMonitor"
+			s.perms["replica/members"] = "clusterMonitor"
 		}
 		return
 	}
@@ -588,7 +592,7 @@ func (s *scrape) oplog(ctx context.Context) {
 	first, err := ts(1)
 	if err != nil {
 		if denied(err) {
-			s.perms["overview/oplog"] = "clusterMonitor"
+			s.perms["replica/oplog"] = "clusterMonitor"
 		}
 		return
 	}
@@ -843,7 +847,7 @@ func (s *scrape) slowLog(ctx context.Context) {
 	res, err := s.run(ctx, s.admin, bson.D{{Key: "getLog", Value: "global"}})
 	if err != nil {
 		if denied(err) {
-			s.perms["operations/slow"] = "clusterMonitor"
+			s.perms["operations/top"] = "clusterMonitor"
 		}
 		return
 	}
@@ -1021,7 +1025,7 @@ func (s *scrape) clients(ctx context.Context) {
 	})
 	if err != nil {
 		if denied(err) {
-			s.perms["operations/clients"] = "clusterMonitor"
+			s.perms["clients/clients"] = "clusterMonitor"
 		}
 		return
 	}
@@ -1114,7 +1118,7 @@ func (s *scrape) databases(ctx context.Context) []string {
 	res, err := s.run(ctx, s.admin, bson.D{{Key: "listDatabases", Value: 1}, {Key: "nameOnly", Value: false}})
 	if err != nil {
 		if denied(err) {
-			s.perms["storage/collections"] = "clusterMonitor"
+			s.perms["collections/collections"] = "clusterMonitor"
 		}
 		return nil
 	}
@@ -1171,7 +1175,7 @@ func (s *scrape) databases(ctx context.Context) []string {
 			options.ListCollections().SetAuthorizedCollections(true))
 		if err != nil {
 			if denied(err) {
-				s.perms["storage/collections"] = "clusterMonitor"
+				s.perms["collections/collections"] = "clusterMonitor"
 			}
 			continue
 		}
@@ -1206,7 +1210,7 @@ func (s *scrape) collections(ctx context.Context, colls []string) {
 		})
 		if err != nil {
 			if denied(err) {
-				s.perms["storage/collections"] = "clusterMonitor"
+				s.perms["collections/collections"] = "clusterMonitor"
 				return
 			}
 			continue
@@ -1245,7 +1249,7 @@ func (s *scrape) collections(ctx context.Context, colls []string) {
 		cur, err := s.c.Database(db).Collection(coll).Aggregate(ctx, mongo.Pipeline{{{Key: "$indexStats", Value: bson.D{}}}})
 		if err != nil {
 			if denied(err) {
-				s.perms["storage/indexes"] = "clusterMonitor"
+				s.perms["collections/unused"] = "clusterMonitor"
 			}
 			continue
 		}

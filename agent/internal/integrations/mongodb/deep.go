@@ -140,7 +140,7 @@ func (s *scrape) waits(ctx context.Context) {
 	})
 	if err != nil {
 		if denied(err) {
-			s.perms["waits/sample"] = "clusterMonitor"
+			s.perms["waits/waits"] = "clusterMonitor"
 		}
 		return
 	}
