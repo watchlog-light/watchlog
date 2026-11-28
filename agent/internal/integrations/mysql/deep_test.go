@@ -39,10 +39,10 @@ func TestWaitClass(t *testing.T) {
 
 func TestStripLiterals(t *testing.T) {
 	for in, want := range map[string]string{
-		"UPDATE dl SET v=v+1 WHERE id=1":                       "UPDATE dl SET v=v+? WHERE id=?",
+		"UPDATE dl SET v=v+1 WHERE id=1":                        "UPDATE dl SET v=v+? WHERE id=?",
 		"select * from t1 where name = 'O''Brien' and x = 0x1F": "select * from t1 where name = ? and x = ?",
 		`INSERT INTO a VALUES ("x\"y", 3.5e2)`:                  "INSERT INTO a VALUES (?, ?)",
-		"UPDATE users SET password = 'hunter2' WHERE id = 7":     "UPDATE users SET password = ? WHERE id = ?",
+		"UPDATE users SET password = 'hunter2' WHERE id = 7":    "UPDATE users SET password = ? WHERE id = ?",
 	} {
 		if got := StripLiterals(in); got != want {
 			t.Errorf("StripLiterals(%q) = %q, want %q", in, got, want)
