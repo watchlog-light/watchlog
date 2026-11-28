@@ -52,13 +52,26 @@ export const tableLink = (db: string, table: string): Link => ({
   name: `${db}.${table}`,
 });
 
-/** Rows read by full scans per table over 6 h (performance_schema, every 10 min). */
-async function fullScans(ctx: PageContext): Promise<Map<string, number>> {
+/** Rows read by full (sequential) scans per table over 6 h (the catalog, every 10 min). */
+async function scanRows(ctx: PageContext): Promise<{ db: string; table: string; n: number }[]> {
   const r = await instant(
     ctx,
-    `sum by (table) (increase(watchlog_mysql_table_full_scan_rows_total{${one(ctx.row.id)}}[6h]))`,
+    `sum by (db, table) (increase(watchlog_mysql_table_full_scan_rows_total{${one(ctx.row.id)}}[6h]))`,
   );
-  return new Map(r.map((x) => [(x.labels.table ?? '').toLowerCase(), x.points[0]?.[1] ?? 0]));
+  return r.map((x) => ({
+    db: x.labels.db ?? '',
+    table: x.labels.table ?? '',
+    n: x.points[0]?.[1] ?? 0,
+  }));
+}
+/** The same per table name, lower case, over every database. */
+async function fullScans(ctx: PageContext): Promise<Map<string, number>> {
+  const out = new Map<string, number>();
+  for (const x of await scanRows(ctx)) {
+    const k = x.table.toLowerCase();
+    out.set(k, (out.get(k) ?? 0) + x.n);
+  }
+  return out;
 }
 
 interface ClientRow {
@@ -747,7 +760,7 @@ export async function statementPage(input: PageContext): Promise<Panel[]> {
     tmpDisk,
     errors,
     waits,
-    scans,
+    scanned,
   ] = await Promise.all([
     statementStats(ctx, E),
     ownersOf(ctx),
@@ -766,8 +779,11 @@ export async function statementPage(input: PageContext): Promise<Panel[]> {
       ctx,
       `sum by (wait) (avg_over_time(watchlog_mysql_statement_active_sessions{${sel}}[${w}]))`,
     ),
-    fullScans(ctx),
+    scanRows(ctx),
   ]);
+  const scans = new Map<string, number>();
+  for (const x of scanned)
+    scans.set(x.table.toLowerCase(), (scans.get(x.table.toLowerCase()) ?? 0) + x.n);
   const st = stats.get(id);
   const f = statementFacts(ctx, E).get(id);
   const since = st?.slower && st.usual ? await slowerSince(ctx, E, id, st.usual) : null;
@@ -907,17 +923,26 @@ export async function statementPage(input: PageContext): Promise<Panel[]> {
     {
       id: 'tables',
       title: `${P}.statement.tables`,
-      kind: 'facts',
+      kind: 'table',
       span: 2,
       state: tables.length ? 'ok' : 'empty',
-      rows: tables.map((t) => ({
-        labelKey: `${P}.statement.table`,
-        value: t,
-        text: {
-          key: `${P}.statement.fullScanRows`,
-          values: { n: Math.round(scans.get(t.toLowerCase().split('.').pop()!) ?? 0) },
-        },
-      })),
+      columns: [`${P}.cols.table`, `${P}.cols.fullScanRows6h`],
+      rows: tables.map((t) => {
+        // The digest names a table with or without its schema (FROM events, FROM shop.events).
+        const [schema, name] = t.includes('.')
+          ? t.toLowerCase().split('.')
+          : [null, t.toLowerCase()];
+        const x = scanned.find(
+          (r) =>
+            r.table.toLowerCase() === name && (schema === null || r.db.toLowerCase() === schema),
+        );
+        return x
+          ? {
+              cells: [`${x.db}.${x.table}`, Math.round(x.n).toLocaleString('en')],
+              link: tableLink(x.db, x.table),
+            }
+          : { cells: [t, '–'] };
+      }),
     },
     await scopedAlerts(ctx, E, { statement: id }, [
       {
