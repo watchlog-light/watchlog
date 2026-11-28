@@ -16,6 +16,8 @@ import { layoutProblems, report, viewportFor } from './layout-checks';
 
 const SHOTS = process.env.WATCHLOG_E2E_SHOT_DIR?.replace(/\/+$/, '');
 const THEME = process.env.WATCHLOG_E2E_THEME === 'light' ? 'light' : 'dark';
+// WATCHLOG_E2E_HEALTHY=1: the databases have nothing wrong (no blocker): Locks has no tree.
+const HEALTHY = process.env.WATCHLOG_E2E_HEALTHY === '1';
 const SESSION = process.env.WATCHLOG_E2E_SESSION?.replace(/^wl_session=/, '') ?? '';
 const DBS = [
   ['pg-k8s', process.env.WATCHLOG_E2E_PG_K8S ?? '', 'postgres'],
@@ -92,20 +94,22 @@ for (const width of [1440, 390]) {
       await setup(page, width);
       await page.goto(`/applications/${id}`);
       // Overview: the finding, the flow, the six tiles, the checks, the costly statements.
-      await expect(page.getByTestId('reason').first()).toBeVisible();
+      if (!HEALTHY) await expect(page.getByTestId('reason').first()).toBeVisible();
       await expect(page.locator('[data-panel="flow"] [data-testid="flow"]')).toBeVisible();
       await expect(page.locator('[data-panel="summary"] [data-tile]')).toHaveCount(6);
       await expect(
         page.locator('[data-panel="slowest"] [data-testid="statement-row"]').first(),
       ).toBeVisible();
-      await expect(page.getByRole('tab', { name: /Locks · \d+/ })).toBeVisible();
+      if (!HEALTHY) await expect(page.getByRole('tab', { name: /Locks · \d+/ })).toBeVisible();
       await layoutOk(page, `${where} overview`);
       await shot(page, `${where}-overview`, width);
       for (const t of TABS[type].slice(1)) {
         await page.goto(`/applications/${id}?tab=${t}`);
         if (t === 'alerts') await expect(page.getByTestId('alerts-tab')).toBeVisible();
         else await settled(page);
-        if (t === 'locks') {
+        if (t === 'locks' && HEALTHY) {
+          await expect(page.locator('[data-testid="tree-node"]')).toHaveCount(0);
+        } else if (t === 'locks') {
           // The root blocker first, the session it blocks under it.
           const nodes = page.locator('[data-testid="tree-node"]');
           await expect(nodes.first()).toHaveAttribute('aria-level', '1');
